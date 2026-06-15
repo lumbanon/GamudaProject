@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
 import LandingPage from '../features/landing/LandingPage'
 import DashboardView from '../features/dashboard/DashboardView'
 import DashboardLayout from '../layouts/DashboardLayout'
@@ -12,10 +12,8 @@ export default function AppRoutes(){
         <Routes>
             <Route path="/" element={<LandingPage/>}/>
 
-            <Route path="/app" element={<DashboardLayout/>}>
-                <Route index element={<Navigate to="dashboard" replace />} />
-
-                <Route path='dashboard' element={<DashboardView/>}/>
+            <Route path="/dashboard" element={<DashboardLayout/>}>
+                <Route index element={<DashboardView/>}/>
                 <Route path='heatmap-analysis' element={<HeatmapView/>}/>
                 <Route path='ai-predictions' element={<PredictionViews/>}/>
                 <Route path='crop-statistics' element={<StatisticViews/>}/>
