@@ -1,4 +1,5 @@
 import { Outlet, Link } from 'react-router-dom'
+import './dashboard-layout.css'
 
 export default function DashboardLayout() {
     return (
@@ -14,19 +15,27 @@ export default function DashboardLayout() {
             }}>
                 <h2 style={{ margin: '0 0 20px 0', color: '#000000', }}>Agrow Portal</h2>
 
-                <Link to="/app/dashboard" style={{ textDecoration: 'none' }} >Dashboard</Link>
-                <Link to="/app/heatmap-analysis" style={{ textDecoration: 'none' }} >Heatmap Analysis</Link>
-                <Link to="/app/ai-predictions" style={{ textDecoration: 'none' }} >AI Predictions</Link>
-                <Link to="/app/crop-statistics" style={{ textDecoration: 'none' }} >Crop Statistics</Link>
+                <Link to="/dashboard" style={{ textDecoration: 'none' }} >Dashboard</Link>
+                <Link to="/dashboard/heatmap-analysis" style={{ textDecoration: 'none' }} >Heatmap Analysis</Link>
+                <Link to="/dashboard/ai-predictions" style={{ textDecoration: 'none' }} >AI Predictions</Link>
+                <Link to="/dashboard/crop-statistics" style={{ textDecoration: 'none' }} >Crop Statistics</Link>
+                <Link to="/dashboard/settings" style={{ textDecoration: 'none' }} >Setting</Link>
 
                 <hr style={{ border: 'none', borderTop: '1px solid #ccc', margin: '20px 0' }} />
-
-                <Link to="/" style={{ textDecoration: 'none' }}>Back to Landing</Link>
             </aside>
 
-            <main style={{ flex: 1, padding: '40px', backgroundColor: '#fafafa', overflowY: 'auto' }}>
-                <Outlet />
-            </main>
+            <div className="main-content-wrapper">
+                <header className="header-panel">
+                    <span className="header-status">Current</span>
+                    <div className="header-profile">
+                        <Link to="/" style={{ textDecoration: 'none' }}><span>Exit portal</span></Link>
+                    </div>
+                </header>
+                <main style={{ flex: 1, padding: '20px', backgroundColor: '#fafafa', overflowY: 'auto' }}>
+                    <Outlet />
+                </main>
+            </div>
+
 
         </div>
     )
