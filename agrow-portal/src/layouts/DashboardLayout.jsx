@@ -1,5 +1,7 @@
 import { Outlet, Link, NavLink } from 'react-router-dom'
 import './dashboard-layout.css'
+import agrowLogo from '../assets/landing/agrow.svg'
+import exitPortalLogo from '../assets/exit-logo/exit-portal-logo.png'
 
 export default function DashboardLayout() {
 
@@ -63,7 +65,9 @@ export default function DashboardLayout() {
 
         <div className="layout-container">
             <aside className="sidebar-panel">
-                <h1 className="portal-branding">Agrow</h1>
+                <div className="portal-branding" aria-label="Agrow">
+                    <img src={agrowLogo} alt="Agrow" />
+                </div>
 
                 <nav className="stacked-nav-container">
                     {navItems.map((item, index) => (
@@ -85,16 +89,15 @@ export default function DashboardLayout() {
                     ))}
                 </nav>
 
-                <div className="sidebar-footer">
-                    <Link to="/" className="exit-portal-btn">
-                        Exit Portal
-                    </Link>
-                </div>
             </aside>
 
             <div className="main-content-wrapper">
                 <header className="header-panel">
                     <span className="header-status">Current Overview</span>
+                    <Link to="/" className="exit-portal-btn">
+                        <img src={exitPortalLogo} alt="" aria-hidden="true" />
+                        <span>Exit Portal</span>
+                    </Link>
                 </header>
                 <main className="dynamic-content-area">
                     <Outlet />
