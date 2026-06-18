@@ -181,6 +181,11 @@
   font-size: 10px;
 }
 
+.dashboard-leaflet-map .leaflet-interactive:focus,
+.dashboard-leaflet-map .dashboard-district-layer:focus {
+  outline: none;
+}
+
 .dashboard-leaflet-map .leaflet-popup-content-wrapper,
 .dashboard-leaflet-map .leaflet-popup-tip {
   border-radius: 12px;

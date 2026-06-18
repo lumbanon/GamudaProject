@@ -9,7 +9,7 @@ import {
   useMap,
   ZoomControl,
 } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
+import "./leaflet.css";
 import sabahBoundary from "./sabahBoundary";
 import sabahDistricts from "./sabahDistricts";
 
