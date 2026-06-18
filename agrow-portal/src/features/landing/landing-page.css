@@ -397,3 +397,18 @@
     font-size: 30px;
   }
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
+.landing-page {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html,
+  .landing-page {
+    scroll-behavior: auto !important;
+  }
+}
