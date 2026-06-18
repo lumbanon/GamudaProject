@@ -1,42 +1,107 @@
-import { Outlet, Link } from 'react-router-dom'
+import { Outlet, Link, NavLink } from 'react-router-dom'
 import './dashboard-layout.css'
 
 export default function DashboardLayout() {
+
+    const navItems = [
+        {
+            to: "/dashboard",
+            title: "Dashboard",
+            subtitle: "GIS overview & dynamic indicators",
+            icon: (
+                <svg viewBox='0 0 24 24' fill='currentColor'>
+                    <path d="M3 3h8v10H3zm0 12h8v6H3zm10-12h8v6h-8zm0 8h8v10h-8z" />
+                </svg>
+            )
+        },
+        {
+            to: "/dashboard/heatmap-analysis",
+            title: "Heatmap Analysis",
+            subtitle: "District land suitability",
+            icon: (
+                <svg viewBox='0 0 24 24' fill='currentColor'>
+                    <path d="M4 11h3v10H4zm6-7h3v17h-3zm6 10h3v7h-3z" />
+                </svg>
+            )
+        },
+        {
+            to: "/dashboard/ai-predictions",
+            title: "AI Predictions",
+            subtitle: "Consult intelligent advisor",
+            icon: (
+                <svg viewBox='0 0 24 24' fill='currentColor'>
+                    <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+                    <path d="M12 6v12M6 12h12" />
+                </svg>
+            )
+        },
+        {
+            to: "/dashboard/crop-statistics",
+            title: "Crop Statistics",
+            subtitle: "Detailed yield reference metrics",
+            icon: (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <path d="M7 14l3-3 4 4 4-4" />
+                </svg>
+            )
+        },
+        {
+            to: "/dashboard/settings",
+            title: "Setting",
+            subtitle: "Modal parameters assesment",
+            icon: (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+            )
+        },
+    ]
+
     return (
-        <div style={{ display: 'flex', height: '100vh', width: '100vw', fontFamily: 'sans-serif' }}>
-            <aside style={{
-                width: '250px',
-                background: '#f0f4f1',
-                borderRight: '2px solid #e0e6e1',
-                padding: '20px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '15px',
-            }}>
-                <h2 style={{ margin: '0 0 20px 0', color: '#000000', }}>Agrow Portal</h2>
 
-                <Link to="/dashboard" style={{ textDecoration: 'none' }} >Dashboard</Link>
-                <Link to="/dashboard/heatmap-analysis" style={{ textDecoration: 'none' }} >Heatmap Analysis</Link>
-                <Link to="/dashboard/ai-predictions" style={{ textDecoration: 'none' }} >AI Predictions</Link>
-                <Link to="/dashboard/crop-statistics" style={{ textDecoration: 'none' }} >Crop Statistics</Link>
-                <Link to="/dashboard/settings" style={{ textDecoration: 'none' }} >Setting</Link>
+        <div className="layout-container">
+            <aside className="sidebar-panel">
+                <h1 className="portal-branding">Agrow</h1>
 
-                <hr style={{ border: 'none', borderTop: '1px solid #ccc', margin: '20px 0' }} />
+                <nav className="stacked-nav-container">
+                    {navItems.map((item, index) => (
+                        <NavLink
+                            key={item.to}
+                            to={item.to}
+                            end={item.to === "/dashboard"}
+                            className={({ isActive }) => isActive ? 'stack-link active' : 'stack-link'}
+                            style={{ zIndex: index }}
+                        >
+                            <div className="stack-icon-wrapper">
+                                {item.icon}
+                            </div>
+                            <div className="stack-text-wrapper">
+                                <span className="stack-title">{item.title}</span>
+                                <span className="stack-subtitle">{item.subtitle}</span>
+                            </div>
+                        </NavLink>
+                    ))}
+                </nav>
+
+                <div className="sidebar-footer">
+                    <Link to="/" className="exit-portal-btn">
+                        Exit Portal
+                    </Link>
+                </div>
             </aside>
 
             <div className="main-content-wrapper">
                 <header className="header-panel">
-                    <span className="header-status">Current</span>
-                    <div className="header-profile">
-                        <Link to="/" style={{ textDecoration: 'none' }}><span>Exit portal</span></Link>
-                    </div>
+                    <span className="header-status">Current Overview</span>
                 </header>
-                <main style={{ flex: 1, padding: '20px', backgroundColor: '#fafafa', overflowY: 'auto' }}>
+                <main className="dynamic-content-area">
                     <Outlet />
                 </main>
             </div>
-
-
         </div>
+
+
     )
 }
