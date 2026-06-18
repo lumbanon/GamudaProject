@@ -1,6 +1,6 @@
 import "./landing-page.css";
 import { Link } from "react-router-dom";
-import agrowLogo from "../../assets/landing/agrow.svg";
+import agrowLogo from "../../assets/landing/agrow1.svg";
 import kundasangPoster from "../../assets/landing/kundasang.png";
 import landingVideo from "../../assets/landing/landing_page_video.mp4";
 import logo1 from "../../assets/landing/logo1.png";
