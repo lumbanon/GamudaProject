@@ -1,7 +1,7 @@
 .landing-page {
   --hunter: #355e3b;
   --graphite: #333333;
-  --ink: #1f2a24;
+  --ink: hsl(150, 50%, 98%);
   --muted: #68746d;
   --line: #dfe8e2;
   --panel: #ffffff;
@@ -88,13 +88,17 @@
   box-shadow: 0 10px 22px rgba(53, 94, 59, 0.16);
 }
 
-.landing-nav-button-light {
-  color: var(--graphite);
-  background: rgba(255, 255, 255, 0.78);
+.landing-page .landing-nav-links .landing-nav-button-light,
+.landing-page .landing-nav-links .landing-nav-button-light:link,
+.landing-page .landing-nav-links .landing-nav-button-light:visited {
+  color: var(--hunter);
+  background: #ffffff;
+  border-color: rgba(53, 94, 59, 0.42);
 }
 
-.landing-nav-button-light:hover {
-  border-color: rgba(53, 94, 59, 0.48);
+.landing-page .landing-nav-links .landing-nav-button-light:hover,
+.landing-page .landing-nav-links .landing-nav-button-light:focus-visible {
+  border-color: var(--hunter);
   background: #ffffff;
   color: var(--hunter);
 }
