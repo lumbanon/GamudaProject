@@ -11,6 +11,7 @@ export default function AppRoutes(){
     return(
         <Routes>
             <Route path="/" element={<LandingPage/>}/>
+            <Route path="/heatmap" element={<HeatmapView/>}/>
 
             <Route path="/dashboard" element={<DashboardLayout/>}>
                 <Route index element={<DashboardView/>}/>
