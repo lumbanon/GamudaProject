@@ -2,121 +2,28 @@
     display: flex;
     height: 100vh;
     width: 100%;
-    font-family: sans-serif;
-    overflow: hidden;
-}
-
-/* Sidebar */
-.sidebar-panel {
-    width: 250px;
-    flex-shrink: 0;
-    background-color: #f0f4f1;
-    border-right: 2px solid #e0e6e1;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    height: 100%;
-    box-sizing: border-box;
-}
-
-.sidebar-title {
-    margin: 0 0 20px 0;
-    color: #2d6a4f;
-}
-
-.sidebar-link {
-    text-decoration: none;
-    color: #333;
-    padding: 10px;
-    border-radius: 4px;
-    display: block;
-    font-weight: 500;
-    transition: background-color 0.2s ease;
-}
-
-.sidebar-link:hover {
-    background-color: #e2ebe4;
-}
-
-.sidebar-divider {
-    border: none;
-    border-top: 1px solid #ccc;
-    margin: 20px 0;
-}
-
-.sidebar-back-link {
-    color: #666;
-}
-
-/* Right side */
-.main-content-wrapper {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
-
-/* Header */
-.header-panel {
-    height: 60px;
-    background-color: #ffffff;
-    border-bottom: 1px solid #e0e6e1;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 40px;
-    box-sizing: border-box;
-}
-
-.header-status {
-    font-weight: 600;
-    color: #333;
-}
-
-.header-profile {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-/* Dynamic */
-.dynamic-content-area {
-    flex: 1;
-    padding: 40px;
-    background-color: #fafafa;
-    overflow-y: auto;
-}
-
-/* Layout Blueprint */
-.layout-container {
-    display: flex;
-    height: 100vh;
-    width: 100%;
     font-family: system-ui, -apple-system, sans-serif;
     overflow: hidden;
     background-color: #f8fafc;
 }
 
-/* Sidebar context panel - set background to match image wrapper if needed */
 .sidebar-panel {
-    width: 320px;
+    width: 257px;
     flex-shrink: 0;
-    /* Increased slightly to match roomier card style */
     background-color: #ffffff;
-    /* Dark presentation container like your graphic */
+    border-right: 2px solid #e0e6e1;
     padding: 32px 16px;
     display: flex;
     flex-direction: column;
+    gap: 15px;
     height: 100%;
     box-sizing: border-box;
 }
 
 .portal-branding {
     width: 100%;
-    max-width: 160px;
-    margin: 0 0 24px 12px;
+    max-width: 125px;
+    margin: 0 0 24px 16px;
     display: flex;
     align-items: center;
 }
@@ -124,12 +31,10 @@
 .portal-branding img {
     display: block;
     width: 100%;
-    max-width: 160px;
     height: auto;
     object-fit: contain;
 }
 
-/* Stacked Nav System */
 .stacked-nav-container {
     display: flex;
     flex-direction: column;
@@ -138,50 +43,31 @@
     padding-bottom: 24px;
 }
 
-/* The Magic Card Styling */
 .stack-link {
     display: flex;
     align-items: center;
     gap: 16px;
     text-decoration: none;
-    background-color: #ffffff;
-    color: #2d3748;
-    padding: 24px 20px;
-    border-radius: 28px;
+    color: #4a5568;
+    background-color: transparent;
+    padding: 12px 10px;
+    border-radius: 14px;
     position: relative;
     margin-bottom: 0 !important;
-    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease, background-color 0.2s ease;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+    transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Prevent the first item from getting pulled off-screen */
-.stack-link:first-child {
-    margin-bottom: 0;
-}
-
-/* Hover Adjustments */
 .stack-link:hover {
-    transform: translateY(-2px);
-    z-index: 10 !important;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-    /* Forces hovered element to topmost layer */
+    background-color: rgba(0, 0, 0, 0.03);
+    color: #1a202c;
 }
 
-/* Active State Transformation Rules */
 .stack-link.active {
     background-color: #edf7ed;
-    /* Light green tint */
     color: #1b4332;
-    /* Deep forest green */
-    z-index: 5 !important;
-    /* Keeps active element cleanly isolated */
-    transform: translateX(4px);
-    /* Slight accent shift right */
-    /* Replicates the distinct dark green 3D left-border look in your image */
-    box-shadow: -8px 0px 0px #1b4332, 0 10px 20px rgba(0, 0, 0, 0.15);
+    font-weight: 600;
 }
 
-/* Icon Resizing and Theming */
 .stack-icon-wrapper {
     width: 36px;
     height: 36px;
@@ -192,16 +78,14 @@
 }
 
 .stack-icon-wrapper svg {
-    width: 100%;
-    height: 100%;
+    width: 70%;
+    height: 70%;
 }
 
 .stack-link.active .stack-icon-wrapper {
     color: #2d6a4f;
-    /* Green icon accent when active */
 }
 
-/* Text Formatting Structure */
 .stack-text-wrapper {
     display: flex;
     flex-direction: column;
@@ -209,21 +93,19 @@
 }
 
 .stack-title {
-    font-size: 1.1rem;
+    font-size: 0.9rem;
     font-weight: 600;
 }
 
 .stack-subtitle {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: #718096;
 }
 
 .stack-link.active .stack-subtitle {
-    color: #52b788;
-    /* Muted bright green accent for active subtitle */
+    color: #2d6a4f;
 }
 
-/* Rest of Layout Framework */
 .main-content-wrapper {
     flex: 1;
     min-width: 0;
@@ -249,42 +131,69 @@
     overflow-y: auto;
 }
 
+.header-context-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.header-status {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 10px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.badge-success {
+    background-color: #e6f4ea;
+    color: #137333;
+    border: 1px solid rgba(19, 115, 51, 0.15);
+}
+
 .exit-portal-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    min-height: 24px;
-    padding: 8px 15px;
-    border: 1px solid #c9c9c9;
+    gap: 6px;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
     border-radius: 999px;
     background: #ffffff;
-    color: #383838;
+    color: #374151;
     text-decoration: none;
-    font-size: 15px;
-    font-weight: 500;
-    line-height: 1;
+    font-size: 0.85rem;
+    font-weight: 550;
     white-space: nowrap;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-    transition:
-        background-color 0.2s ease,
-        border-color 0.2s ease,
-        color 0.2s ease,
-        box-shadow 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .exit-portal-btn img {
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     object-fit: contain;
     flex-shrink: 0;
+    display: block;
 }
 
 .exit-portal-btn:hover {
-    background-color: #f7f7f7;
-    border-color: #9f9f9f;
-    color: #222222;
-    box-shadow: 0 4px 12px rgba(182, 54, 54, 0.08);
+    background-color: #f9fafb;
+    border-color: #9ca3af;
+    color: #111827;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
 }
 
 @media (max-width: 1100px) {

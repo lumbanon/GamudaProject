@@ -1,15 +1,36 @@
-import { Outlet, Link, NavLink } from 'react-router-dom'
+import { Outlet, Link, NavLink, useLocation } from 'react-router-dom'
 import './dashboard-layout.css'
 import agrowLogo from '../assets/landing/agrow.svg'
 import exitPortalLogo from '../assets/exit-logo/exit-portal-logo.png'
 
 export default function DashboardLayout() {
 
+    const { pathname } = useLocation();
+
+    const getHeaderTitle = () => {
+
+        const normalizedPath = pathname.replace(/\/$/, "")
+        switch (normalizedPath) {
+            case '/dashboard/heatmap-analysis':
+                return 'Heatmap Analysis'
+            case '/dashboard/ai-predictions':
+                return 'AI Predictions'
+            case '/dashboard/crop-statistics':
+                return 'Crop Statistics'
+            case '/dashboard/settings':
+                return 'Settings'
+            default:
+                return 'Dashboard'
+        }
+    }
+
+    const isRegionalPage = pathname !== '/dashboard/settings'
+
     const navItems = [
         {
             to: "/dashboard",
             title: "Dashboard",
-            subtitle: "GIS overview & dynamic indicators",
+            subtitle: "GIS overview",
             icon: (
                 <svg viewBox='0 0 24 24' fill='currentColor'>
                     <path d="M3 3h8v10H3zm0 12h8v6H3zm10-12h8v6h-8zm0 8h8v10h-8z" />
@@ -19,7 +40,7 @@ export default function DashboardLayout() {
         {
             to: "/dashboard/heatmap-analysis",
             title: "Heatmap Analysis",
-            subtitle: "District land suitability",
+            subtitle: "Land suitability",
             icon: (
                 <svg viewBox='0 0 24 24' fill='currentColor'>
                     <path d="M4 11h3v10H4zm6-7h3v17h-3zm6 10h3v7h-3z" />
@@ -29,7 +50,7 @@ export default function DashboardLayout() {
         {
             to: "/dashboard/ai-predictions",
             title: "AI Predictions",
-            subtitle: "Consult intelligent advisor",
+            subtitle: "Intelligent advisor",
             icon: (
                 <svg viewBox='0 0 24 24' fill='currentColor'>
                     <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
@@ -40,7 +61,7 @@ export default function DashboardLayout() {
         {
             to: "/dashboard/crop-statistics",
             title: "Crop Statistics",
-            subtitle: "Detailed yield reference metrics",
+            subtitle: "Yield reference metrics",
             icon: (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -50,8 +71,8 @@ export default function DashboardLayout() {
         },
         {
             to: "/dashboard/settings",
-            title: "Setting",
-            subtitle: "Modal parameters assesment",
+            title: "Settings",
+            subtitle: "Model parameters",
             icon: (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="3" />
@@ -93,7 +114,12 @@ export default function DashboardLayout() {
 
             <div className="main-content-wrapper">
                 <header className="header-panel">
-                    <span className="header-status">Current Overview</span>
+                    <div className="header-context-group">
+                        <span className="header-status">{getHeaderTitle()}</span>
+                        {isRegionalPage && (
+                            <span className="badge badge-success">Sabah Region</span>
+                        )}
+                    </div>
                     <Link to="/" className="exit-portal-btn">
                         <img src={exitPortalLogo} alt="" aria-hidden="true" />
                         <span>Exit Portal</span>
