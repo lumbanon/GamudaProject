@@ -87,7 +87,11 @@
   transform: translateY(-1px);
   box-shadow: 0 10px 22px rgba(53, 94, 59, 0.16);
 }
-
+.landing-nav-button {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+}
 .landing-page .landing-nav-links .landing-nav-button-light,
 .landing-page .landing-nav-links .landing-nav-button-light:link,
 .landing-page .landing-nav-links .landing-nav-button-light:visited {
@@ -228,6 +232,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
+  scroll-margin-top: 24px;
 }
 
 .feature-card,
