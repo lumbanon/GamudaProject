@@ -32,3 +32,4 @@ dist-ssr
 # Targets virtual environments inside agrow-api
 agrow-api/myenv/
 agrow-api/.env
+**/__pycache__/
