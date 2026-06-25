@@ -6,12 +6,13 @@ import HeatmapView from '../features/heatmap/HeatmapView'
 import PredictionViews from '../features/prediction/PredictionViews'
 import StatisticViews from '../features/statistic/StatisticViews'
 import SettingViews from '../features/setting/SettingViews'
+import LoginPage from '../features/auth/LoginPage'
 
 export default function AppRoutes(){
     return(
         <Routes>
             <Route path="/" element={<LandingPage/>}/>
-            <Route path="/heatmap" element={<HeatmapView/>}/>
+            <Route path="/login" element={<LoginPage/>}/>
 
             <Route path="/dashboard" element={<DashboardLayout/>}>
                 <Route index element={<DashboardView/>}/>
