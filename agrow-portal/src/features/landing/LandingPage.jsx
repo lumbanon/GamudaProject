@@ -63,7 +63,7 @@ function LandingPage() {
             Explore
           </button>
           <Link
-            to="/dashboard"
+            to="/login"
             className="landing-nav-button landing-nav-button-primary"
           >
             Login
