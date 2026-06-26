@@ -120,7 +120,15 @@ export default function DashboardLayout() {
                             <span className="badge badge-success">Sabah Region</span>
                         )}
                     </div>
-                    <Link to="/" className="exit-portal-btn">
+                    <Link 
+                    to="/" 
+                    className="exit-portal-btn" 
+                    onClick = {() => {
+                            localStorage.removeItem('token')
+                            localStorage.removeItem('user_role')
+                        }}
+                    >
+                        
                         <img src={exitPortalLogo} alt="" aria-hidden="true" />
                         <span>Exit Portal</span>
                     </Link>
