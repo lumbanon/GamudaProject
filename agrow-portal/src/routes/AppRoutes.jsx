@@ -7,6 +7,7 @@ import PredictionViews from '../features/prediction/PredictionViews'
 import StatisticViews from '../features/statistic/StatisticViews'
 import SettingViews from '../features/setting/SettingViews'
 import LoginPage from '../features/auth/LoginPage'
+import ProtectedRoute from '../components/ProtectedRoute'
 
 export default function AppRoutes(){
     return(
@@ -14,12 +15,14 @@ export default function AppRoutes(){
             <Route path="/" element={<LandingPage/>}/>
             <Route path="/login" element={<LoginPage/>}/>
 
-            <Route path="/dashboard" element={<DashboardLayout/>}>
-                <Route index element={<DashboardView/>}/>
-                <Route path='heatmap-analysis' element={<HeatmapView/>}/>
-                <Route path='ai-predictions' element={<PredictionViews/>}/>
-                <Route path='crop-statistics' element={<StatisticViews/>}/>
-                <Route path='settings' element={<SettingViews/>}/>
+            <Route element={<ProtectedRoute/>}>
+                <Route path="/dashboard" element={<DashboardLayout/>}>
+                    <Route index element={<DashboardView/>}/>
+                    <Route path='heatmap-analysis' element={<HeatmapView/>}/>
+                    <Route path='ai-predictions' element={<PredictionViews/>}/>
+                    <Route path='crop-statistics' element={<StatisticViews/>}/>
+                    <Route path='settings' element={<SettingViews/>}/>
+                </Route>
             </Route>
         </Routes>
     )
