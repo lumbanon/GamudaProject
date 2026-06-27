@@ -1,4 +1,4 @@
-import { Outlet, Link, NavLink, useLocation } from 'react-router-dom'
+import { Outlet, Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import './dashboard-layout.css'
 import agrowLogo from '../assets/landing/agrow.svg'
 import exitPortalLogo from '../assets/exit-logo/exit-portal-logo.png'
@@ -82,6 +82,17 @@ export default function DashboardLayout() {
         },
     ]
 
+    const navigate = useNavigate()
+
+    const handleLogout = (e) => {
+        e.preventDefault()
+
+        localStorage.removeItem('token')
+        localStorage.removeItem('user_role')
+
+        navigate('/')
+    }
+
     return (
 
         <div className="layout-container">
@@ -89,7 +100,6 @@ export default function DashboardLayout() {
                 <div className="portal-branding" aria-label="Agrow">
                     <img src={agrowLogo} alt="Agrow" />
                 </div>
-
                 <nav className="stacked-nav-container">
                     {navItems.map((item, index) => (
                         <NavLink
@@ -109,7 +119,6 @@ export default function DashboardLayout() {
                         </NavLink>
                     ))}
                 </nav>
-
             </aside>
 
             <div className="main-content-wrapper">
@@ -120,15 +129,7 @@ export default function DashboardLayout() {
                             <span className="badge badge-success">Sabah Region</span>
                         )}
                     </div>
-                    <Link 
-                    to="/" 
-                    className="exit-portal-btn" 
-                    onClick = {() => {
-                            localStorage.removeItem('token')
-                            localStorage.removeItem('user_role')
-                        }}
-                    >
-                        
+                    <Link to="/" className="exit-portal-btn" onClick = {handleLogout}>
                         <img src={exitPortalLogo} alt="" aria-hidden="true" />
                         <span>Exit Portal</span>
                     </Link>
@@ -138,7 +139,5 @@ export default function DashboardLayout() {
                 </main>
             </div>
         </div>
-
-
     )
 }
