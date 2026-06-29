@@ -18,6 +18,8 @@ import {
   where,
 } from "firebase/firestore";
 import { auth, db, isFirebaseConfigured } from "./firebase";
+import agrowLogo from "../../assets/landing/agrow-rectangle.png";
+
 import backHomeIcon from "../../assets/auth/back-home.png";
 import "./login-page.css";
 
@@ -32,8 +34,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isResendingVerification, setIsResendingVerification] =
-    useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -102,7 +103,10 @@ export default function LoginPage() {
     return "";
   };
 
-  const getFirebaseErrorMessage = (firebaseError, isLoginError = isLoginMode) => {
+  const getFirebaseErrorMessage = (
+    firebaseError,
+    isLoginError = isLoginMode,
+  ) => {
     switch (firebaseError.code) {
       case "auth/username-already-taken":
         return "Username already taken";
@@ -194,13 +198,13 @@ export default function LoginPage() {
       const { user } = userCredential;
 
       await user.reload();
-
-      if (!user.emailVerified) {
-        await signOut(auth);
-        clearStoredSession();
-        setError("Please verify your email before logging in.");
-        return;
-      }
+      //user email verification
+      // if (!user.emailVerified) {
+      //   await signOut(auth);
+      //   clearStoredSession();
+      //   setError("Please verify your email before logging in.");
+      //   return;
+      // }
 
       const idToken = await user.getIdToken();
 
@@ -257,14 +261,15 @@ export default function LoginPage() {
         displayName: trimmedUsername,
         createdAt: serverTimestamp(),
       });
-      await sendEmailVerification(user);
+      //send the verification email during sign-up
+      // await sendEmailVerification(user);
       await signOut(auth);
       clearStoredSession();
 
-      setSuccessMsg(
-        "Account created. Please check your email for the verification link before logging in.",
-      );
-
+      // setSuccessMsg(
+      //   "Account created. Please check your email for the verification link before logging in.",
+      // );
+      setSuccessMsg("Account created. You can log in now.");
       setIsLoginMode(true);
       setUsername("");
       setEmail(trimmedEmail);
@@ -327,6 +332,38 @@ export default function LoginPage() {
 
   return (
     <main className="auth-page">
+      <div className="auth-animated-bg" aria-hidden="true">
+        <span className="map-ring map-ring-one" />
+        <span className="map-ring map-ring-two" />
+        <span className="heat-dot-grid" />
+        <span className="floating-leaf floating-leaf-one" />
+        <span className="floating-leaf floating-leaf-two" />
+        <span className="floating-leaf floating-leaf-three" />
+        <span className="floating-leaf floating-leaf-four" />
+        <span className="floating-leaf floating-leaf-five" />
+        <span className="floating-leaf floating-leaf-six" />
+      </div>
+
+      <section className="auth-hero" aria-label="Agrow authentication intro">
+        <div className="auth-hero-content">
+          <div className="auth-brand">
+            <img src={agrowLogo} alt="AGROW by Cleek" />
+          </div>
+          <h1 className="auth-title">
+            The platform for Sabah crop intelligence.
+          </h1>
+          <p className="auth-subtitle">
+            Analyze soil, climate, and crop suitability. Plan better harvests
+            with AI-powered insights.
+          </p>
+          <div className="auth-highlights" aria-label="Agrow workspace tools">
+            <span className="auth-highlight-item">District heatmaps</span>
+            <span className="auth-highlight-item">AI crop reports</span>
+            <span className="auth-highlight-item">Sabah-focused data</span>
+          </div>
+        </div>
+      </section>
+
       <section className="auth-panel" aria-labelledby="auth-title">
         <div className="auth-card">
           <div className="auth-copy">
@@ -335,7 +372,7 @@ export default function LoginPage() {
               <span>Back to home</span>
             </Link>
             <h1 id="auth-title">
-              {isLoginMode ? "Welcome back" : "Create your account"}
+              {isLoginMode ? "Welcome Back" : "Create Your Account"}
             </h1>
             <p>
               {isLoginMode
@@ -437,7 +474,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {isLoginMode && (
+          {/* {isLoginMode && (
             <button
               className="auth-link-button"
               type="button"
@@ -448,7 +485,7 @@ export default function LoginPage() {
                 ? "Sending verification email..."
                 : "Resend verification email"}
             </button>
-          )}
+          )} */}
 
           <button
             className="auth-link-button"
