@@ -64,6 +64,7 @@ function LandingPage() {
           </button>
           <Link
             to="/login"
+            state={{ fromLandingLogin: true }}
             className="landing-nav-button landing-nav-button-primary"
           >
             Login

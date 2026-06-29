@@ -88,7 +88,9 @@ export default function DashboardLayout() {
         e.preventDefault()
 
         localStorage.removeItem('token')
+        localStorage.removeItem('firebase_uid')
         localStorage.removeItem('user_role')
+        localStorage.removeItem('email_verified')
 
         navigate('/')
     }
