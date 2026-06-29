@@ -62,7 +62,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .landing-nav-button {
@@ -73,7 +73,7 @@
   padding: 10px 20px;
   border-radius: 8px;
   border: 2px solid rgba(53, 94, 59, 0.28);
-  font-weight: 900;
+  font-weight: 700;
   line-height: 1;
   transition:
     background-color 160ms ease,
@@ -87,7 +87,11 @@
   transform: translateY(-1px);
   box-shadow: 0 10px 22px rgba(53, 94, 59, 0.16);
 }
-
+.landing-nav-button {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+}
 .landing-page .landing-nav-links .landing-nav-button-light,
 .landing-page .landing-nav-links .landing-nav-button-light:link,
 .landing-page .landing-nav-links .landing-nav-button-light:visited {
@@ -172,7 +176,7 @@
   max-width: 760px;
   margin-bottom: 10px;
   color: #ffffff;
-  font-size: clamp(42px, 6vw, 76px);
+  font-size: clamp(32px, 4.5vw, 56px);
   line-height: 0.98;
   letter-spacing: 0;
   text-shadow: 0 12px 34px rgba(0, 0, 0, 0.35);
@@ -228,6 +232,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
+  scroll-margin-top: 24px;
 }
 
 .feature-card,

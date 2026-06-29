@@ -1,8 +1,7 @@
-import { useState } from "react";
-import { Outlet, Link, NavLink, useLocation } from "react-router-dom";
-import "./dashboard-layout.css";
-import agrowLogo from "../assets/landing/agrow.svg";
-import exitPortalLogo from "../assets/exit-logo/exit-portal-logo.png";
+import { Outlet, Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import './dashboard-layout.css'
+import agrowLogo from '../assets/landing/agrow.svg'
+import exitPortalLogo from '../assets/exit-logo/exit-portal-logo.png'
 
 export default function DashboardLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -155,4 +154,62 @@ export default function DashboardLayout() {
       </div>
     </div>
   );
+    const navigate = useNavigate()
+
+    const handleLogout = (e) => {
+        e.preventDefault()
+
+        localStorage.removeItem('token')
+        localStorage.removeItem('user_role')
+
+        navigate('/')
+    }
+
+    return (
+
+        <div className="layout-container">
+            <aside className="sidebar-panel">
+                <div className="portal-branding" aria-label="Agrow">
+                    <img src={agrowLogo} alt="Agrow" />
+                </div>
+                <nav className="stacked-nav-container">
+                    {navItems.map((item, index) => (
+                        <NavLink
+                            key={item.to}
+                            to={item.to}
+                            end={item.to === "/dashboard"}
+                            className={({ isActive }) => isActive ? 'stack-link active' : 'stack-link'}
+                            style={{ zIndex: index }}
+                        >
+                            <div className="stack-icon-wrapper">
+                                {item.icon}
+                            </div>
+                            <div className="stack-text-wrapper">
+                                <span className="stack-title">{item.title}</span>
+                                <span className="stack-subtitle">{item.subtitle}</span>
+                            </div>
+                        </NavLink>
+                    ))}
+                </nav>
+            </aside>
+
+            <div className="main-content-wrapper">
+                <header className="header-panel">
+                    <div className="header-context-group">
+                        <span className="header-status">{getHeaderTitle()}</span>
+                        {isRegionalPage && (
+                            <span className="badge badge-success">Sabah Region</span>
+                        )}
+                    </div>
+                    <Link to="/" className="exit-portal-btn" onClick = {handleLogout}>
+                        <img src={exitPortalLogo} alt="" aria-hidden="true" />
+                        <span>Exit Portal</span>
+                    </Link>
+                </header>
+                <main className="dynamic-content-area">
+                    <Outlet />
+                </main>
+            </div>
+        </div>
+    )
 }

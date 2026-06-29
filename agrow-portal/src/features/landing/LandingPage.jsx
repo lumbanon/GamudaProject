@@ -28,6 +28,20 @@ const featureCards = [
     alt: "Data Driven Decisions Logo",
   },
 ];
+const scrollToExplore = () => {
+  const target = document.getElementById("explore");
+
+  if (!target) return;
+
+  const reduceMotion = window.matchMedia(
+    "(prefers-reduced-motion: reduce)",
+  ).matches;
+
+  target.scrollIntoView({
+    behavior: reduceMotion ? "auto" : "smooth",
+    block: "start",
+  });
+};
 
 function LandingPage() {
   return (
@@ -41,14 +55,15 @@ function LandingPage() {
           />
         </Link>
         <div className="landing-nav-links">
-          <a
-            href="#explore"
+          <button
+            type="button"
             className="landing-nav-button landing-nav-button-light"
+            onClick={scrollToExplore}
           >
             Explore
-          </a>
+          </button>
           <Link
-            to="/dashboard"
+            to="/login"
             className="landing-nav-button landing-nav-button-primary"
           >
             Login
