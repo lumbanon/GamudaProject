@@ -1,6 +1,20 @@
 import React from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Cell,
+} from "recharts";
 import "./statistic-view.css";
 
+// Data Configuration
 const summaryCards = [
   {
     label: "Coverage",
@@ -12,11 +26,7 @@ const summaryCards = [
     value: "Banana",
     detail: "Most stable overall performance",
   },
-  {
-    label: "Average yield",
-    value: "82%",
-    detail: "Blended suitability index",
-  },
+  { label: "Average yield", value: "82%", detail: "Blended suitability index" },
   {
     label: "Monitoring",
     value: "Live",
@@ -88,35 +98,93 @@ export default function StatisticViews() {
     <div className="statistics-page">
       <header className="statistics-hero">
         <div>
-          <span className="statistics-eyebrow">Crop Statistics</span>
-          <h1>Production and Suitability Dashboard</h1>
+          <span className="statistics-eyebrow">
+            Comprehensive Crop Analytics
+          </span>
+          <h1>Sabah Agricultural Production Dashboard</h1>
           <p>
-            Compare crop strength, district readiness, and seasonal movement in
-            one place.
+            Real-time monitoring of crop suitability, seasonal trends, and
+            district-level performance metrics.
           </p>
         </div>
         <div className="statistics-hero-badge">
-          <span>LIVE UPDATE</span>
-          <strong>Sabah crop snapshot</strong>
+          <span>LIVE SYSTEM</span>
         </div>
       </header>
 
+      {/* Summary Stats */}
       <section className="statistics-summary-grid">
         {summaryCards.map((card) => (
           <article className="statistics-summary-card" key={card.label}>
-            <span>{card.label}</span>
+            <span>{card.label}: </span>
             <strong>{card.value}</strong>
             <p>{card.detail}</p>
           </article>
         ))}
       </section>
 
+      {/* Primary Content Grid */}
       <section className="statistics-content-grid">
         <RankingsSection data={cropStats} />
-        <SeasonalSection data={seasonalBands} />
+
+        <article className="statistics-card">
+          <div className="statistics-card-heading">
+            <h2>Quarterly Crop Trends</h2>
+          </div>
+          <div style={{ height: "300px", width: "100%" }}>
+            <ResponsiveContainer>
+              <LineChart data={seasonalBands}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="label" />
+                <YAxis domain={[60, 100]} />
+                <Tooltip />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="banana"
+                  stroke="#f59e0b"
+                  strokeWidth={3}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="corn"
+                  stroke="#10b981"
+                  strokeWidth={3}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="cocoa"
+                  stroke="#78350f"
+                  strokeWidth={3}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </article>
       </section>
 
-      <MatrixSection data={districtRows} />
+      {/* Extended Analysis Grid */}
+      <section className="statistics-analysis-extended">
+        <MatrixSection data={districtRows} />
+
+        <article className="statistics-card">
+          <div className="statistics-card-heading">
+            <h2>District Comparison</h2>
+            <p>Weighted performance overview.</p>
+          </div>
+          <div style={{ height: "350px", width: "100%" }}>
+            <ResponsiveContainer>
+              <BarChart data={districtRows}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="district" />
+                <Tooltip />
+                <Bar dataKey="banana" fill="#f59e0b" />
+                <Bar dataKey="corn" fill="#10b981" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </article>
+      </section>
     </div>
   );
 }
@@ -126,51 +194,20 @@ function RankingsSection({ data }) {
     <article className="statistics-card">
       <div className="statistics-card-heading">
         <h2>Highest performing crops</h2>
-        <p className="statistics-card-note">
-          A quick view of suitability, expected yield, and the districts where
-          each crop is strongest.
-        </p>
       </div>
       <div className="crop-rank-list">
         {data.map((item) => (
           <div key={item.crop} className="crop-rank-item">
             <div className="crop-rank-topline">
-              <strong>{item.crop}</strong>
+              <strong> {item.crop}</strong>
               <span>{item.yield}</span>
             </div>
             <div className="crop-score-track">
               <span style={{ width: `${item.suitability}%` }} />
             </div>
-            <div className="crop-rank-meta">
-              <span>{item.suitability}% suitability</span>
-              <span>{item.districts}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </article>
-  );
-}
-
-function SeasonalSection({ data }) {
-  return (
-    <article className="statistics-card">
-      <div className="statistics-card-heading">
-        <h2>Quarterly crop profile</h2>
-        <p className="statistics-card-note">
-          This compares crop performance through the year to reveal seasonal
-          momentum and soft spots.
-        </p>
-      </div>
-      <div className="season-chart">
-        {data.map((band) => (
-          <div className="season-band" key={band.label}>
-            <span className="season-band-label">{band.label}</span>
-            <div className="season-bars">
-              <Bar label="Banana" value={band.banana} tone="banana" />
-              <Bar label="Corn" value={band.corn} tone="corn" />
-              <Bar label="Cocoa" value={band.cocoa} tone="cocoa" />
-            </div>
+            <p className="crop-meta">
+              {item.suitability}% suitability in {item.districts}
+            </p>
           </div>
         ))}
       </div>
@@ -183,9 +220,6 @@ function MatrixSection({ data }) {
     <section className="statistics-card statistics-table-card">
       <div className="statistics-card-heading">
         <h2>Comparison across selected districts</h2>
-        <p className="statistics-card-note">
-          A compact matrix showing how each district performs for the key crops.
-        </p>
       </div>
       <div className="statistics-table-wrap">
         <table className="statistics-table">
@@ -212,20 +246,5 @@ function MatrixSection({ data }) {
         </table>
       </div>
     </section>
-  );
-}
-
-function Bar({ label, value, tone }) {
-  return (
-    <div className="season-bar-row">
-      <span className="season-bar-label">{label}</span>
-      <div className="season-bar-track">
-        <span
-          className={`season-bar-fill ${tone}`}
-          style={{ width: `${value}%` }}
-        />
-      </div>
-      <strong>{value}%</strong>
-    </div>
   );
 }
