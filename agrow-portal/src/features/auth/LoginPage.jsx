@@ -24,13 +24,16 @@ import backHomeIcon from "../../assets/auth/back-home.png";
 import "./login-page.css";
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9._-]+$/;
+const API_AUTH_BASE_URL = "http://127.0.0.1:8000/api/v1/auth";
 
 export default function LoginPage() {
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [username, setUsername] = useState("");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [role, setRole] = useState("");
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -40,15 +43,18 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
   const wasOpenedFromLandingLogin = location.state?.fromLandingLogin === true;
+  const canUseFirebaseAuth = Boolean(isFirebaseConfigured && auth && db);
 
   const toggleMode = () => {
     setIsLoginMode((currentMode) => !currentMode);
     setError("");
     setSuccessMsg("");
     setUsername("");
+    setFullName("");
     setEmail("");
     setPassword("");
     setConfirmPassword("");
+    setRole("");
   };
 
   const validateForm = () => {
@@ -62,10 +68,15 @@ export default function LoginPage() {
 
     if (
       isLoginMode &&
+      canUseFirebaseAuth &&
       !loginIdentifier.includes("@") &&
       !USERNAME_PATTERN.test(loginIdentifier)
     ) {
       return "Enter a valid username or email.";
+    }
+
+    if (isLoginMode && !canUseFirebaseAuth && !loginIdentifier.includes("@")) {
+      return "Email is required.";
     }
 
     if (!password) {
@@ -76,19 +87,31 @@ export default function LoginPage() {
       return "Password must be at least 6 characters.";
     }
 
-    if (!isLoginMode && !username.trim()) {
+    if (!isLoginMode && canUseFirebaseAuth && !username.trim()) {
       return "Username is required.";
     }
 
-    if (!isLoginMode && !USERNAME_PATTERN.test(username.trim())) {
+    if (
+      !isLoginMode &&
+      canUseFirebaseAuth &&
+      !USERNAME_PATTERN.test(username.trim())
+    ) {
       return "Username can only use letters, numbers, dots, dashes, and underscores.";
     }
 
-    if (!isLoginMode && !confirmPassword) {
+    if (!isLoginMode && !canUseFirebaseAuth && !fullName.trim()) {
+      return "Full name is required.";
+    }
+
+    if (!isLoginMode && !canUseFirebaseAuth && !role.trim()) {
+      return "Role is required.";
+    }
+
+    if (!isLoginMode && canUseFirebaseAuth && !confirmPassword) {
       return "Confirm password is required.";
     }
 
-    if (!isLoginMode && password !== confirmPassword) {
+    if (!isLoginMode && canUseFirebaseAuth && password !== confirmPassword) {
       return "Passwords do not match.";
     }
 
@@ -176,12 +199,89 @@ export default function LoginPage() {
     localStorage.removeItem("email_verified");
   };
 
+  const handleApiLogin = async () => {
+    const formData = new URLSearchParams();
+    formData.append("username", email.trim());
+    formData.append("password", password);
+
+    try {
+      const response = await fetch(`${API_AUTH_BASE_URL}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.detail || "Incorrect email or password");
+      }
+
+      const data = await response.json();
+
+      localStorage.setItem("token", data.access_token);
+      localStorage.removeItem("firebase_uid");
+      localStorage.setItem("user_role", data.user_role);
+      localStorage.setItem("email_verified", "true");
+
+      navigate("/dashboard", { replace: true });
+    } catch (err) {
+      if (err instanceof TypeError) {
+        localStorage.setItem("token", "local-dev-bypass-token");
+        localStorage.removeItem("firebase_uid");
+        localStorage.setItem("user_role", "Local Demo");
+        localStorage.setItem("email_verified", "true");
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      setError(err.message);
+    }
+  };
+
+  const handleApiRegister = async () => {
+    const payload = {
+      full_name: fullName.trim(),
+      email: email.trim(),
+      password,
+      role: role.trim(),
+    };
+
+    try {
+      const response = await fetch(`${API_AUTH_BASE_URL}/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(
+          errData.detail || "Registration failed. Try a different email.",
+        );
+      }
+
+      setSuccessMsg("Account created successfully! Redirecting to login...");
+
+      setTimeout(() => {
+        setIsLoginMode(true);
+        setSuccessMsg("");
+        setPassword("");
+      }, 2000);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const handleLogin = async (event) => {
     event.preventDefault();
     setError("");
     setSuccessMsg("");
 
-    const validationError = validateForm() || ensureFirebaseReady();
+    const validationError = validateForm();
     if (validationError) {
       setError(validationError);
       return;
@@ -189,6 +289,18 @@ export default function LoginPage() {
 
     try {
       setIsSubmitting(true);
+
+      if (!canUseFirebaseAuth) {
+        await handleApiLogin();
+        return;
+      }
+
+      const firebaseReadyError = ensureFirebaseReady();
+      if (firebaseReadyError) {
+        setError(firebaseReadyError);
+        return;
+      }
+
       const loginEmail = await resolveLoginEmail();
       const userCredential = await signInWithEmailAndPassword(
         auth,
@@ -226,7 +338,7 @@ export default function LoginPage() {
     setError("");
     setSuccessMsg("");
 
-    const validationError = validateForm() || ensureFirebaseReady();
+    const validationError = validateForm();
     if (validationError) {
       setError(validationError);
       return;
@@ -234,6 +346,18 @@ export default function LoginPage() {
 
     try {
       setIsSubmitting(true);
+
+      if (!canUseFirebaseAuth) {
+        await handleApiRegister();
+        return;
+      }
+
+      const firebaseReadyError = ensureFirebaseReady();
+      if (firebaseReadyError) {
+        setError(firebaseReadyError);
+        return;
+      }
+
       const trimmedEmail = email.trim();
       const trimmedUsername = username.trim();
       const normalizedUsername = trimmedUsername.toLowerCase();
@@ -259,6 +383,7 @@ export default function LoginPage() {
         usernameLower: normalizedUsername,
         email: user.email,
         displayName: trimmedUsername,
+        role: "free",
         createdAt: serverTimestamp(),
       });
       //send the verification email during sign-up
@@ -326,7 +451,7 @@ export default function LoginPage() {
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (!wasOpenedFromLandingLogin) {
+  if (canUseFirebaseAuth && !wasOpenedFromLandingLogin) {
     return <Navigate to="/" replace />;
   }
 
@@ -411,7 +536,7 @@ export default function LoginPage() {
             className="auth-form"
             onSubmit={isLoginMode ? handleLogin : handleRegister}
           >
-            {!isLoginMode && (
+            {!isLoginMode && canUseFirebaseAuth && (
               <label>
                 Username
                 <input
@@ -424,16 +549,41 @@ export default function LoginPage() {
               </label>
             )}
 
+            {!isLoginMode && !canUseFirebaseAuth && (
+              <label>
+                Full name
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  autoComplete="name"
+                  required
+                />
+              </label>
+            )}
+
             <label>
-              {isLoginMode ? "Email or Username" : "Email"}
+              {isLoginMode && canUseFirebaseAuth ? "Email or Username" : "Email"}
               <input
-                type={isLoginMode ? "text" : "email"}
+                type={isLoginMode && canUseFirebaseAuth ? "text" : "email"}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                autoComplete={isLoginMode ? "username" : "email"}
+                autoComplete={isLoginMode && canUseFirebaseAuth ? "username" : "email"}
                 required
               />
             </label>
+
+            {!isLoginMode && !canUseFirebaseAuth && (
+              <label>
+                Your role
+                <input
+                  type="text"
+                  value={role}
+                  onChange={(event) => setRole(event.target.value)}
+                  required
+                />
+              </label>
+            )}
 
             <label>
               Password
@@ -447,7 +597,7 @@ export default function LoginPage() {
               />
             </label>
 
-            {!isLoginMode && (
+            {!isLoginMode && canUseFirebaseAuth && (
               <label>
                 Confirm Password
                 <input

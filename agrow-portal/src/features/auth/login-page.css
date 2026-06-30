@@ -420,9 +420,21 @@
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   padding: 5px;
-  border: 1px solid var(--auth-line);
+  border: 2px solid var(--auth-line);
   border-radius: 8px;
   background: #f5f7f4;
+  position: relative;
+}
+
+.auth-mode-switch::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 50%;
+  width: 3px;
+  background: var(--auth-line);
+  transform: translateX(-50%);
 }
 
 .auth-mode-switch button,
