@@ -1,0 +1,57 @@
+{
+  "rows": 5292,
+  "columns": 16,
+  "target_column": "yield_mt_per_ha",
+  "task_type": "regression",
+  "feature_columns": [
+    "year",
+    "district",
+    "fruit_code",
+    "fruit_local",
+    "fruit_english",
+    "fruit_raw",
+    "planted_area_ha",
+    "harvested_area_ha",
+    "production_mt",
+    "value_rm000"
+  ],
+  "numerical_features": [
+    "year",
+    "planted_area_ha",
+    "harvested_area_ha",
+    "production_mt",
+    "value_rm000"
+  ],
+  "categorical_features": [
+    "district",
+    "fruit_code",
+    "fruit_local",
+    "fruit_english",
+    "fruit_raw"
+  ],
+  "dropped_columns": [
+    "state",
+    "district_source",
+    "fruit_category",
+    "source_pdf",
+    "source_pdf_page"
+  ],
+  "missing_values": {
+    "year": 0,
+    "state": 0,
+    "district": 0,
+    "district_source": 0,
+    "fruit_code": 0,
+    "fruit_local": 0,
+    "fruit_english": 0,
+    "fruit_raw": 0,
+    "fruit_category": 0,
+    "planted_area_ha": 0,
+    "harvested_area_ha": 0,
+    "production_mt": 0,
+    "value_rm000": 0,
+    "yield_mt_per_ha": 0,
+    "source_pdf": 0,
+    "source_pdf_page": 0
+  }
+}

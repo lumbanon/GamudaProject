@@ -2,29 +2,29 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database.session import engine, Base
 from app.models.user import User
-from app.api.endpoints import auth, predict
+from app.api.endpoints import auth, crop_suitability, predict
 
 Base.metadata.create_all(bind=engine)
 
-app =  FastAPI()
+app = FastAPI()
 
 origins = [
-    'http://localhost:5173'
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['*'],
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=['*'],
-    allow_headers=['*'],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-#routers
-app.include_router(auth.router, prefix='/api/v1/auth', tags=['authentication'])
-app.include_router(predict.router, prefix='/api/predict', tags=['ai predictions'])
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["authentication"])
+app.include_router(predict.router, prefix="/api/predict", tags=["ai predictions"])
+app.include_router(crop_suitability.router, prefix="/api/crop-suitability", tags=["crop suitability"])
 
-
-@app.get('/')
+@app.get("/")
 def read_root():
-    return {'message': 'hi'}
+    return {"message": "hi"}
