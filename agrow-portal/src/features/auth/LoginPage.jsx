@@ -96,7 +96,6 @@ export default function LoginPage() {
     if (err instanceof TypeError) {
       localStorage.setItem('token', 'local-dev-bypass-token')
       localStorage.setItem('user_role', 'Local Demo')
-      localStorage.setItem('email_verified', 'true')
       navigate('/dashboard', {replace: true})
       return
     }
