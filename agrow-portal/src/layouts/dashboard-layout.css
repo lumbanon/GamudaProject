@@ -127,12 +127,7 @@
 }
 
 .sidebar-collapsed .portal-branding {
-    justify-content: center;
-    margin-left: 0;
-}
-
-.sidebar-collapsed .portal-branding img {
-    max-width: 56px;
+    display: none;
 }
 
 .sidebar-collapsed .stacked-nav-container {
@@ -171,6 +166,58 @@
 
 .stack-link.active .stack-subtitle {
     color: #2d6a4f;
+}
+
+.sidebar-user-footer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 10px;
+    margin-top: auto;
+    border-top: 1px solid #e2e8f0;
+}
+
+.user-avatar {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background-color: #2d6a4f;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.user-info-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.user-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #1a202c;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-role {
+    font-size: 0.7rem;
+    color: #718096;
+}
+
+.sidebar-collapsed .sidebar-user-footer {
+    justify-content: center;
+}
+
+.sidebar-collapsed .user-info-wrapper {
+    display: none;
 }
 
 .main-content-wrapper {

@@ -7,7 +7,7 @@ import PredictionViews from '../features/prediction/PredictionViews'
 import StatisticViews from '../features/statistic/StatisticViews'
 import SettingViews from '../features/setting/SettingViews'
 import LoginPage from '../features/auth/LoginPage'
-import ProtectedRoute from '../components/ProtectedRoute'
+import ProtectedRoute from './ProtectedRoute'
 
 export default function AppRoutes(){
     return(

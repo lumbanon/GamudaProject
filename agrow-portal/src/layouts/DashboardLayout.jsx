@@ -5,28 +5,27 @@ import agrowLogo from '../assets/landing/agrow.svg'
 import exitPortalLogo from '../assets/exit-logo/exit-portal-logo.png'
 
 export default function DashboardLayout() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
-  const { pathname } = useLocation();
+  const { pathname } = useLocation()
 
   const getHeaderTitle = () => {
-    const normalizedPath = pathname.replace(/\/$/, '');
-
+    const normalizedPath = pathname.replace(/\/$/, '')
     switch (normalizedPath) {
       case '/dashboard/heatmap-analysis':
-        return 'Heatmap Analysis';
+        return 'Heatmap Analysis'
       case '/dashboard/ai-predictions':
-        return 'AI Predictions';
+        return 'AI Predictions'
       case '/dashboard/crop-statistics':
-        return 'Crop Statistics';
+        return 'Crop Statistics'
       case '/dashboard/settings':
-        return 'Settings';
+        return 'Settings'
       default:
-        return 'Dashboard';
+        return 'Dashboard'
     }
   }
 
-  const isRegionalPage = pathname !== '/dashboard/settings';
+  const isRegionalPage = pathname !== '/dashboard/settings'
 
   const navItems = [
     {
@@ -96,14 +95,12 @@ export default function DashboardLayout() {
 
   const navigate = useNavigate()
 
-    const handleLogout = (e) => {
-        e.preventDefault()
-
-        localStorage.removeItem('token')
-        localStorage.removeItem('user_role')
-
-        navigate('/')
-    }
+  const handleLogout = (e) => {
+    e.preventDefault()
+    localStorage.removeItem('token')
+    localStorage.removeItem('user_role')
+    navigate('/')
+  }
 
   return (
     <div
@@ -122,7 +119,7 @@ export default function DashboardLayout() {
             aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
             aria-expanded={isSidebarOpen}
           >
-            {isSidebarOpen ? '←' : '→'}
+            {isSidebarOpen ? '\u2190' : '\u2192'}
           </button>
         </div>
 
@@ -165,6 +162,5 @@ export default function DashboardLayout() {
         </main>
       </div>
     </div>
-  );
-    
+  )
 }
