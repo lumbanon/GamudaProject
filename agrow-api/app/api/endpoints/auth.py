@@ -1,14 +1,16 @@
 from fastapi import APIRouter, HTTPException, status, Depends
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import JWTError, jwt
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 import bcrypt
 
 from app.database.session import get_db
 from app.models.user import User
-from app.core.security import verify_password, create_access_token
+from app.core.security import ALGORITHM, SECRET_KEY, verify_password, create_access_token
 
 router =  APIRouter()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 class Token(BaseModel):
     access_token: str
@@ -19,6 +21,12 @@ class UserCreate(BaseModel):
     full_name : str
     email : EmailStr
     password: str
+    role: str
+
+class CurrentUser(BaseModel):
+    id: int
+    full_name: str
+    email: EmailStr
     role: str
 
 @router.post('/register', status_code=status.HTTP_201_CREATED)
@@ -64,3 +72,25 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         "token_type": "bearer",
         "user_role": user.role
     }
+
+@router.get('/me', response_model=CurrentUser)
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    credentials_error = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        if not email:
+            raise credentials_error
+    except JWTError as exc:
+        raise credentials_error from exc
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise credentials_error
+
+    return user

@@ -1,13 +1,75 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet, Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import './dashboard-layout.css'
 import agrowLogo from '../assets/landing/agrow.svg'
 import exitPortalLogo from '../assets/exit-logo/exit-portal-logo.png'
 
+const API_AUTH_BASE_URL = 'http://127.0.0.1:8000/api/v1/auth'
+
+const ROLE_LABELS = {
+  admin: 'Admin',
+  free: 'Free User',
+  paid: 'Paid User',
+}
+
+const formatRoleLabel = (role) => {
+  const normalizedRole = String(role || 'free').trim().toLowerCase()
+
+  if (ROLE_LABELS[normalizedRole]) {
+    return ROLE_LABELS[normalizedRole]
+  }
+
+  return normalizedRole
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+const getEmailInitial = (email) => {
+  const trimmedEmail = String(email || '').trim()
+
+  return trimmedEmail ? trimmedEmail.charAt(0).toUpperCase() : '?'
+}
+
 export default function DashboardLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [userRoleLabel, setUserRoleLabel] = useState(() =>
+    formatRoleLabel(localStorage.getItem('user_role')),
+  )
+  const [userEmail, setUserEmail] = useState(
+    () => localStorage.getItem('user_email') || '',
+  )
 
   const { pathname } = useLocation()
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+
+    if (!token) {
+      return
+    }
+
+    fetch(`${API_AUTH_BASE_URL}/me`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error('Unable to load user role')
+        }
+
+        return response.json()
+      })
+      .then((user) => {
+        localStorage.setItem('user_role', user.role || 'free')
+        localStorage.setItem('user_email', user.email || '')
+        setUserEmail(user.email || '')
+        setUserRoleLabel(formatRoleLabel(user.role))
+      })
+      .catch(() => {
+        setUserRoleLabel(formatRoleLabel(localStorage.getItem('user_role')))
+      })
+  }, [])
 
   const getHeaderTitle = () => {
     const normalizedPath = pathname.replace(/\/$/, '')
@@ -99,6 +161,7 @@ export default function DashboardLayout() {
     e.preventDefault()
     localStorage.removeItem('token')
     localStorage.removeItem('user_role')
+    localStorage.removeItem('user_email')
     navigate('/')
   }
 
@@ -142,6 +205,14 @@ export default function DashboardLayout() {
             </NavLink>
           ))}
         </nav>
+
+        <div className='sidebar-user-footer' aria-label='Current user role'>
+          <div className='user-avatar'>{getEmailInitial(userEmail)}</div>
+          <div className='user-info-wrapper'>
+            <span className='user-role-label'>Account Role</span>
+            <span className='user-role'>{userRoleLabel}</span>
+          </div>
+        </div>
       </aside>
 
       <div className='main-content-wrapper'>
