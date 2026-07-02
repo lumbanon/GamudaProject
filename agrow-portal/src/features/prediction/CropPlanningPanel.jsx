@@ -1,218 +1,229 @@
 import {
-  buildFeatureRows,
-  formatCurrency,
+  buildClimateFeatureRows,
+  buildSoilFeatureRows,
+  buildTopoFeatureRows,
   formatHectares,
-  formatNumber,
-  formatPlaceholderFields,
-  getSuitabilityTone,
-  SUPPORTED_CROPS,
 } from "./predictionUtils"
 
 export default function CropPlanningPanel({
   areaHectares,
   canAnalyze,
-  error,
+  cropOptions,
+  districtOptions,
+  hasLocation,
+  hasPolygon,
   isLoading,
+  isLoadingOptions,
   onAnalyze,
   onClearArea,
   onCropChange,
-  result,
+  onDistrictChange,
   selectedCrop,
-  hasPolygon,
+  selectedDistrict,
 }) {
   const cropSelected = Boolean(selectedCrop)
+  const locationSelected = Boolean(hasLocation)
   const ready = canAnalyze && !isLoading
 
   return (
     <aside className="crop-planning-panel">
       <section className="planning-control-card">
         <div className="planning-progress" aria-label="Planning progress">
-          <ProgressItem complete={hasPolygon} label="Area" />
-          <ProgressItem complete={cropSelected} label="Crop" />
-          <ProgressItem complete={ready} label="Ready" />
+          <ProgressItem complete={locationSelected} description="Set your farm area" icon={<LocationIcon />} label="Location" />
+          <ProgressItem complete={cropSelected} description="Choose crop details" icon={<SproutIcon />} label="Crop" />
+          <ProgressItem complete={ready} description="Analyze and proceed" icon={<CheckIcon />} label="Ready" />
         </div>
 
         <div className="planning-control-grid">
           <div className="control-field">
-            <span>1. Farm area</span>
+            <span className="field-title">1. Farm area</span>
             <strong>{formatHectares(areaHectares)}</strong>
-            <small>{hasPolygon ? "Boundary captured" : "Draw on the map"}</small>
+            <span className="field-helper">
+              <MapIcon />
+              {hasPolygon ? "Boundary captured" : "Draw on the map or choose district"}
+            </span>
           </div>
 
+          <label className="control-field crop-control-field" htmlFor="planning-district">
+            <span className="field-title">2. District</span>
+            <span className="select-shell">
+              <LocationIcon />
+              <select
+                id="planning-district"
+                value={selectedDistrict}
+                onChange={(event) => onDistrictChange(event.target.value)}
+                disabled={isLoadingOptions || (!selectedDistrict && districtOptions.length === 0)}
+              >
+                <option value="">{hasPolygon ? "Detecting from boundary" : "All matched map area"}</option>
+                {selectedDistrict && !districtOptions.includes(selectedDistrict) && (
+                  <option value={selectedDistrict}>{selectedDistrict}</option>
+                )}
+                {districtOptions.map((district) => (
+                  <option value={district} key={district}>
+                    {district}
+                  </option>
+                ))}
+              </select>
+            </span>
+            <span className="field-helper">
+              <PinIcon />
+              {selectedDistrict ? (hasPolygon ? "Detected from boundary" : "Selected district") : "District appears after drawing"}
+            </span>
+          </label>
+
           <label className="control-field crop-control-field" htmlFor="planning-crop">
-            <span>2. Crop</span>
-            <select id="planning-crop" value={selectedCrop} onChange={(event) => onCropChange(event.target.value)}>
-              <option value="">Select crop</option>
-              {SUPPORTED_CROPS.map((crop) => (
-                <option value={crop} key={crop}>
-                  {crop}
-                </option>
-              ))}
-            </select>
+            <span className="field-title">3. Crop</span>
+            <span className="select-shell">
+              <SproutIcon />
+              <select
+                id="planning-crop"
+                value={selectedCrop}
+                onChange={(event) => onCropChange(event.target.value)}
+                disabled={isLoadingOptions || cropOptions.length === 0}
+              >
+                <option value="">{isLoadingOptions ? "Loading crops..." : "Select crop"}</option>
+                {cropOptions.map((crop) => (
+                  <option value={crop.name} key={crop.id || crop.name}>
+                    {crop.name}
+                  </option>
+                ))}
+              </select>
+            </span>
+            <span className="field-helper">
+              <SproutIcon />
+              {selectedCrop ? "Crop details selected" : "Choose a crop to continue"}
+            </span>
           </label>
         </div>
 
         <div className="planning-action-row">
           <button className="analyze-area-button" type="button" onClick={onAnalyze} disabled={!canAnalyze || isLoading}>
-            {isLoading ? "Analyzing..." : "Analyze Farm Area"}
+            <SproutIcon />
+            <span>{isLoading ? "Analyzing..." : "Analyze Farm Area"}</span>
           </button>
-          <button className="clear-area-button" type="button" onClick={onClearArea} disabled={!hasPolygon && !areaHectares}>
-            Clear
+          <button className="clear-area-button" type="button" onClick={onClearArea} disabled={!hasLocation && !areaHectares}>
+            <RefreshIcon />
+            <span>Clear</span>
           </button>
         </div>
-      </section>
-
-      <section className="farm-insight-panel">
-        <div className="farm-insight-heading">
-          <span>4. AI Farm Insight</span>
-          {result?.features?.data_source && (
-            <strong className={`source-pill source-${result.features.data_source}`}>{result.features.data_source}</strong>
-          )}
-        </div>
-
-        {!result && !isLoading && !error && (
-          <div className="planning-empty-state">Draw an area and choose a crop to generate AI farm insights.</div>
-        )}
-
-        {isLoading && (
-          <div className="planning-loading-state">Analyzing soil, climate, terrain and crop requirements...</div>
-        )}
-
-        {error && <div className="planning-error-state">{error}</div>}
-
-        {result && <PlanningResults result={result} />}
       </section>
     </aside>
   )
 }
 
-function PlanningResults({ result }) {
-  const suitability = result.suitability || {}
-  const features = result.features || {}
-  const estimate = result.return_estimate || {}
-  const plantingWindow = result.planting_window || {}
-  const score = Number(suitability.score || 0)
-  const tone = getSuitabilityTone(suitability.status)
-  const placeholderFields = formatPlaceholderFields(features.placeholder_fields)
-  const sourceNotes = [
-    placeholderFields ? `Placeholder layers: ${placeholderFields}. ${features.data_source_note || ""}` : "",
-    estimate.basis || "",
-  ].filter(Boolean)
-
-  return (
-    <div className="planning-results">
-      <article className={`result-card score-result-card tone-${tone}`}>
-        <div className="score-ring" style={{ "--score": `${Math.max(0, Math.min(100, score))}%` }}>
-          <strong>{score}</strong>
-          <span>/100</span>
-        </div>
-        <div>
-          <span>Suitability score</span>
-          <strong>{suitability.status || "Pending"}</strong>
-          <p>Risk level: {suitability.risk_level || "N/A"}</p>
-        </div>
-      </article>
-
-      <div className="result-card-grid">
-        <ResultCard label="Area size" value={formatHectares(result.area_hectares)} />
-        <ResultCard
-          label="Planting window"
-          value={(plantingWindow.best_months || []).join(", ") || "N/A"}
-          detail={plantingWindow.reason}
-        />
-        <ResultCard
-          label="Estimated return"
-          value={formatCurrency(estimate.estimated_revenue_myr)}
-          detail={`${formatNumber(estimate.estimated_yield_tonnes, 2)} tonnes, ${estimate.confidence || "Low confidence"}`}
-        />
-        <ResultCard
-          label="Risk alert"
-          value={suitability.risk_level || "N/A"}
-          detail={(suitability.risk_warnings || [])[0] || "No major rule-based risk detected"}
-        />
-      </div>
-
-      <article className="insight-summary-card">
-        <span>AI-style recommendation summary</span>
-        <p>{result.ai_insight}</p>
-      </article>
-
-      <div className="quick-insight-grid">
-        <InsightPreview title="Strengths" items={suitability.strengths} />
-        <InsightPreview title="Watch points" items={suitability.limitations} />
-      </div>
-
-      <details className="planning-accordion">
-        <summary>Recommendations</summary>
-        <InsightList items={suitability.recommendations} />
-      </details>
-
-      <details className="planning-accordion">
-        <summary>Environmental layers</summary>
-        <div className="feature-grid">
-          {buildFeatureRows(features).map((feature) => (
-            <div className="feature-tile" key={feature.label}>
-              <span>{feature.label}</span>
-              <strong>{feature.value}</strong>
-            </div>
-          ))}
-        </div>
-      </details>
-
-      {sourceNotes.length > 0 && (
-        <details className="planning-accordion">
-          <summary>Data confidence</summary>
-          <div className="source-note-list">
-            {sourceNotes.map((note) => (
-              <p className="source-note" key={note}>
-                {note}
-              </p>
-            ))}
-          </div>
-        </details>
-      )}
-    </div>
-  )
-}
-
-function ProgressItem({ complete, label }) {
+function ProgressItem({ complete, description, icon, label }) {
   return (
     <div className={`progress-item ${complete ? "complete" : ""}`}>
-      <span aria-hidden="true" />
-      <strong>{label}</strong>
+      <span className="progress-icon" aria-hidden="true">
+        {icon}
+      </span>
+      <span className="progress-copy">
+        <strong>{label}</strong>
+        <small>{description}</small>
+      </span>
     </div>
   )
 }
 
-function ResultCard({ label, value, detail }) {
+export function EnvironmentDataPanel({ isLoading, result }) {
+  const features = result?.features || null
+
   return (
-    <article className="result-card">
-      <span>{label}</span>
-      <strong>{value}</strong>
-      {detail && <p>{detail}</p>}
-    </article>
+    <section className="sidebar-environment-panel">
+      <div className="sidebar-environment-heading">
+        <span>Environmental data</span>
+        {features?.data_source && (
+          <strong className={`source-pill source-${features.data_source}`}>{features.data_source}</strong>
+        )}
+      </div>
+
+      <div className="sidebar-environment-content">
+        {!features && !isLoading && (
+          <div className="planning-empty-state compact-empty-state">Environmental layers will appear here after analysis.</div>
+        )}
+
+        {isLoading && <div className="planning-loading-state compact-empty-state">Loading environmental layers...</div>}
+
+        {features && (
+          <div className="environment-sidebar-stack">
+            <FeatureAccordion title="Climate data" rows={buildClimateFeatureRows(features)} />
+            <FeatureAccordion title="Soil data" rows={buildSoilFeatureRows(features)} />
+            <FeatureAccordion title="Topography data" rows={buildTopoFeatureRows(features)} />
+          </div>
+        )}
+      </div>
+    </section>
   )
 }
 
-function InsightPreview({ title, items = [] }) {
+function FeatureAccordion({ title, rows }) {
   return (
-    <div className="insight-preview">
-      <span>{title}</span>
-      {(items.length ? items : ["No item returned"]).slice(0, 3).map((item) => (
-        <strong key={item}>{item}</strong>
-      ))}
-    </div>
-  )
-}
-
-function InsightList({ items = [] }) {
-  return (
-    <div className="insight-list">
-      <ul>
-        {(items.length ? items : ["No item returned"]).map((item) => (
-          <li key={item}>{item}</li>
+    <details className="planning-accordion feature-accordion" open>
+      <summary>{title}</summary>
+      <div className="feature-grid">
+        {rows.map((feature) => (
+          <div className="feature-tile" key={feature.label}>
+            <span>{feature.label}</span>
+            <strong>{feature.value}</strong>
+          </div>
         ))}
-      </ul>
-    </div>
+      </div>
+    </details>
+  )
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="m5 12.4 4.2 4.1L19 6.8" />
+    </svg>
+  )
+}
+
+function LocationIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 21s7-5.2 7-11.3A7 7 0 0 0 5 9.7C5 15.8 12 21 12 21Z" />
+      <path d="M12 12.2a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
+    </svg>
+  )
+}
+
+function MapIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="m3.5 6.5 5-2.2 7 2.9 5-2.2v12.5l-5 2.2-7-2.9-5 2.2V6.5Z" />
+      <path d="M8.5 4.3v12.5M15.5 7.2v12.5" />
+    </svg>
+  )
+}
+
+function PinIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 21s6-5 6-10a6 6 0 0 0-12 0c0 5 6 10 6 10Z" />
+      <path d="M12 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
+    </svg>
+  )
+}
+
+function RefreshIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M20 11a8 8 0 0 0-14.9-4" />
+      <path d="M5 3v4h4" />
+      <path d="M4 13a8 8 0 0 0 14.9 4" />
+      <path d="M19 21v-4h-4" />
+    </svg>
+  )
+}
+
+function SproutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 21V11" />
+      <path d="M12 13c-4.2 0-7-2.7-7-7 4.3 0 7 2.7 7 7Z" />
+      <path d="M12 12c0-4.2 2.7-7 7-7 0 4.3-2.7 7-7 7Z" />
+    </svg>
   )
 }

@@ -18,7 +18,7 @@ const SABAH_VIEW_BOUNDS = [
   [7.65, 119.65],
 ]
 
-export default function SatellitePlanningMap({ polygon, onPolygonChange, clearVersion }) {
+export default function SatellitePlanningMap({ district, polygon, onPolygonChange, clearVersion }) {
   const [isDrawing, setIsDrawing] = useState(false)
   const [draftPoints, setDraftPoints] = useState([])
 
@@ -146,6 +146,13 @@ export default function SatellitePlanningMap({ polygon, onPolygonChange, clearVe
         <span>Selected area</span>
         <strong>{formatHectares(polygon?.length ? calculatePolygonAreaHectares(polygon) : draftArea)}</strong>
       </div>
+
+      {polygon?.length > 0 && (
+        <div className="map-district-chip">
+          <span>District</span>
+          <strong>{district || "Not detected"}</strong>
+        </div>
+      )}
     </div>
   )
 }
