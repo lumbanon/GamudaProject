@@ -137,29 +137,18 @@ LAND_COVER_LABELS = {
 def get_available_crops(db: Session) -> list[dict]:
     try:
         crops = db.query(Crop).order_by(func.lower(Crop.name)).all()
-    except SQLAlchemyError as exc:
+    except SQLAlchemyError:
         db.rollback()
-        raise PredictionDataError("Unable to read crops from PostgreSQL.") from exc
+        crops = []
 
     if crops:
         return [crop_to_dict(crop) for crop in crops]
 
-    try:
-        crop_names = (
-            db.query(CropStatistic.crop_name)
-            .filter(CropStatistic.crop_name.isnot(None))
-            .distinct()
-            .all()
-        )
-    except SQLAlchemyError as exc:
-        db.rollback()
-        raise PredictionDataError("Unable to read crop statistics from PostgreSQL.") from exc
+    legacy_crops = get_legacy_crop_options(db)
+    if legacy_crops:
+        return legacy_crops
 
-    names = sorted({row.crop_name for row in crop_names if row.crop_name}, key=str.lower)
-    if names:
-        return [{"id": None, "name": name, "scientific_name": None} for name in names]
-
-    return [crop_to_dict(build_fallback_crop_threshold(name)) for name in CROP_REQUIREMENTS]
+    return []
 
 
 def get_environment(db: Session, district: str | None = None) -> dict:
@@ -217,18 +206,98 @@ def get_crop_by_name(db: Session, crop_name: str) -> Crop | None:
 
     try:
         crop = db.query(Crop).filter(func.lower(Crop.name) == normalized.lower()).first()
-    except SQLAlchemyError as exc:
+    except SQLAlchemyError:
         db.rollback()
-        raise PredictionDataError("Unable to read crop thresholds from PostgreSQL.") from exc
+        crop = None
 
     if crop:
         return crop
 
-    for fallback_name in CROP_REQUIREMENTS:
-        if fallback_name.lower() == normalized.lower():
-            return build_fallback_crop_threshold(fallback_name)
+    legacy_crop = get_legacy_crop_by_name(db, normalized)
+    if legacy_crop:
+        return legacy_crop
 
     return None
+
+
+def get_legacy_crop_options(db: Session) -> list[dict]:
+    try:
+        rows = db.execute(
+            text(
+                """
+                SELECT
+                    id,
+                    crop_name AS name,
+                    scientific_name,
+                    min_temperature,
+                    max_temperature,
+                    min_rainfall,
+                    min_ph,
+                    max_ph,
+                    max_slope
+                FROM crops
+                WHERE crop_name IS NOT NULL
+                ORDER BY lower(crop_name)
+                """
+            )
+        ).mappings().all()
+    except SQLAlchemyError:
+        db.rollback()
+        return []
+
+    return [crop_to_dict(legacy_crop_row_to_threshold(row)) for row in rows]
+
+
+def get_legacy_crop_by_name(db: Session, crop_name: str) -> CropThreshold | None:
+    try:
+        row = db.execute(
+            text(
+                """
+                SELECT
+                    id,
+                    crop_name AS name,
+                    scientific_name,
+                    min_temperature,
+                    max_temperature,
+                    min_rainfall,
+                    min_ph,
+                    max_ph,
+                    max_slope
+                FROM crops
+                WHERE lower(crop_name) = lower(:crop_name)
+                LIMIT 1
+                """
+            ),
+            {"crop_name": crop_name},
+        ).mappings().first()
+    except SQLAlchemyError:
+        db.rollback()
+        return None
+
+    if not row:
+        return None
+
+    return legacy_crop_row_to_threshold(row)
+
+
+def legacy_crop_row_to_threshold(row) -> CropThreshold:
+    min_temperature = coerce_float(row.get("min_temperature"))
+    max_temperature = coerce_float(row.get("max_temperature"))
+
+    return CropThreshold(
+        id=row.get("id"),
+        name=row.get("name"),
+        scientific_name=row.get("scientific_name"),
+        min_temp_limit=min_temperature,
+        ideal_temp_min=min_temperature,
+        ideal_temp_max=max_temperature,
+        max_temp_limit=max_temperature,
+        min_annual_rainfall=coerce_float(row.get("min_rainfall")),
+        min_soil_depth_cm=None,
+        ideal_ph_min=coerce_float(row.get("min_ph")),
+        ideal_ph_max=coerce_float(row.get("max_ph")),
+        max_slope_pct=coerce_float(row.get("max_slope")),
+    )
 
 
 def crop_to_dict(crop) -> dict:

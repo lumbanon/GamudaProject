@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import L from "leaflet"
 import {
-  CircleMarker,
   MapContainer,
+  Marker,
   Polygon,
   Polyline,
   TileLayer,
@@ -17,6 +18,20 @@ const SABAH_VIEW_BOUNDS = [
   [3.85, 114.95],
   [7.65, 119.65],
 ]
+
+const draftVertexIcon = L.divIcon({
+  className: "polygon-vertex-marker polygon-vertex-marker-draft",
+  html: '<span class="polygon-vertex-dot"></span>',
+  iconAnchor: [19, 19],
+  iconSize: [38, 38],
+})
+
+const finalVertexIcon = L.divIcon({
+  className: "polygon-vertex-marker polygon-vertex-marker-final",
+  html: '<span class="polygon-vertex-dot"></span>',
+  iconAnchor: [19, 19],
+  iconSize: [38, 38],
+})
 
 export default function SatellitePlanningMap({ district, polygon, onPolygonChange, clearVersion }) {
   const [isDrawing, setIsDrawing] = useState(false)
@@ -38,9 +53,25 @@ export default function SatellitePlanningMap({ district, polygon, onPolygonChang
     setDraftPoints((current) => [...current, point])
   }
 
-  function undoPoint() {
+  const undoPoint = useCallback(() => {
     setDraftPoints((current) => current.slice(0, -1))
-  }
+  }, [])
+
+  const moveDraftPoint = useCallback((index, latlng) => {
+    setDraftPoints((current) =>
+      current.map((point, pointIndex) => (pointIndex === index ? latLngToPoint(latlng) : point)),
+    )
+  }, [])
+
+  const moveFinalPoint = useCallback(
+    (index, latlng) => {
+      const nextPositions = finalPositions.map((point, pointIndex) =>
+        pointIndex === index ? latLngToPoint(latlng) : point,
+      )
+      onPolygonChange(leafletPositionsToGeoJson(nextPositions))
+    },
+    [finalPositions, onPolygonChange],
+  )
 
   function finishDrawing() {
     if (draftPoints.length < 3) return
@@ -54,6 +85,20 @@ export default function SatellitePlanningMap({ district, polygon, onPolygonChang
     setIsDrawing(false)
     onPolygonChange(null)
   }
+
+  useEffect(() => {
+    if (!isDrawing) return undefined
+
+    function handleKeyDown(event) {
+      if (!isUndoShortcut(event) || isTypingTarget(event.target)) return
+
+      event.preventDefault()
+      undoPoint()
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [isDrawing, undoPoint])
 
   return (
     <div className="satellite-map-shell">
@@ -94,6 +139,16 @@ export default function SatellitePlanningMap({ district, polygon, onPolygonChang
           />
         )}
 
+        {finalPositions.map((point, index) => (
+          <VertexMarker
+            icon={finalVertexIcon}
+            index={index}
+            key={`final-${index}`}
+            point={point}
+            onMove={moveFinalPoint}
+          />
+        ))}
+
         {draftPoints.length > 1 && (
           <Polyline
             positions={draftPoints}
@@ -116,11 +171,12 @@ export default function SatellitePlanningMap({ district, polygon, onPolygonChang
         )}
 
         {draftPoints.map((point, index) => (
-          <CircleMarker
-            center={point}
-            key={`${point[0]}-${point[1]}-${index}`}
-            pathOptions={{ color: "#ffffff", fillColor: "#355e3b", fillOpacity: 1, weight: 2 }}
-            radius={5}
+          <VertexMarker
+            icon={draftVertexIcon}
+            index={index}
+            key={`draft-${index}`}
+            point={point}
+            onMove={moveDraftPoint}
           />
         ))}
       </MapContainer>
@@ -135,7 +191,7 @@ export default function SatellitePlanningMap({ district, polygon, onPolygonChang
           Finish Boundary
         </button>
         <button type="button" onClick={undoPoint} disabled={!draftPoints.length}>
-          Undo Point
+          Undo last point
         </button>
         <button type="button" onClick={clearArea} disabled={!hasWork}>
           Clear Area
@@ -154,6 +210,26 @@ export default function SatellitePlanningMap({ district, polygon, onPolygonChang
         </div>
       )}
     </div>
+  )
+}
+
+function VertexMarker({ icon, index, point, onMove }) {
+  return (
+    <Marker
+      autoPan
+      bubblingMouseEvents={false}
+      draggable
+      icon={icon}
+      position={point}
+      eventHandlers={{
+        drag(event) {
+          onMove(index, event.target.getLatLng())
+        },
+        dragend(event) {
+          onMove(index, event.target.getLatLng())
+        },
+      }}
+    />
   )
 }
 
@@ -204,7 +280,22 @@ function MapResizeHandler({ watchKey }) {
 
 function geoJsonToLeafletPositions(polygon) {
   if (!Array.isArray(polygon)) return []
-  return polygon.map(([lon, lat]) => [lat, lon])
+
+  const positions = polygon.map(([lon, lat]) => [lat, lon])
+  const firstPoint = positions[0]
+  const lastPoint = positions[positions.length - 1]
+
+  if (
+    positions.length > 1 &&
+    Array.isArray(firstPoint) &&
+    Array.isArray(lastPoint) &&
+    firstPoint[0] === lastPoint[0] &&
+    firstPoint[1] === lastPoint[1]
+  ) {
+    return positions.slice(0, -1)
+  }
+
+  return positions
 }
 
 function leafletPositionsToGeoJson(points) {
@@ -223,4 +314,30 @@ function leafletPositionsToGeoJson(points) {
 
 function roundCoordinate(value) {
   return Number(Number(value).toFixed(6))
+}
+
+function latLngToPoint(latlng) {
+  return [roundCoordinate(latlng.lat), roundCoordinate(latlng.lng)]
+}
+
+function isUndoShortcut(event) {
+  return (
+    String(event.key).toLowerCase() === "z" &&
+    (event.ctrlKey || event.metaKey) &&
+    !event.altKey &&
+    !event.shiftKey
+  )
+}
+
+function isTypingTarget(target) {
+  if (!target || typeof target.closest !== "function") return false
+
+  const tagName = String(target.tagName || "").toLowerCase()
+  return (
+    target.isContentEditable ||
+    tagName === "input" ||
+    tagName === "textarea" ||
+    tagName === "select" ||
+    Boolean(target.closest('[contenteditable="true"], [role="textbox"]'))
+  )
 }
