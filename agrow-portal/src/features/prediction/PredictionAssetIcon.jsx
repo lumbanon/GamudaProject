@@ -3,7 +3,7 @@ export default function PredictionAssetIcon({ src }) {
     <span
       className="prediction-icon-mask"
       aria-hidden="true"
-      style={{ "--prediction-icon": `url(${src})` }}
+      dangerouslySetInnerHTML={{ __html: src }}
     />
   )
 }

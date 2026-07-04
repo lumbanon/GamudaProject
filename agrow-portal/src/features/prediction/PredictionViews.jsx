@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import heroLeafIcon from "../../assets/prediction/hero-leaf.svg";
-import securityShieldIcon from "../../assets/prediction/security-shield.svg";
+import heroLeafIcon from "../../assets/prediction/hero-leaf.svg?raw";
+import securityShieldIcon from "../../assets/prediction/security-shield.svg?raw";
 import kundasangImage from "../../assets/landing/kundasang.png";
 import sabahDistricts from "../dashboard/sabahDistricts";
 import CropPlanningPanel, { EnvironmentDataPanel } from "./CropPlanningPanel";

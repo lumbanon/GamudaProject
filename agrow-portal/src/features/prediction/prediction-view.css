@@ -23,14 +23,23 @@
 }
 
 .prediction-icon-mask {
-  display: inline-block;
+  display: inline-grid;
+  place-items: center;
   flex: 0 0 auto;
   width: 1em;
   height: 1em;
-  background: currentColor;
-  -webkit-mask: var(--prediction-icon) center / contain no-repeat;
-  mask: var(--prediction-icon) center / contain no-repeat;
+  color: inherit;
   pointer-events: none;
+}
+
+.prediction-icon-mask svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: inherit;
+  fill: none;
+  stroke: currentColor;
+  overflow: visible;
 }
 
 .prediction-analyzer-hero {
