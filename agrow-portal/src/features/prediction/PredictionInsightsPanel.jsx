@@ -1,3 +1,5 @@
+import warningIcon from "../../assets/prediction/warning.svg"
+import PredictionAssetIcon from "./PredictionAssetIcon"
 import {
   formatCurrency,
   formatHectares,
@@ -6,6 +8,8 @@ import {
 } from "./predictionUtils"
 
 export default function PredictionInsightsPanel({ error, isLoading, result }) {
+  const isBlocked = Boolean(result?.allowed === false || result?.blocked_reason === "reserved_forest")
+
   return (
     <section className="farm-insight-panel map-insight-panel">
       <div className="farm-insight-heading">
@@ -23,8 +27,29 @@ export default function PredictionInsightsPanel({ error, isLoading, result }) {
 
       {error && <div className="planning-error-state">{error}</div>}
 
-      {result && <PlanningResults result={result} />}
+      {isBlocked && <ReservedForestWarning result={result} />}
+
+      {result && !isBlocked && <PlanningResults result={result} />}
     </section>
+  )
+}
+
+function ReservedForestWarning({ result }) {
+  const message = result?.message || "Selected area is inside a reserved forest. You are not allowed to plant here."
+  const overlap = Number(result?.reserved_overlap_m2 || 0)
+
+  return (
+    <article className="reserved-forest-warning" role="alert">
+      <span className="reserved-warning-icon" aria-hidden="true">
+        <PredictionAssetIcon src={warningIcon} />
+      </span>
+      <div>
+        <strong>Reserved Forest Area Detected</strong>
+        <p>{message}</p>
+        <small>Please select another area outside protected land.</small>
+        {overlap > 0 && <small>Estimated overlap: {formatNumber(overlap, 2)} m2.</small>}
+      </div>
+    </article>
   )
 }
 

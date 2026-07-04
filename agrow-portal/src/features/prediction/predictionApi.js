@@ -12,6 +12,15 @@ export async function fetchPredictionEnvironment({ district } = {}) {
   return apiRequest(`/api/prediction/environment${query ? `?${query}` : ""}`)
 }
 
+export async function validateForestReserveArea({ polygon }) {
+  return apiRequest("/api/prediction/forest-reserve", {
+    method: "POST",
+    body: JSON.stringify({
+      polygon: polygon?.length ? polygon : null,
+    }),
+  })
+}
+
 export async function analyzeCropArea({ crop, district, polygon, userInputs }) {
   return apiRequest("/api/prediction/suitability", {
     method: "POST",

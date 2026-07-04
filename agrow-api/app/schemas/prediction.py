@@ -72,6 +72,21 @@ class SuitabilityRequest(BaseModel):
     user_inputs: EnvironmentOverrides | None = None
 
 
+class ForestReserveValidationRequest(BaseModel):
+    polygon: list[list[float]] | None = None
+
+
+class ForestReserveValidationResponse(BaseModel):
+    allowed: bool = True
+    reserved_forest: bool = False
+    blocked_reason: str | None = None
+    message: str | None = None
+    reserved_overlap_m2: float = 0
+    reserved_forest_geojson: dict | None = None
+    reserved_overlap_geojson: dict | None = None
+    forest_reserve_check_warning: str | None = None
+
+
 class SuitabilityDetail(BaseModel):
     score: int
     status: str
@@ -96,15 +111,23 @@ class ReturnEstimate(BaseModel):
 
 
 class SuitabilityResponse(BaseModel):
+    allowed: bool = True
+    reserved_forest: bool = False
+    blocked_reason: str | None = None
+    message: str | None = None
+    reserved_overlap_m2: float = 0
+    reserved_forest_geojson: dict | None = None
+    reserved_overlap_geojson: dict | None = None
+    forest_reserve_check_warning: str | None = None
     crop: str
     district: str | None = None
     area_hectares: float | None = None
-    suitability_score: int
-    matched_environment: EnvironmentValues
-    features: EnvironmentValues
-    suitability: SuitabilityDetail
-    explanation: str
+    suitability_score: int | None = None
+    matched_environment: EnvironmentValues | None = None
+    features: EnvironmentValues | None = None
+    suitability: SuitabilityDetail | None = None
+    explanation: str | None = None
     recommendations: list[str] = Field(default_factory=list)
-    planting_window: PlantingWindow
-    return_estimate: ReturnEstimate
-    ai_insight: str
+    planting_window: PlantingWindow | None = None
+    return_estimate: ReturnEstimate | None = None
+    ai_insight: str | None = None

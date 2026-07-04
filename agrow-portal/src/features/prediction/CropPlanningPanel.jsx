@@ -1,3 +1,10 @@
+import successIcon from "../../assets/prediction/success.svg"
+import locationIcon from "../../assets/prediction/location.svg"
+import mapBoundaryIcon from "../../assets/prediction/map-boundary.svg"
+import mapPinIcon from "../../assets/prediction/map-pin.svg"
+import refreshIcon from "../../assets/prediction/refresh.svg"
+import sproutIcon from "../../assets/prediction/sprout.svg"
+import PredictionAssetIcon from "./PredictionAssetIcon"
 import {
   buildClimateFeatureRows,
   buildSoilFeatureRows,
@@ -126,7 +133,8 @@ function ProgressItem({ complete, description, icon, label }) {
 }
 
 export function EnvironmentDataPanel({ isLoading, result }) {
-  const features = result?.features || null
+  const isBlocked = Boolean(result?.allowed === false || result?.blocked_reason === "reserved_forest")
+  const features = isBlocked ? null : result?.features || null
 
   return (
     <section className="sidebar-environment-panel">
@@ -138,7 +146,11 @@ export function EnvironmentDataPanel({ isLoading, result }) {
       </div>
 
       <div className="sidebar-environment-content">
-        {!features && !isLoading && (
+        {isBlocked && !isLoading && (
+          <div className="planning-error-state compact-empty-state">Protected land check stopped environmental analysis.</div>
+        )}
+
+        {!features && !isLoading && !isBlocked && (
           <div className="planning-empty-state compact-empty-state">Environmental layers will appear here after analysis.</div>
         )}
 
@@ -173,57 +185,25 @@ function FeatureAccordion({ title, rows }) {
 }
 
 function CheckIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="m5 12.4 4.2 4.1L19 6.8" />
-    </svg>
-  )
+  return <PredictionAssetIcon src={successIcon} />
 }
 
 function LocationIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M12 21s7-5.2 7-11.3A7 7 0 0 0 5 9.7C5 15.8 12 21 12 21Z" />
-      <path d="M12 12.2a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
-    </svg>
-  )
+  return <PredictionAssetIcon src={locationIcon} />
 }
 
 function MapIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="m3.5 6.5 5-2.2 7 2.9 5-2.2v12.5l-5 2.2-7-2.9-5 2.2V6.5Z" />
-      <path d="M8.5 4.3v12.5M15.5 7.2v12.5" />
-    </svg>
-  )
+  return <PredictionAssetIcon src={mapBoundaryIcon} />
 }
 
 function PinIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M12 21s6-5 6-10a6 6 0 0 0-12 0c0 5 6 10 6 10Z" />
-      <path d="M12 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
-    </svg>
-  )
+  return <PredictionAssetIcon src={mapPinIcon} />
 }
 
 function RefreshIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M20 11a8 8 0 0 0-14.9-4" />
-      <path d="M5 3v4h4" />
-      <path d="M4 13a8 8 0 0 0 14.9 4" />
-      <path d="M19 21v-4h-4" />
-    </svg>
-  )
+  return <PredictionAssetIcon src={refreshIcon} />
 }
 
 function SproutIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M12 21V11" />
-      <path d="M12 13c-4.2 0-7-2.7-7-7 4.3 0 7 2.7 7 7Z" />
-      <path d="M12 12c0-4.2 2.7-7 7-7 0 4.3-2.7 7-7 7Z" />
-    </svg>
-  )
+  return <PredictionAssetIcon src={sproutIcon} />
 }

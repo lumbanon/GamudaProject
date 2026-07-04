@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import L from "leaflet"
 import {
+  GeoJSON,
   MapContainer,
   Marker,
   Polygon,
@@ -33,13 +34,24 @@ const finalVertexIcon = L.divIcon({
   iconSize: [38, 38],
 })
 
-export default function SatellitePlanningMap({ district, polygon, onPolygonChange, clearVersion }) {
+export default function SatellitePlanningMap({
+  district,
+  polygon,
+  onPolygonChange,
+  clearVersion,
+  isBlocked = false,
+  reservedForestGeoJson = null,
+}) {
   const [isDrawing, setIsDrawing] = useState(false)
   const [draftPoints, setDraftPoints] = useState([])
 
   const finalPositions = useMemo(() => geoJsonToLeafletPositions(polygon), [polygon])
   const draftPolygon = useMemo(() => leafletPositionsToGeoJson(draftPoints), [draftPoints])
   const draftArea = useMemo(() => calculatePolygonAreaHectares(draftPolygon), [draftPolygon])
+  const reserveOverlayKey = useMemo(
+    () => (reservedForestGeoJson ? JSON.stringify(reservedForestGeoJson) : "no-reserve-overlay"),
+    [reservedForestGeoJson],
+  )
   const canFinish = isDrawing && draftPoints.length >= 3
   const hasWork = isDrawing || Boolean(polygon?.length)
 
@@ -126,16 +138,41 @@ export default function SatellitePlanningMap({ district, polygon, onPolygonChang
         <ZoomControl position="bottomright" />
         <MapResizeHandler watchKey={`${clearVersion}-${polygon?.length || 0}-${draftPoints.length}`} />
 
+        {reservedForestGeoJson && (
+          <GeoJSON
+            data={reservedForestGeoJson}
+            key={reserveOverlayKey}
+            style={{
+              color: "#5f6962",
+              fillColor: "#79827b",
+              fillOpacity: 0.32,
+              opacity: 0.88,
+              weight: 2,
+              dashArray: "7 7",
+            }}
+          />
+        )}
+
         {finalPositions.length > 0 && (
           <Polygon
             positions={finalPositions}
-            pathOptions={{
-              color: "#e5b83f",
-              fillColor: "#7ac66f",
-              fillOpacity: 0.26,
-              opacity: 1,
-              weight: 3,
-            }}
+            pathOptions={
+              isBlocked
+                ? {
+                    color: "#b42318",
+                    fillColor: "#e5483e",
+                    fillOpacity: 0.34,
+                    opacity: 1,
+                    weight: 4,
+                  }
+                : {
+                    color: "#e5b83f",
+                    fillColor: "#7ac66f",
+                    fillOpacity: 0.26,
+                    opacity: 1,
+                    weight: 3,
+                  }
+            }
           />
         )}
 
@@ -207,6 +244,13 @@ export default function SatellitePlanningMap({ district, polygon, onPolygonChang
         <div className="map-district-chip">
           <span>District</span>
           <strong>{district || "Not detected"}</strong>
+        </div>
+      )}
+
+      {isBlocked && (
+        <div className="map-reserve-chip">
+          <span>Reserved forest</span>
+          <strong>Planting blocked</strong>
         </div>
       )}
     </div>

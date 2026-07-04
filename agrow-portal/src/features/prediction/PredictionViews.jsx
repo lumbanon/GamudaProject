@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
+import heroLeafIcon from "../../assets/prediction/hero-leaf.svg";
+import securityShieldIcon from "../../assets/prediction/security-shield.svg";
 import kundasangImage from "../../assets/landing/kundasang.png";
 import sabahDistricts from "../dashboard/sabahDistricts";
 import CropPlanningPanel, { EnvironmentDataPanel } from "./CropPlanningPanel";
+import PredictionAssetIcon from "./PredictionAssetIcon";
 import PredictionInsightsPanel from "./PredictionInsightsPanel";
 import SatellitePlanningMap from "./SatellitePlanningMap";
 import {
   analyzeCropArea,
   fetchPredictionCrops,
   fetchPredictionEnvironment,
+  validateForestReserveArea,
 } from "./predictionApi";
 import {
   calculatePolygonAreaHectares,
@@ -22,6 +26,7 @@ export default function PredictionViews() {
   const [cropOptions, setCropOptions] = useState([]);
   const [districtOptions, setDistrictOptions] = useState([]);
   const [analysisResult, setAnalysisResult] = useState(null);
+  const [forestReserveResult, setForestReserveResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [error, setError] = useState("");
@@ -37,8 +42,23 @@ export default function PredictionViews() {
     if (selectedDistrict) choices.add(selectedDistrict);
     return [...choices].sort((a, b) => a.localeCompare(b));
   }, [districtOptions, selectedDistrict]);
+  const reserveStatus = analysisResult || forestReserveResult;
+  const isReservedForestBlocked = Boolean(
+    reserveStatus?.allowed === false ||
+      reserveStatus?.blocked_reason === "reserved_forest",
+  );
   const canAnalyze = Boolean(
-    selectedCrop && hasLocation && !isLoading && !isLoadingOptions,
+    selectedCrop &&
+      hasLocation &&
+      !isLoading &&
+      !isLoadingOptions &&
+      !isReservedForestBlocked,
+  );
+  const displayedResult =
+    analysisResult || (isReservedForestBlocked ? forestReserveResult : null);
+  const reservedForestOverlay = normalizeReservedForestOverlay(
+    reserveStatus?.reserved_forest_geojson ||
+      reserveStatus?.reserved_overlap_geojson,
   );
 
   useEffect(() => {
@@ -75,6 +95,29 @@ export default function PredictionViews() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!polygon?.length) return undefined;
+
+    let isMounted = true;
+
+    async function validateSelectedArea() {
+      try {
+        const result = await validateForestReserveArea({ polygon });
+        if (!isMounted) return;
+
+        setForestReserveResult(result?.allowed === false ? result : null);
+      } catch {
+        if (isMounted) setForestReserveResult(null);
+      }
+    }
+
+    validateSelectedArea();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [polygon]);
+
   function handlePolygonChange(nextPolygon) {
     const detectedDistrict = detectDistrictFromPolygon(
       nextPolygon,
@@ -83,6 +126,7 @@ export default function PredictionViews() {
     setPolygon(nextPolygon);
     setSelectedDistrict(detectedDistrict);
     setAnalysisResult(null);
+    setForestReserveResult(null);
     setError("");
   }
 
@@ -102,6 +146,7 @@ export default function PredictionViews() {
     setPolygon(null);
     setSelectedDistrict("");
     setAnalysisResult(null);
+    setForestReserveResult(null);
     setError("");
     setClearVersion((version) => version + 1);
   }
@@ -134,8 +179,10 @@ export default function PredictionViews() {
           <SatellitePlanningMap
             clearVersion={clearVersion}
             district={selectedDistrict}
+            isBlocked={isReservedForestBlocked}
             key={clearVersion}
             polygon={polygon}
+            reservedForestGeoJson={reservedForestOverlay}
             onPolygonChange={handlePolygonChange}
           />
 
@@ -150,11 +197,7 @@ export default function PredictionViews() {
             <section className="prediction-analyzer-hero">
               <header className="prediction-studio-header">
                 <span className="hero-leaf-mark" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <path d="M19.7 3.1c-5.8.2-10 3.1-12.4 7.3-1.7 3-2.2 6.1-2.1 8.6 2.6.1 5.8-.4 8.7-2.1 4.1-2.4 7-6.6 7.1-12.4 0-.8-.5-1.4-1.3-1.4Z" />
-                    <path d="M4.4 14.9C2.8 12.4 2 9.6 2 6.6c3.6 0 6.3 1 8.3 2.7" />
-                    <path d="M6.2 18.4c2.9-4.8 6.7-8.6 11.6-11.5" />
-                  </svg>
+                  <PredictionAssetIcon src={heroLeafIcon} />
                 </span>
 
                 <h1>Farm Area Analyzer</h1>
@@ -186,21 +229,18 @@ export default function PredictionViews() {
               <PredictionInsightsPanel
                 error={error}
                 isLoading={isLoading}
-                result={analysisResult}
+                result={displayedResult}
               />
 
               <EnvironmentDataPanel
                 isLoading={isLoading}
-                result={analysisResult}
+                result={displayedResult}
               />
             </div>
           </div>
 
           <div className="prediction-security-note">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M12 3.2 5.3 5.9v5.2c0 4.1 2.6 7.8 6.7 9.7 4.1-1.9 6.7-5.6 6.7-9.7V5.9L12 3.2Z" />
-              <path d="m8.9 12.1 2 2 4.3-4.4" />
-            </svg>
+            <PredictionAssetIcon src={securityShieldIcon} />
 
             <span>
               Your data is secure and used only for analysis purposes.
@@ -210,4 +250,20 @@ export default function PredictionViews() {
       </section>
     </div>
   );
+}
+
+function normalizeReservedForestOverlay(overlay) {
+  if (!overlay) return null;
+
+  if (typeof overlay === "string") {
+    try {
+      return JSON.parse(overlay);
+    } catch {
+      return null;
+    }
+  }
+
+  if (overlay.type === "FeatureCollection") return overlay;
+
+  return null;
 }

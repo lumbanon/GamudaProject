@@ -2,7 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.schemas.prediction import CropOption, EnvironmentResponse, SuitabilityRequest, SuitabilityResponse
+from app.schemas.prediction import (
+    CropOption,
+    EnvironmentResponse,
+    ForestReserveValidationRequest,
+    ForestReserveValidationResponse,
+    SuitabilityRequest,
+    SuitabilityResponse,
+)
+from app.services.forest_reserve_service import validate_forest_reserve_overlap
 from app.services.prediction_service import (
     PredictionDataError,
     PredictionNotFoundError,
@@ -32,6 +40,11 @@ def read_prediction_environment(
         return get_environment(db, district=district)
     except PredictionDataError as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+
+
+@router.post("/forest-reserve", response_model=ForestReserveValidationResponse)
+def validate_prediction_forest_reserve(payload: ForestReserveValidationRequest, db: Session = Depends(get_db)):
+    return validate_forest_reserve_overlap(db, payload.polygon)
 
 
 @router.post("/suitability", response_model=SuitabilityResponse)

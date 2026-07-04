@@ -22,22 +22,15 @@
   box-sizing: border-box;
 }
 
-.prediction-studio-page :where(
-  .hero-leaf-mark,
-  .progress-icon,
-  .field-helper,
-  .select-shell,
-  .analyze-area-button,
-  .clear-area-button,
-  .prediction-security-note
-) svg {
+.prediction-icon-mask {
+  display: inline-block;
+  flex: 0 0 auto;
   width: 1em;
   height: 1em;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2;
+  background: currentColor;
+  -webkit-mask: var(--prediction-icon) center / contain no-repeat;
+  mask: var(--prediction-icon) center / contain no-repeat;
+  pointer-events: none;
 }
 
 .prediction-analyzer-hero {
@@ -111,10 +104,9 @@
   color: var(--leaf);
 }
 
-.hero-leaf-mark svg {
+.hero-leaf-mark .prediction-icon-mask {
   width: 44px;
   height: 44px;
-  stroke-width: 1.8;
 }
 
 .prediction-studio-header h1 {
@@ -189,10 +181,9 @@
   box-shadow: inset 0 0 0 10px rgba(47, 125, 60, 0.04);
 }
 
-.progress-icon svg {
+.progress-icon .prediction-icon-mask {
   width: 34px;
   height: 34px;
-  stroke-width: 1.9;
 }
 
 .progress-copy {
@@ -266,7 +257,7 @@
   line-height: 1.35;
 }
 
-.field-helper svg {
+.field-helper .prediction-icon-mask {
   flex: 0 0 auto;
   width: 20px;
   height: 20px;
@@ -283,7 +274,7 @@
   min-width: 0;
 }
 
-.select-shell > svg {
+.select-shell > .prediction-icon-mask {
   position: absolute;
   left: 16px;
   top: 50%;
@@ -367,7 +358,7 @@
   font-size: 16px;
 }
 
-.analyze-area-button svg {
+.analyze-area-button .prediction-icon-mask {
   width: 25px;
   height: 25px;
 }
@@ -379,7 +370,7 @@
   background: rgba(255, 255, 255, 0.9);
 }
 
-.clear-area-button svg {
+.clear-area-button .prediction-icon-mask {
   width: 22px;
   height: 22px;
 }
@@ -415,7 +406,7 @@
   text-align: center;
 }
 
-.prediction-security-note svg {
+.prediction-security-note .prediction-icon-mask {
   flex: 0 0 auto;
   width: 24px;
   height: 24px;
@@ -528,6 +519,7 @@
 .map-instruction-chip,
 .map-area-chip,
 .map-district-chip,
+.map-reserve-chip,
 .map-drawing-toolbar {
   position: absolute;
   z-index: 700;
@@ -582,8 +574,20 @@
   border-radius: 8px;
 }
 
+.map-reserve-chip {
+  top: 172px;
+  right: 16px;
+  min-width: 168px;
+  max-width: min(280px, calc(100% - 32px));
+  padding: 11px 13px;
+  border-radius: 8px;
+  border-color: rgba(180, 35, 24, 0.34);
+  background: rgba(255, 244, 240, 0.95);
+}
+
 .map-area-chip span,
-.map-district-chip span {
+.map-district-chip span,
+.map-reserve-chip span {
   display: block;
   color: var(--muted);
   font-size: 11px;
@@ -592,12 +596,18 @@
 }
 
 .map-area-chip strong,
-.map-district-chip strong {
+.map-district-chip strong,
+.map-reserve-chip strong {
   display: block;
   margin-top: 3px;
   color: var(--ink);
   font-size: 18px;
   overflow-wrap: anywhere;
+}
+
+.map-reserve-chip span,
+.map-reserve-chip strong {
+  color: #96322c;
 }
 
 .prediction-report-stack {
@@ -743,6 +753,67 @@
   color: #96322c;
   background: #fff0ed;
   border: 1px solid #efb8b0;
+}
+
+.reserved-forest-warning {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 220px;
+  padding: 24px;
+  border: 1px solid #e3a49a;
+  border-left: 6px solid #b42318;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #fff5f1, #fffaf0);
+  box-shadow: 0 12px 26px rgba(150, 50, 44, 0.1);
+  text-align: left;
+}
+
+.reserved-warning-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  color: #b42318;
+  background: #ffe4dc;
+  box-shadow: inset 0 0 0 8px rgba(180, 35, 24, 0.06);
+}
+
+.reserved-warning-icon .prediction-icon-mask {
+  width: 30px;
+  height: 30px;
+}
+
+.reserved-forest-warning div {
+  display: grid;
+  gap: 7px;
+  max-width: 620px;
+  min-width: 0;
+}
+
+.reserved-forest-warning strong {
+  color: #7c1d16;
+  font-size: 21px;
+  font-weight: 950;
+  line-height: 1.18;
+}
+
+.reserved-forest-warning p,
+.reserved-forest-warning small {
+  margin: 0;
+  color: #96322c;
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
+.reserved-forest-warning small {
+  color: #70584f;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .planning-results {
@@ -1175,8 +1246,21 @@
     bottom: 154px;
   }
 
+  .map-reserve-chip {
+    top: auto;
+    right: 16px;
+    bottom: 220px;
+  }
+
   .map-drawing-toolbar {
     right: 16px;
+  }
+
+  .reserved-forest-warning {
+    align-items: flex-start;
+    flex-direction: column;
+    min-height: 0;
+    padding: 20px;
   }
 
   .score-ring {

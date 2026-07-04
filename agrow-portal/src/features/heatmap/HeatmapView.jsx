@@ -50,6 +50,17 @@ function HeatmapView() {
   const [selectedDistrict, setSelectedDistrict] = useState("Sandakan");
   const [comparisonCrop, setComparisonCrop] = useState("");
   const [comparisonList, setComparisonList] = useState(["Banana"]);
+  const [locationState, setLocationState] = useState({
+    status: "idle",
+    message: "",
+    coordinates: null,
+  });
+
+  const isLocating = locationState.status === "loading";
+  const currentLocationPoint =
+    locationState.coordinates && isCoordinateInBounds(locationState.coordinates, geoBounds)
+      ? projectCoordinate(locationState.coordinates[0], locationState.coordinates[1], geoBounds)
+      : null;
 
   const mapPaths = useMemo(
     () =>
@@ -80,20 +91,53 @@ function HeatmapView() {
 
   function handleUseCurrentLocation() {
     if (!navigator.geolocation) {
-      alert("Geolocation is not available in this browser.");
+      setLocationState({
+        status: "error",
+        message: "Geolocation is not available in this browser.",
+        coordinates: null,
+      });
       return;
     }
 
+    setLocationState({
+      status: "loading",
+      message: "Finding your current location...",
+      coordinates: null,
+    });
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const coordinates = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        };
-        console.log("Current location coordinates:", coordinates);
+        const coordinates = [position.coords.longitude, position.coords.latitude];
+        const districtFeature = findDistrictByCoordinate(coordinates, districtFeatures);
+
+        if (!districtFeature) {
+          setLocationState({
+            status: "error",
+            message: "Your current location is outside the Sabah district map.",
+            coordinates,
+          });
+          return;
+        }
+
+        const district = getDistrictName(districtFeature);
+        setSelectedDistrict(district);
+        setLocationState({
+          status: "success",
+          message: `Detected ${district} from your current location.`,
+          coordinates,
+        });
       },
-      () => {
-        alert("Unable to access your current location.");
+      (error) => {
+        setLocationState({
+          status: "error",
+          message: getLocationErrorMessage(error),
+          coordinates: null,
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 300000,
       },
     );
   }
@@ -121,11 +165,17 @@ function HeatmapView() {
               </select>
             </label>
 
-            <button className="location-button" type="button" onClick={handleUseCurrentLocation}>
+            <button className="location-button" type="button" onClick={handleUseCurrentLocation} disabled={isLocating}>
               <LocationIcon />
-              <span>Use My Current Location</span>
+              <span>{isLocating ? "Locating..." : "Use My Current Location"}</span>
             </button>
           </div>
+
+          {locationState.message && (
+            <p className={`location-status ${locationState.status}`} aria-live="polite">
+              {locationState.message}
+            </p>
+          )}
 
           <div className="heatmap-map-area">
             <div className="heatmap-map-frame">
@@ -154,6 +204,13 @@ function HeatmapView() {
                     </path>
                   ))}
                 </g>
+
+                {currentLocationPoint && (
+                  <g className="current-location-marker" aria-label="Current location marker">
+                    <circle className="location-marker-pulse" cx={currentLocationPoint[0]} cy={currentLocationPoint[1]} r="16" />
+                    <circle className="location-marker-dot" cx={currentLocationPoint[0]} cy={currentLocationPoint[1]} r="6" />
+                  </g>
+                )}
               </svg>
 
               <div className="heatmap-legend" aria-label="Suitability legend">
@@ -178,7 +235,7 @@ function HeatmapView() {
           </div>
         </section>
 
-        <aside className="heatmap-side-stack">
+        <div className="heatmap-section-stack">
           <section className="heatmap-card prediction-card" aria-label="Prediction">
             <h2>PREDICTION</h2>
             <div className="recommendation-box">
@@ -224,7 +281,7 @@ function HeatmapView() {
               ))}
             </div>
           </section>
-        </aside>
+        </div>
       </div>
     </div>
   );
@@ -318,6 +375,67 @@ function getSuitabilityClass(score) {
   if (score > 80) return "high";
   if (score >= 50) return "moderate";
   return "low";
+}
+
+function findDistrictByCoordinate(coordinates, features) {
+  return features.find((feature) => pointInFeature(coordinates, feature));
+}
+
+function pointInFeature(point, feature) {
+  const geometry = feature?.geometry;
+  if (!geometry) return false;
+
+  if (geometry.type === "Polygon") {
+    return pointInPolygonCoordinates(point, geometry.coordinates);
+  }
+
+  if (geometry.type === "MultiPolygon") {
+    return geometry.coordinates.some((polygonCoordinates) => pointInPolygonCoordinates(point, polygonCoordinates));
+  }
+
+  return false;
+}
+
+function pointInPolygonCoordinates(point, polygonCoordinates) {
+  const [outerRing, ...holes] = polygonCoordinates || [];
+  if (!outerRing || !pointInRing(point, outerRing)) return false;
+
+  return !holes.some((ring) => pointInRing(point, ring));
+}
+
+function pointInRing([lon, lat], ring) {
+  let inside = false;
+
+  for (let current = 0, previous = ring.length - 1; current < ring.length; previous = current++) {
+    const [currentLon, currentLat] = ring[current];
+    const [previousLon, previousLat] = ring[previous];
+    const crossesLatitude = currentLat > lat !== previousLat > lat;
+    const intersectionLon = ((previousLon - currentLon) * (lat - currentLat)) / (previousLat - currentLat) + currentLon;
+
+    if (crossesLatitude && lon < intersectionLon) inside = !inside;
+  }
+
+  return inside;
+}
+
+function isCoordinateInBounds([lon, lat], bounds) {
+  return lon >= bounds.west && lon <= bounds.east && lat >= bounds.south && lat <= bounds.north;
+}
+
+function getLocationErrorMessage(error) {
+  if (error?.code === 1) {
+    return "Location permission was denied. Allow location access and try again.";
+  }
+
+  if (error?.code === 2) {
+    return "Your current location is unavailable right now.";
+  }
+
+  if (error?.code === 3) {
+    return "Location lookup timed out. Try again in a moment.";
+  }
+
+  return "Unable to access your current location.";
 }
 
 function getGeoBounds(features) {

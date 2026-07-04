@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 from app.models.crop import Crop
 from app.models.crop_statistic import CropStatistic
 from app.services.crop_suitability_service import CROP_REQUIREMENTS
+from app.services.forest_reserve_service import validate_forest_reserve_overlap
+from app.services.gemini_insight_service import build_gemini_ai_insight
 
 
 class PredictionNotFoundError(Exception):
@@ -148,7 +150,7 @@ def get_available_crops(db: Session) -> list[dict]:
     if legacy_crops:
         return legacy_crops
 
-    return []
+    return [crop_to_dict(build_fallback_crop_threshold(name)) for name in CROP_REQUIREMENTS]
 
 
 def get_environment(db: Session, district: str | None = None) -> dict:
@@ -162,6 +164,15 @@ def get_environment(db: Session, district: str | None = None) -> dict:
 
 
 def get_suitability(db: Session, request) -> dict:
+    forest_reserve_check = validate_forest_reserve_overlap(db, request.polygon)
+    if forest_reserve_check["allowed"] is False:
+        return {
+            **forest_reserve_check,
+            "crop": request.crop,
+            "district": request.district,
+            "area_hectares": calculate_polygon_area_hectares(request.polygon) if request.polygon else None,
+        }
+
     crop = get_crop_by_name(db, request.crop)
     if not crop:
         raise PredictionNotFoundError(f"Crop '{request.crop}' was not found in the crops table.")
@@ -182,8 +193,20 @@ def get_suitability(db: Session, request) -> dict:
     explanation = build_explanation(crop, request.district, environment, suitability)
     estimate = build_return_estimate(db, crop.name, suitability["score"], area_hectares)
     planting_window = build_planting_window(environment["values"])
+    ai_insight = build_gemini_ai_insight(
+        crop=crop,
+        district=request.district,
+        area_hectares=area_hectares,
+        environment=environment,
+        suitability=suitability,
+        recommendations=suitability["recommendations"],
+        planting_window=planting_window,
+        return_estimate=estimate,
+        fallback=explanation,
+    )
 
     return {
+        **forest_reserve_check,
         "crop": crop.name,
         "district": request.district,
         "area_hectares": area_hectares,
@@ -195,7 +218,7 @@ def get_suitability(db: Session, request) -> dict:
         "recommendations": suitability["recommendations"],
         "planting_window": planting_window,
         "return_estimate": estimate,
-        "ai_insight": explanation,
+        "ai_insight": ai_insight,
     }
 
 
