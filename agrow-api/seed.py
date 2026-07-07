@@ -10,7 +10,7 @@ from app.models.spatial_grid import SpatialGrid
 from passlib.context import CryptContext
 from geoalchemy2.elements import WKTElement
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -33,10 +33,9 @@ pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 def seed_user():
     db = SessionLocal()
 
-    existing_user = db.query(User).filter(User.email == 'test@agrow.com').first()
+    existing_user = db.query(User).filter(User.email == 'sj@s.com').first()
     if existing_user:
         print('User already exist')
-        db.close()
         return
     
     test_user = User(
@@ -144,6 +143,17 @@ def fetch_nasa_agro_climate(lat, lng):
 
 def seed_spatial_grids():
     db = SessionLocal()
+    # 1. CLEAN THE TABLE COMPLETELY 
+    print("🧹 Performing deep table truncation and resetting ID counters...")
+    
+    # This replaces db.query(SpatialGrid).delete()
+    # It handles foreign keys (CASCADE) and resets auto-increment IDs to 1
+    db.execute(text("TRUNCATE TABLE spatial_grids RESTART IDENTITY CASCADE;"))
+    db.commit()
+    print("✨ Table spatial_grids is now perfectly empty and reset.")
+
+    # 2. THE NEW COMPREHENSIVE SABAH DATASET
+    print("📡 Initiating Dual-API Harvester (Open-Meteo + NASA POWER)...")
     try:
         # Clean target tables to avoid mixing messy proxy data with authentic telemetry
         print("🧹 Clearing out old spatial grid entries...")
@@ -153,14 +163,41 @@ def seed_spatial_grids():
         print("📡 Initiating Dual-API Harvester (Open-Meteo + NASA POWER)...")
 
         sabah_anchors = [
-            {"name": "Ranau", "lat": 5.9788, "lng": 116.5524},
-            {"name": "Kundasang", "lat": 5.9814, "lng": 116.5775},
-            {"name": "Tawau", "lat": 4.2447, "lng": 117.8912},
-            {"name": "Tenom", "lat": 5.1167, "lng": 115.9500},
+            # West Coast Division (Bahagian Pantai Barat)
+            {"name": "Kota Kinabalu", "lat": 5.9749, "lng": 116.0924},
+            {"name": "Penampang", "lat": 5.9142, "lng": 116.1042},
             {"name": "Papar", "lat": 5.7333, "lng": 115.9333},
+            {"name": "Tuaran", "lat": 6.1794, "lng": 116.2316},
             {"name": "Kota Belud", "lat": 6.3500, "lng": 116.4333},
+            {"name": "Ranau", "lat": 5.9788, "lng": 116.5524},
+
+            # Interior Division (Bahagian Pedalaman)
             {"name": "Keningau", "lat": 5.3333, "lng": 116.1667},
-            {"name": "Sandakan", "lat": 5.8402, "lng": 118.1179}
+            {"name": "Tenom", "lat": 5.1167, "lng": 115.9500},
+            {"name": "Tambunan", "lat": 5.6667, "lng": 116.3667},
+            {"name": "Nabawan", "lat": 4.9833, "lng": 116.4167},
+            {"name": "Beaufort", "lat": 5.3473, "lng": 115.7455},
+            {"name": "Kuala Penyu", "lat": 5.5721, "lng": 115.5898},
+            {"name": "Sipitang", "lat": 5.0833, "lng": 115.5500},
+
+            # Sandakan Division (Bahagian Sandakan)
+            {"name": "Sandakan", "lat": 5.8402, "lng": 118.1179},
+            {"name": "Beluran", "lat": 6.0007, "lng": 117.5574},
+            {"name": "Telupid", "lat": 5.6200, "lng": 117.1200},
+            {"name": "Kinabatangan", "lat": 5.5333, "lng": 117.8500},
+            {"name": "Tongod", "lat": 5.2631, "lng": 116.9634},
+
+            # Tawau Division (Bahagian Tawau)
+            {"name": "Tawau", "lat": 4.2447, "lng": 117.8912},
+            {"name": "Lahad Datu", "lat": 5.0268, "lng": 118.3270},
+            {"name": "Semporna", "lat": 4.4811, "lng": 118.6112},
+            {"name": "Kunak", "lat": 4.6833, "lng": 118.2333},
+            {"name": "Kalabakan", "lat": 4.4124, "lng": 117.4712},
+
+            # Kudat Division (Bahagian Kudat)
+            {"name": "Kudat", "lat": 6.8833, "lng": 116.8333},
+            {"name": "Pitas", "lat": 6.7132, "lng": 117.0706},
+            {"name": "Kota Marudu", "lat": 6.4951, "lng": 116.7644}
         ]
 
         spatial_records = []
@@ -247,7 +284,6 @@ def seed_doa_statistics():
         print(f"❌ Error seeding statistics: {e}")
     finally:
         db.close()
-
 
 if __name__ == '__main__':
     print('will start to seed...')

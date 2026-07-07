@@ -3,6 +3,17 @@ import joblib
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import create_engine, text
+
+DB_USER='postgres'
+DB_PASSWORD= os.getenv("DATABASE_PASSWORD")
+DB_HOST='localhost'
+DB_PORT='5432'
+DB_NAME='agrow_db'
+
+DATABASE_URL=f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+
+engine = create_engine(DATABASE_URL)
 
 router = APIRouter()
 
@@ -55,7 +66,9 @@ def predict_crop_suitability(data: PredictionInput):
     probabilities = classifier.predict_proba(input_df)[0]
     classes = classifier.classes_
 
-    prob_breakdown = {str(cls): round(float(prob) * 100, 2) for cls, prob in zip(classes, probabilities)}
+    raw_breakdown = {str(cls): round(float(prob) * 100, 2) for cls, prob in zip(classes, probabilities)}
+    desired_order = ["S1", "S2", "S3", "N"]
+    prob_breakdown = {label: raw_breakdown.get(label, 0.0) for label in desired_order}
 
     return {
         'status': 'success',
@@ -68,3 +81,61 @@ def predict_crop_suitability(data: PredictionInput):
         'suitability' : prediction,
         'confidence_matrix' : prob_breakdown
     }
+
+@router.get("/live-matrix")
+def get_live_ecosystem_matrix():
+    try:
+        with engine.connect() as conn:
+            # 1. Fetch real environmental data aggregated by district
+            grid_query = text("""
+                SELECT 
+                    district,
+                    AVG(latitude) as lat,
+                    AVG(longitude) as lng,
+                    ROUND(AVG(elevation_meters)::numeric, 1) as elev,
+                    ROUND(AVG(slope_pct)::numeric, 1) as slope,
+                    ROUND(AVG(soil_ph)::numeric, 1) as ph,
+                    ROUND(AVG(soil_depth_cm)::numeric, 0) as depth,
+                    ROUND(AVG(annual_rainfall_mm)::numeric, 1) as rain,
+                    ROUND(AVG(solar_radiation)::numeric, 2) as solar,
+                    ROUND(AVG(root_zone_moisture)::numeric, 2) as moisture
+                FROM spatial_grids
+                GROUP BY district;
+            """)
+            grid_rows = conn.execute(grid_query).fetchall()
+
+            # 2. Fetch official crop metrics
+            crop_query = text("SELECT name FROM crops;")
+            crop_rows = conn.execute(crop_query).fetchall()
+
+        # Format into a clean structured JSON payload for React
+        district_matrix = {
+            row._mapping["district"]: {
+                "lat": float(row._mapping["lat"]),
+                "lng": float(row._mapping["lng"]),
+                "elev": float(row._mapping["elev"]),
+                "slope": float(row._mapping["slope"]),
+                "ph": float(row._mapping["ph"]),
+                "depth": int(row._mapping["depth"]),
+                "rain": float(row._mapping["rain"]),
+                "solar": float(row._mapping["solar"]),
+                "moisture": float(row._mapping["moisture"])
+            }
+            for row in grid_rows
+        }
+
+        crop_list = [row._mapping["name"] for row in crop_rows]
+
+        # If DB hasn't been seeded yet, send a structural fallback message
+        if not district_matrix:
+            return {"status": "empty", "message": "Database tables are empty. Run seed.py first."}
+
+        return {
+            "status": "success",
+            "districts": district_matrix,
+            "crops": crop_list
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database connectivity failure: {str(e)}")
+    

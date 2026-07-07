@@ -27,4 +27,4 @@ app.include_router(predict.router, prefix='/api/predict', tags=['ai predictions'
 
 @app.get('/')
 def read_root():
-    return {'message': 'hi'}
+    return {'message': 'this is agrow by cleek'}
