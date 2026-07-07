@@ -59,6 +59,7 @@ function PlanningResults({ result }) {
   const plantingWindow = result.planting_window || {}
   const score = Number(suitability.score || 0)
   const tone = getSuitabilityTone(suitability.status)
+  const genAiInsight = normalizeGenAiInsight(result.genai_insight, result.ai_insight)
 
   return (
     <div className="planning-results planning-results-wide">
@@ -89,19 +90,39 @@ function PlanningResults({ result }) {
       </div>
 
       <article className="insight-summary-card">
-        <span>AI-style recommendation summary</span>
-        <p>{result.ai_insight}</p>
+        <span>AI recommendation summary</span>
+        {genAiInsight ? <GenAiInsightSummary insight={genAiInsight} /> : <p>{result.ai_insight}</p>}
       </article>
 
-      <div className="quick-insight-grid">
-        <InsightPreview title="Strengths" items={suitability.strengths} />
-        <InsightPreview title="Watch points" items={suitability.limitations} />
+      <div className="quick-insight-grid genai-section-grid">
+        <InsightPreview title="Key strengths" items={genAiInsight?.key_strengths || suitability.strengths} />
+        <InsightPreview title="Potential risks" items={genAiInsight?.potential_risks || suitability.limitations} />
+        <InsightPreview title="Missing data" items={genAiInsight?.missing_data} />
       </div>
 
-      <details className="planning-accordion">
-        <summary>Recommendations</summary>
-        <InsightList items={suitability.recommendations} />
-      </details>
+      <article className="recommendation-panel">
+        <span>Recommended actions</span>
+        <InsightList items={genAiInsight?.recommended_actions || suitability.recommendations} />
+      </article>
+    </div>
+  )
+}
+
+function GenAiInsightSummary({ insight }) {
+  const confidence = normalizeConfidence(insight.confidence_level)
+
+  return (
+    <div className="genai-summary-content">
+      <p>{insight.crop_suitability_summary}</p>
+      <div className="genai-confidence-row">
+        <span>Confidence level</span>
+        <strong className={`confidence-pill confidence-${confidence.toLowerCase()}`}>{confidence}</strong>
+      </div>
+      {insight.fallback_used && (
+        <small className="genai-fallback-note">
+          {insight.fallback_reason || "Using rule-based fallback because Gemini insight is unavailable."}
+        </small>
+      )}
     </div>
   )
 }
@@ -137,4 +158,37 @@ function InsightList({ items = [] }) {
       </ul>
     </div>
   )
+}
+
+function normalizeGenAiInsight(raw, fallbackSummary) {
+  if (!raw && !fallbackSummary) return null
+
+  return {
+    crop_suitability_summary: stringifyInsight(raw?.crop_suitability_summary || fallbackSummary || "No insight returned."),
+    key_strengths: cleanInsightList(raw?.key_strengths),
+    potential_risks: cleanInsightList(raw?.potential_risks),
+    recommended_actions: cleanInsightList(raw?.recommended_actions),
+    confidence_level: normalizeConfidence(raw?.confidence_level),
+    missing_data: cleanInsightList(raw?.missing_data, ["No missing data returned."]),
+    fallback_used: Boolean(raw?.fallback_used),
+    fallback_reason: stringifyInsight(raw?.fallback_reason),
+  }
+}
+
+function cleanInsightList(items, fallback = null) {
+  const values = Array.isArray(items) ? items : items ? [items] : []
+  const cleaned = values.map((item) => stringifyInsight(item)).filter(Boolean)
+  return cleaned.length ? cleaned : fallback
+}
+
+function stringifyInsight(value) {
+  return typeof value === "string" ? value.trim() : value == null ? "" : String(value).trim()
+}
+
+function normalizeConfidence(value) {
+  const text = stringifyInsight(value).toLowerCase()
+  if (text.includes("high")) return "High"
+  if (text.includes("low")) return "Low"
+  if (text.includes("medium") || text.includes("moderate")) return "Medium"
+  return "Medium"
 }

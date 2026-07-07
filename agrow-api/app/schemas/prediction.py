@@ -110,6 +110,19 @@ class ReturnEstimate(BaseModel):
     basis: str
 
 
+class GenAiInsight(BaseModel):
+    crop_suitability_summary: str
+    key_strengths: list[str] = Field(default_factory=list)
+    potential_risks: list[str] = Field(default_factory=list)
+    recommended_actions: list[str] = Field(default_factory=list)
+    confidence_level: str
+    missing_data: list[str] = Field(default_factory=list)
+    source: str = "fallback"
+    model: str | None = None
+    fallback_used: bool = False
+    fallback_reason: str | None = None
+
+
 class SuitabilityResponse(BaseModel):
     allowed: bool = True
     reserved_forest: bool = False
@@ -131,3 +144,4 @@ class SuitabilityResponse(BaseModel):
     planting_window: PlantingWindow | None = None
     return_estimate: ReturnEstimate | None = None
     ai_insight: str | None = None
+    genai_insight: GenAiInsight | None = None

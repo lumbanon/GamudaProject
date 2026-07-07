@@ -193,7 +193,7 @@ def get_suitability(db: Session, request) -> dict:
     explanation = build_explanation(crop, request.district, environment, suitability)
     estimate = build_return_estimate(db, crop.name, suitability["score"], area_hectares)
     planting_window = build_planting_window(environment["values"])
-    ai_insight = build_gemini_ai_insight(
+    genai_insight = build_gemini_ai_insight(
         crop=crop,
         district=request.district,
         area_hectares=area_hectares,
@@ -204,6 +204,7 @@ def get_suitability(db: Session, request) -> dict:
         return_estimate=estimate,
         fallback=explanation,
     )
+    ai_insight = genai_insight.get("crop_suitability_summary") or explanation
 
     return {
         **forest_reserve_check,
@@ -219,6 +220,7 @@ def get_suitability(db: Session, request) -> dict:
         "planting_window": planting_window,
         "return_estimate": estimate,
         "ai_insight": ai_insight,
+        "genai_insight": genai_insight,
     }
 
 

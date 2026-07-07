@@ -844,6 +844,7 @@
 .insight-summary-card,
 .feature-tile,
 .source-note,
+.recommendation-panel,
 .planning-accordion,
 .insight-preview {
   min-width: 0;
@@ -858,7 +859,8 @@
 .result-card,
 .insight-summary-card,
 .feature-tile,
-.source-note {
+.source-note,
+.recommendation-panel {
   padding: 15px;
 }
 
@@ -906,6 +908,7 @@
 .score-result-card > div:last-child > span,
 .result-card span,
 .insight-summary-card span,
+.recommendation-panel > span,
 .feature-tile span,
 .insight-list span {
   display: block;
@@ -975,10 +978,70 @@
   font-size: 13px;
 }
 
+.genai-summary-content {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.genai-confidence-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.genai-confidence-row span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.confidence-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.confidence-high {
+  color: #245b32;
+  background: #e5f5e2;
+  border: 1px solid #bfdfb9;
+}
+
+.confidence-medium {
+  color: #7a571b;
+  background: #fff1cc;
+  border: 1px solid #e8c777;
+}
+
+.confidence-low {
+  color: #96322c;
+  background: #fff0ed;
+  border: 1px solid #efb8b0;
+}
+
+.genai-fallback-note {
+  color: #6a746d;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
 .quick-insight-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.genai-section-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .insight-preview {
@@ -1067,6 +1130,15 @@
   display: grid;
   gap: 8px;
   padding: 10px 13px 13px;
+}
+
+.recommendation-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.recommendation-panel .insight-list {
+  padding: 0;
 }
 
 .insight-list ul {
@@ -1209,6 +1281,7 @@
   .planning-action-row,
   .result-card-grid,
   .quick-insight-grid,
+  .genai-section-grid,
   .feature-grid,
   .score-result-card {
     grid-template-columns: minmax(0, 1fr);
