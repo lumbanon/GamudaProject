@@ -417,3 +417,15 @@ html {
     scroll-behavior: auto !important;
   }
 }
+
+/* Resize the primary button */
+.primary-button {
+  padding: 14px 28px;
+  font-size: 1.1rem;
+}
+
+/* Resize the secondary button */
+.secondary-button {
+  padding: 14px 28px;
+  font-size: 1.1rem;
+}
