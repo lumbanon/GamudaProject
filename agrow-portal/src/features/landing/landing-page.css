@@ -209,15 +209,16 @@
   font-weight: 800;
   cursor: pointer;
   transition:
-    transform 140ms ease,
     box-shadow 140ms ease,
     border-color 140ms ease,
     background-color 140ms ease;
 }
 
+.landing-nav-button:hover,
 .landing-page .primary-button:hover,
 .landing-page .secondary-button:hover {
-  transform: translateY(-1px);
+  transform: none !important; /* The !important force-kills the movement */
+  transition: none !important; /* This kills the animation */
 }
 
 .landing-page .secondary-button {
@@ -416,4 +417,17 @@ html {
   .landing-page {
     scroll-behavior: auto !important;
   }
+}
+
+.landing-nav-button {
+  min-height: 42px;
+  /* Add these lines */
+  width: 100px; 
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Keep your existing styles below */
+  padding: 9px 16px;
+  border-radius: 8px;
+  /* ... rest of your code ... */
 }
