@@ -17,7 +17,7 @@ const featureCards = [
   },
   {
     title: "Crop Suitability Heatmaps",
-    body: "Compare Banana, Corn, Cocoa, and EcoCrop records against local conditions.",
+    body: "Compare a variety of regional crop requirements against local soil and environmental conditions.",
     image: logo2,
     alt: "Crop Suitability Heatmaps Logo",
   },
@@ -80,7 +80,6 @@ function LandingPage() {
             alt="Mount Kinabalu and Sabah highland landscape"
           />
           <div className="hero-copy">
-            <span className="eyebrow">AGROW BY CLEEK</span>
             <h1>Data-Driven Crop Intelligence for Sabah's Future</h1>
             <p>
               Real-time satellite data, predictive ML, and GIS mapping help
