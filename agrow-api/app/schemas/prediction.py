@@ -68,6 +68,8 @@ class EnvironmentOverrides(BaseModel):
 class SuitabilityRequest(BaseModel):
     crop: str
     district: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     polygon: list[list[float]] | None = None
     user_inputs: EnvironmentOverrides | None = None
 

@@ -122,6 +122,7 @@
   margin: 0;
   color: var(--forest);
   font-size: 38px;
+  font-weight: 600; /* Page title: "Farm Area Analyzer" */
   line-height: 1.04;
   letter-spacing: 0;
 }
@@ -130,7 +131,7 @@
   margin: 0;
   color: #485b52;
   font-size: 15px;
-  font-weight: 550;
+  font-weight: 550; /* Hero subtitle: "Select your farm details..." */
   line-height: 1.55;
 }
 
@@ -204,14 +205,14 @@
 .progress-copy strong {
   color: var(--forest);
   font-size: 17px;
-  font-weight: 900;
+  font-weight: 900; /* Progress titles: Location, Crop, Ready */
   line-height: 1.2;
 }
 
 .progress-copy small {
   color: #5f7168;
   font-size: 14px;
-  font-weight: 550;
+  font-weight: 550; /* Progress descriptions under Location, Crop, Ready */
   line-height: 1.35;
 }
 
@@ -241,15 +242,15 @@
 .field-title {
   color: var(--forest);
   font-size: 14px;
-  font-weight: 950;
+  font-weight: 550; /* Field labels: "1. Farm area", "2. District", "3. Crop" */
   line-height: 1.2;
 }
 
 .control-field > strong {
   display: block;
   color: var(--deep-forest);
-  font-size: 25px;
-  font-weight: 950;
+  font-size: 20px;
+  font-weight: 550; /* Big field values, such as "0 ha" */
   line-height: 1.08;
   overflow-wrap: anywhere;
 }
@@ -262,7 +263,7 @@
   margin-top: auto;
   color: #5f7168;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 550; /* Field helper text, such as "Draw on the map or choose district" */
   line-height: 1.35;
 }
 
@@ -319,7 +320,7 @@
   background: #ffffff;
   font: inherit;
   font-size: 14px;
-  font-weight: 850;
+  font-weight: 550; /* Dropdown text/placeholders: "All matched map area", "Detecting from boundary", "Select crop", "Loading crops..." */
 }
 
 .control-field select:focus {
@@ -352,7 +353,7 @@
   background: #ffffff;
   font: inherit;
   font-size: 14px;
-  font-weight: 850;
+  font-weight: 550; /* Buttons: Start Boundary, Finish Boundary, Undo last point, Clear Area, Analyze Farm Area, Clear */
   cursor: pointer;
   transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
 }
@@ -410,7 +411,7 @@
   min-width: 0;
   color: #51635a;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 600; /* Bottom security note: "Your data is secure..." */
   line-height: 1.4;
   text-align: center;
 }
@@ -546,7 +547,7 @@
   border-radius: 999px;
   color: var(--forest);
   font-size: 13px;
-  font-weight: 850;
+  font-weight: 550; /* Map instruction chip: "Draw your planting boundary on the map" */
 }
 
 .map-drawing-toolbar {
@@ -594,28 +595,27 @@
   background: rgba(255, 244, 240, 0.95);
 }
 
-.map-area-chip span,
-.map-district-chip span,
-.map-reserve-chip span {
+.map-area-chip .map-chip-label,
+.map-district-chip .map-chip-label,
+.map-reserve-chip .map-chip-label {
   display: block;
   color: var(--muted);
   font-size: 11px;
-  font-weight: 850;
+  font-weight: 550; /* Small map chip labels: Selected area, District, Reserved forest */
   text-transform: uppercase;
 }
 
-.map-area-chip strong,
-.map-district-chip strong,
-.map-reserve-chip strong {
+.map-chip-value {
   display: block;
   margin-top: 3px;
   color: var(--ink);
   font-size: 18px;
+  font-weight: 450; /* Map chip values: area size, district name, planting blocked */
   overflow-wrap: anywhere;
 }
 
-.map-reserve-chip span,
-.map-reserve-chip strong {
+.map-reserve-chip .map-chip-label,
+.map-reserve-chip .map-chip-value {
   color: #96322c;
 }
 
@@ -691,7 +691,7 @@
   align-items: center;
   color: var(--forest);
   font-size: 18px;
-  font-weight: 950;
+  font-weight: 550; /* Section headings: "AI Farm Insight" and "Environmental data" */
   line-height: 1.2;
 }
 
@@ -714,7 +714,7 @@
   padding: 3px 8px;
   border-radius: 999px;
   font-size: 10px;
-  font-weight: 900;
+  font-weight: 900; /* Source pill text, such as "Local data" */
   letter-spacing: 0;
   text-transform: uppercase;
 }
@@ -737,7 +737,7 @@
   padding: 16px;
   border-radius: 8px;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 550; /* Placeholder/loading/error text: "Draw an area...", "Environmental layers will appear here...", "Analyzing..." */
   line-height: 1.5;
 }
 
@@ -806,7 +806,7 @@
 .reserved-forest-warning strong {
   color: #7c1d16;
   font-size: 21px;
-  font-weight: 950;
+  font-weight: 600; /* Warning title: "Reserved Forest Area Detected" or "Built-Up Area Detected" */
   line-height: 1.18;
 }
 
@@ -815,14 +815,14 @@
   margin: 0;
   color: #96322c;
   font-size: 14px;
-  font-weight: 750;
+  font-weight: 750; /* Warning paragraph text */
   line-height: 1.5;
 }
 
 .reserved-forest-warning small {
   color: #70584f;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 700; /* Warning small helper text */
 }
 
 .planning-results {
@@ -902,7 +902,7 @@
 .score-ring span {
   color: var(--muted);
   font-size: 11px;
-  font-weight: 850;
+  font-weight: 850; /* Score ring small "/100" text */
 }
 
 .score-result-card > div:last-child > span,
@@ -914,7 +914,7 @@
   display: block;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 900; /* Card labels: Suitability score, Area size, Planting window, Estimated return, feature labels */
   line-height: 1.25;
 }
 
@@ -925,7 +925,7 @@
   margin-top: 6px;
   color: var(--deep-forest);
   font-size: 18px;
-  font-weight: 950;
+  font-weight: 600; /* Card main values: status, revenue, feature values */
   overflow-wrap: anywhere;
 }
 
@@ -935,7 +935,7 @@
   margin-top: 6px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 650; /* Card detail text and AI summary paragraph */
   line-height: 1.45;
 }
 
@@ -958,7 +958,7 @@
     conic-gradient(var(--clay) var(--score), #e0e8e1 0);
 }
 
-.result-card p {
+.result-card .card-preview-text {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
@@ -995,7 +995,7 @@
 .genai-confidence-row span {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 900; /* "Confidence level" label */
 }
 
 .confidence-pill {
@@ -1005,7 +1005,7 @@
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 950;
+  font-weight: 600; /* Confidence pill text: High, Medium, Low */
   line-height: 1;
 }
 
@@ -1030,7 +1030,7 @@
 .genai-fallback-note {
   color: #6a746d;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 700; /* Gemini fallback note */
   line-height: 1.4;
 }
 
@@ -1057,7 +1057,7 @@
 .insight-preview span {
   color: var(--forest);
   font-size: 13px;
-  font-weight: 950;
+  font-weight: 600; /* Insight preview titles: Key strengths, Potential risks, Missing data */
 }
 
 .insight-preview strong {
@@ -1066,7 +1066,7 @@
   padding-left: 18px;
   color: var(--ink);
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 750; /* Insight preview item text */
   line-height: 1.35;
 }
 
@@ -1097,7 +1097,7 @@
   padding: 0 13px;
   color: var(--forest);
   font-size: 13px;
-  font-weight: 950;
+  font-weight: 500; /* Accordion titles: Climate data, Soil data, Topography data */
   cursor: pointer;
   list-style: none;
 }
@@ -1141,6 +1141,47 @@
   padding: 0;
 }
 
+.prediction-report-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.download-pdf-button {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(47, 125, 60, 0.24);
+  border-radius: 8px;
+  padding: 0 16px;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--leaf), var(--forest));
+  box-shadow: 0 10px 20px rgba(31, 95, 54, 0.16);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 900; /* Download PDF button */
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.download-pdf-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 26px rgba(31, 95, 54, 0.22);
+}
+
+.prediction-print-frame {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  width: 0;
+  height: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .insight-list ul {
   display: grid;
   gap: 6px;
@@ -1148,7 +1189,7 @@
   padding-left: 18px;
   color: var(--ink);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 650; /* Recommended actions list items */
   line-height: 1.45;
 }
 
@@ -1175,7 +1216,7 @@
 .source-note {
   color: var(--muted);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 700; /* Source note text */
   line-height: 1.5;
   background: #fbfcf8;
   box-shadow: none;

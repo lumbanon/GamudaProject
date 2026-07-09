@@ -236,21 +236,21 @@ export default function SatellitePlanningMap({
       </div>
 
       <div className="map-area-chip">
-        <span>Selected area</span>
-        <strong>{formatHectares(polygon?.length ? calculatePolygonAreaHectares(polygon) : draftArea)}</strong>
+        <span className="map-chip-label">Selected area</span>
+        <span className="map-chip-value">{formatHectares(polygon?.length ? calculatePolygonAreaHectares(polygon) : draftArea)}</span>
       </div>
 
       {polygon?.length > 0 && (
         <div className="map-district-chip">
-          <span>District</span>
-          <strong>{district || "Not detected"}</strong>
+          <span className="map-chip-label">District</span>
+          <span className="map-chip-value">{district || "Not detected"}</span>
         </div>
       )}
 
       {isBlocked && (
         <div className="map-reserve-chip">
-          <span>Reserved forest</span>
-          <strong>Planting blocked</strong>
+          <span className="map-chip-label">Reserved forest</span>
+          <span className="map-chip-value">Planting blocked</span>
         </div>
       )}
     </div>

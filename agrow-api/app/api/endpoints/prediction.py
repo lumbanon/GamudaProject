@@ -16,6 +16,7 @@ from app.services.prediction_service import (
     PredictionNotFoundError,
     get_available_crops,
     get_environment,
+    get_live_ecosystem_matrix,
     get_suitability,
 )
 
@@ -38,6 +39,14 @@ def read_prediction_environment(
 ):
     try:
         return get_environment(db, district=district)
+    except PredictionDataError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+
+
+@router.get("/live-matrix")
+def read_prediction_live_matrix(db: Session = Depends(get_db)):
+    try:
+        return get_live_ecosystem_matrix(db)
     except PredictionDataError as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 

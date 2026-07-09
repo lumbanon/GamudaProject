@@ -31,4 +31,4 @@ app.include_router(prediction.router, prefix="/api/prediction", tags=["predictio
 
 @app.get("/")
 def read_root():
-    return {"message": "hi"}
+    return {'message': 'this is agrow by cleek'}

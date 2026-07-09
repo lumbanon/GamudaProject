@@ -54,12 +54,12 @@ export function getSuitabilityTone(status) {
 export function buildFeatureRows(features = {}) {
   return [
     { label: "Rainfall", value: formatFeatureValue(features.rainfall_mm, "mm") },
-    { label: "Temperature", value: formatFeatureValue(features.temperature_c, "C") },
+    { label: "Solar radiation", value: formatFeatureValue(features.solar_radiation) },
+    { label: "Root zone moisture", value: formatFeatureValue(features.root_zone_moisture) },
     { label: "Soil pH", value: formatFeatureValue(features.soil_ph) },
-    { label: "Nitrogen", value: formatFeatureValue(features.nitrogen, "%") },
-    { label: "Organic carbon", value: formatFeatureValue(features.organic_carbon, "%") },
+    { label: "Soil depth", value: formatFeatureValue(features.soil_depth_cm, "cm") },
     { label: "Elevation", value: formatFeatureValue(features.elevation_m, "m") },
-    { label: "Slope", value: formatFeatureValue(features.slope_deg, "deg") },
+    { label: "Slope", value: formatFeatureValue(features.slope_pct, "%") },
     { label: "Land cover", value: toTitleCase(features.land_cover || "N/A") },
   ]
 }
@@ -67,7 +67,6 @@ export function buildFeatureRows(features = {}) {
 export function buildClimateFeatureRows(features = {}) {
   return [
     { label: "Rainfall", value: formatFeatureValue(features.rainfall_mm, "mm") },
-    { label: "Temperature", value: formatFeatureValue(features.temperature_c, "C") },
     { label: "Solar radiation", value: formatFeatureValue(features.solar_radiation) },
     { label: "Root zone moisture", value: formatFeatureValue(features.root_zone_moisture) },
   ]
@@ -76,11 +75,6 @@ export function buildClimateFeatureRows(features = {}) {
 export function buildSoilFeatureRows(features = {}) {
   return [
     { label: "Soil pH", value: formatFeatureValue(features.soil_ph) },
-    { label: "Nitrogen", value: formatFeatureValue(features.nitrogen, "%") },
-    { label: "SOC", value: formatFeatureValue(features.soc, "%") },
-    { label: "Organic carbon", value: formatFeatureValue(features.organic_carbon, "%") },
-    { label: "Clay", value: formatFeatureValue(features.clay_pct, "%") },
-    { label: "Sand", value: formatFeatureValue(features.sand_pct, "%") },
     { label: "Soil depth", value: formatFeatureValue(features.soil_depth_cm, "cm") },
   ]
 }
@@ -88,8 +82,7 @@ export function buildSoilFeatureRows(features = {}) {
 export function buildTopoFeatureRows(features = {}) {
   return [
     { label: "Elevation", value: formatFeatureValue(features.elevation_m, "m") },
-    { label: "Slope", value: formatFeatureValue(features.slope_deg, "deg") },
-    { label: "Slope percent", value: formatFeatureValue(features.slope_pct, "%") },
+    { label: "Slope", value: formatFeatureValue(features.slope_pct, "%") },
     { label: "Land cover", value: toTitleCase(features.land_cover || "N/A") },
   ]
 }
@@ -114,10 +107,106 @@ export function formatPlaceholderFields(fields = []) {
   return fields.map((field) => toTitleCase(String(field).replaceAll("_", " "))).join(", ")
 }
 
+const DEFAULT_FARMER_DATA_MESSAGE = "Based on available crop and environmental data."
+const RETURN_BASIS_MESSAGE =
+  "The return estimate is based on historical crop production data, estimated yield, market value, and the suitability score for this location."
+
+export function formatFarmerDataSourceLabel(value) {
+  const text = normalizeFarmerText(value).toLowerCase()
+  if (!text) return "Available data"
+  if (hasTechnicalSourceTerm(text)) return "Local data"
+  if (text.includes("placeholder") || text.includes("fallback")) return "Available data"
+  return "Available data"
+}
+
+export function formatFarmerDataSource(value) {
+  const text = normalizeFarmerText(value)
+  if (!text || text.toLowerCase() === "n/a") return DEFAULT_FARMER_DATA_MESSAGE
+
+  const normalized = text.toLowerCase()
+  if (normalized.includes("crop_statistics")) {
+    return "Estimated using local crop statistics and the suitability score."
+  }
+  if (hasTechnicalSourceTerm(normalized)) {
+    return "Based on local crop, soil, climate, and terrain data."
+  }
+
+  return DEFAULT_FARMER_DATA_MESSAGE
+}
+
+export function formatFarmerReturnConfidence(value) {
+  const text = normalizeFarmerText(value)
+  if (!text || text.toLowerCase() === "n/a") return DEFAULT_FARMER_DATA_MESSAGE
+
+  const normalized = text.toLowerCase()
+  if (normalized.includes("unavailable until") || normalized.includes("field boundary")) {
+    return "Return estimate is unavailable until a field boundary is provided."
+  }
+  if (normalized.includes("no usable production") || normalized.includes("not enough local crop")) {
+    return "Return estimate is unavailable because there is not enough local crop production and value data for this crop."
+  }
+  if (normalized.includes("crop_statistics") || normalized.includes("calculated from")) {
+    return "Medium confidence estimate based on available crop statistics and the calculated suitability score."
+  }
+  if (normalized.includes("reference") || normalized.includes("assumption")) {
+    return "Low confidence estimate based on general crop assumptions because local crop statistics are limited."
+  }
+  if (hasTechnicalSourceTerm(normalized)) {
+    return DEFAULT_FARMER_DATA_MESSAGE
+  }
+
+  return formatFarmerFacingText(text)
+}
+
+export function formatFarmerReturnBasis(value) {
+  const text = normalizeFarmerText(value)
+  if (!text || text.toLowerCase() === "n/a") return DEFAULT_FARMER_DATA_MESSAGE
+
+  const normalized = text.toLowerCase()
+  if (normalized.includes("no area supplied") || normalized.includes("field boundary")) {
+    return "The return estimate needs a selected farm area before yield and revenue can be calculated."
+  }
+  if (normalized.includes("crop_statistics") || normalized.includes("production data") || normalized.includes("market value")) {
+    return RETURN_BASIS_MESSAGE
+  }
+  if (normalized.includes("reference") || normalized.includes("assumption")) {
+    return "The return estimate is based on general crop assumptions and the suitability score for this location."
+  }
+  if (hasTechnicalSourceTerm(normalized)) {
+    return DEFAULT_FARMER_DATA_MESSAGE
+  }
+
+  return formatFarmerFacingText(text)
+}
+
+export function formatFarmerFacingText(value) {
+  const text = normalizeFarmerText(value)
+  if (!text) return ""
+
+  return text
+    .replace(/PostgreSQL\/PostGIS/gi, "local map data")
+    .replace(/PostGIS/gi, "map data")
+    .replace(/PostgreSQL/gi, "local data")
+    .replace(/crop_statistics/gi, "crop statistics")
+    .replace(/spatial_grids/gi, "environmental grid data")
+    .replace(/agrow_db/gi, "Agrow local data")
+    .replace(/raster/gi, "map layer")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
 function formatFeatureValue(value, unit = "") {
   const number = Number(value)
   if (!Number.isFinite(number)) return "N/A"
   return unit ? `${formatNumber(number, number % 1 === 0 ? 0 : 2)} ${unit}` : formatNumber(number, 2)
+}
+
+function normalizeFarmerText(value) {
+  return typeof value === "string" ? value.trim() : value == null ? "" : String(value).trim()
+}
+
+function hasTechnicalSourceTerm(text) {
+  return /postgresql|postgis|crop_statistics|spatial_grids|agrow_db|raster/.test(text)
 }
 
 function isClosedPolygon(polygon) {

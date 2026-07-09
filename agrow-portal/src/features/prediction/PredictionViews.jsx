@@ -3,7 +3,9 @@ import heroLeafIcon from "../../assets/prediction/hero-leaf.svg?raw";
 import securityShieldIcon from "../../assets/prediction/security-shield.svg?raw";
 import kundasangImage from "../../assets/landing/kundasang.png";
 import sabahDistricts from "../dashboard/sabahDistricts";
-import CropPlanningPanel, { EnvironmentDataPanel } from "./CropPlanningPanel";
+import CropPlanningPanel, {
+  EnvironmentDataPanel,
+} from "./CropPlanningPanel";
 import PredictionAssetIcon from "./PredictionAssetIcon";
 import PredictionInsightsPanel from "./PredictionInsightsPanel";
 import SatellitePlanningMap from "./SatellitePlanningMap";
@@ -16,6 +18,7 @@ import {
 import {
   calculatePolygonAreaHectares,
   detectDistrictFromPolygon,
+  formatFarmerFacingText,
 } from "./predictionUtils";
 import "./prediction-view.css";
 
@@ -51,8 +54,7 @@ export default function PredictionViews() {
     selectedCrop &&
       hasLocation &&
       !isLoading &&
-      !isLoadingOptions &&
-      !isReservedForestBlocked,
+      !isLoadingOptions,
   );
   const displayedResult =
     analysisResult || (isReservedForestBlocked ? forestReserveResult : null);
@@ -80,7 +82,7 @@ export default function PredictionViews() {
       } catch (err) {
         if (isMounted) {
           setError(
-            err.message || "Unable to load prediction data from the database.",
+            formatFarmerFacingText(err.message) || "Unable to load prediction data right now.",
           );
         }
       } finally {
@@ -166,7 +168,7 @@ export default function PredictionViews() {
       });
       setAnalysisResult(result);
     } catch (err) {
-      setError(err.message || "Unable to analyze this farm area right now.");
+      setError(formatFarmerFacingText(err.message) || "Unable to analyze this farm area right now.");
     } finally {
       setIsLoading(false);
     }

@@ -9,6 +9,7 @@ import {
   buildClimateFeatureRows,
   buildSoilFeatureRows,
   buildTopoFeatureRows,
+  formatFarmerDataSourceLabel,
   formatHectares,
 } from "./predictionUtils"
 
@@ -135,13 +136,14 @@ function ProgressItem({ complete, description, icon, label }) {
 export function EnvironmentDataPanel({ isLoading, result }) {
   const isBlocked = Boolean(result?.allowed === false || result?.blocked_reason === "reserved_forest")
   const features = isBlocked ? null : result?.features || null
+  const sourceValue = features?.data_source
 
   return (
     <section className="sidebar-environment-panel">
       <div className="sidebar-environment-heading">
         <span>Environmental data</span>
-        {features?.data_source && (
-          <strong className={`source-pill source-${features.data_source}`}>{features.data_source}</strong>
+        {sourceValue && (
+          <strong className={`source-pill source-${sourceValue}`}>{formatFarmerDataSourceLabel(sourceValue)}</strong>
         )}
       </div>
 

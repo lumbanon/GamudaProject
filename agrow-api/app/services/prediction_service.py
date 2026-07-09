@@ -1,3 +1,4 @@
+import logging
 import math
 from dataclasses import dataclass
 from decimal import Decimal
@@ -8,9 +9,10 @@ from sqlalchemy.orm import Session
 
 from app.models.crop import Crop
 from app.models.crop_statistic import CropStatistic
-from app.services.crop_suitability_service import CROP_REQUIREMENTS
 from app.services.forest_reserve_service import validate_forest_reserve_overlap
 from app.services.gemini_insight_service import build_gemini_ai_insight
+
+logger = logging.getLogger(__name__)
 
 
 class PredictionNotFoundError(Exception):
@@ -38,14 +40,35 @@ class CropThreshold:
 
 
 FALLBACK_SCIENTIFIC_NAMES = {
-    "Banana": "Musa spp.",
-    "Cocoa": "Theobroma cacao",
-    "Corn": "Zea mays",
-    "Rice": "Oryza sativa",
+    "Cabbage": "Brassica oleracea var. capitata",
     "Durian": "Durio zibethinus",
-    "Pineapple": "Ananas comosus",
-    "Oil Palm": "Elaeis guineensis",
+    "Watermelon": "Citrullus lanatus",
 }
+
+CROP_REQUIREMENTS = {
+    "Cabbage": {
+        "rainfall": (1000, 1800, 700, 2500),
+        "temperature": (15, 21, 10, 28),
+        "ph": (6.0, 7.5, 5.2, 8.0),
+        "slope": (0, 8, 0, 15),
+        "min_soil_depth_cm": 45,
+    },
+    "Durian": {
+        "rainfall": (1500, 3000, 1200, 3800),
+        "temperature": (24, 30, 22, 35),
+        "ph": (5.5, 6.5, 5.0, 7.5),
+        "slope": (0, 15, 0, 25),
+        "min_soil_depth_cm": 100,
+    },
+    "Watermelon": {
+        "rainfall": (800, 1500, 500, 2200),
+        "temperature": (25, 35, 18, 38),
+        "ph": (6.0, 7.0, 5.2, 7.8),
+        "slope": (0, 3, 0, 5),
+        "min_soil_depth_cm": 50,
+    },
+}
+SUPPORTED_PREDICTION_CROPS = tuple(CROP_REQUIREMENTS)
 
 
 NUMERIC_ENV_COLUMNS = (
@@ -74,10 +97,15 @@ NUMERIC_ENV_COLUMNS = (
     ("root_zone_moisture", "root_zone_moisture"),
 )
 
-TEXT_ENV_COLUMNS = (
-    ("land_cover", "land_cover"),
-    ("landcover", "land_cover"),
+LAND_COVER_SOURCE_COLUMNS = (
+    "land_cover",
+    "land_cover_class",
+    "land_cover_label",
+    "landcover",
+    "land_use",
 )
+
+TEXT_ENV_COLUMNS = tuple((column_name, "land_cover") for column_name in LAND_COVER_SOURCE_COLUMNS)
 
 ENVIRONMENT_RESPONSE_FIELDS = (
     "rainfall_mm",
@@ -121,6 +149,29 @@ RASTER_LAYERS = {
     "land_cover": {"table": "land_cover", "scale": 1.0, "zero_is_nodata": True},
 }
 
+SPATIAL_GRID_POINT_COLUMNS = (
+    "district",
+    "elevation_meters",
+    "slope_pct",
+    "soil_depth_cm",
+    "soil_ph",
+    "annual_rainfall_mm",
+    "solar_radiation",
+    "root_zone_moisture",
+)
+
+SPATIAL_GRID_POINT_VALUE_MAP = {
+    "elevation_meters": "elevation_m",
+    "slope_pct": "slope_pct",
+    "soil_depth_cm": "soil_depth_cm",
+    "soil_ph": "soil_ph",
+    "annual_rainfall_mm": "rainfall_mm",
+    "solar_radiation": "solar_radiation",
+    "root_zone_moisture": "root_zone_moisture",
+}
+
+SPATIAL_GRID_MERGE_FIELDS = tuple(SPATIAL_GRID_POINT_VALUE_MAP.values()) + ("land_cover",)
+
 LAND_COVER_LABELS = {
     10: "tree cover",
     20: "shrubland",
@@ -138,7 +189,12 @@ LAND_COVER_LABELS = {
 
 def get_available_crops(db: Session) -> list[dict]:
     try:
-        crops = db.query(Crop).order_by(func.lower(Crop.name)).all()
+        crops = (
+            db.query(Crop)
+            .filter(func.lower(Crop.name).in_([name.lower() for name in SUPPORTED_PREDICTION_CROPS]))
+            .order_by(func.lower(Crop.name))
+            .all()
+        )
     except SQLAlchemyError:
         db.rollback()
         crops = []
@@ -181,6 +237,8 @@ def get_suitability(db: Session, request) -> dict:
         db,
         district=request.district,
         polygon=request.polygon,
+        latitude=request.latitude,
+        longitude=request.longitude,
         user_inputs=request.user_inputs,
     )
 
@@ -224,8 +282,8 @@ def get_suitability(db: Session, request) -> dict:
     }
 
 
-def get_crop_by_name(db: Session, crop_name: str) -> Crop | None:
-    normalized = str(crop_name or "").strip()
+def get_crop_by_name(db: Session, crop_name: str) -> Crop | CropThreshold | None:
+    normalized = canonical_prediction_crop_name(crop_name)
     if not normalized:
         return None
 
@@ -242,6 +300,14 @@ def get_crop_by_name(db: Session, crop_name: str) -> Crop | None:
     if legacy_crop:
         return legacy_crop
 
+    return build_fallback_crop_threshold(normalized)
+
+
+def canonical_prediction_crop_name(crop_name: str | None) -> str | None:
+    normalized = str(crop_name or "").strip().lower()
+    for supported_crop in SUPPORTED_PREDICTION_CROPS:
+        if supported_crop.lower() == normalized:
+            return supported_crop
     return None
 
 
@@ -270,10 +336,18 @@ def get_legacy_crop_options(db: Session) -> list[dict]:
         db.rollback()
         return []
 
-    return [crop_to_dict(legacy_crop_row_to_threshold(row)) for row in rows]
+    return [
+        crop_to_dict(legacy_crop_row_to_threshold(row))
+        for row in rows
+        if canonical_prediction_crop_name(row.get("name"))
+    ]
 
 
 def get_legacy_crop_by_name(db: Session, crop_name: str) -> CropThreshold | None:
+    crop_name = canonical_prediction_crop_name(crop_name)
+    if not crop_name:
+        return None
+
     try:
         row = db.execute(
             text(
@@ -358,7 +432,7 @@ def build_fallback_crop_threshold(crop_name: str) -> CropThreshold:
         ideal_temp_max=ideal_temp_max,
         max_temp_limit=absolute_temp_max,
         min_annual_rainfall=absolute_rain_min or ideal_rain_min,
-        min_soil_depth_cm=60,
+        min_soil_depth_cm=requirements.get("min_soil_depth_cm", 60),
         ideal_ph_min=ideal_ph_min,
         ideal_ph_max=ideal_ph_max,
         max_slope_pct=slope_degrees_to_pct(absolute_slope_max or ideal_slope_max),
@@ -388,24 +462,310 @@ def get_available_districts(db: Session) -> list[str]:
     return [str(row) for row in rows]
 
 
+def get_live_ecosystem_matrix(db: Session) -> dict:
+    try:
+        grid_rows = (
+            db.execute(
+                text(
+                    """
+                    SELECT
+                        district,
+                        AVG(latitude) AS lat,
+                        AVG(longitude) AS lng,
+                        ROUND(AVG(elevation_meters)::numeric, 1) AS elev,
+                        ROUND(AVG(slope_pct)::numeric, 1) AS slope,
+                        ROUND(AVG(soil_ph)::numeric, 1) AS ph,
+                        ROUND(AVG(soil_depth_cm)::numeric, 0) AS depth,
+                        ROUND(AVG(annual_rainfall_mm)::numeric, 1) AS rain,
+                        ROUND(AVG(solar_radiation)::numeric, 2) AS solar,
+                        ROUND(AVG(root_zone_moisture)::numeric, 2) AS moisture
+                    FROM spatial_grids
+                    WHERE district IS NOT NULL AND TRIM(district) <> ''
+                    GROUP BY district
+                    ORDER BY district;
+                    """
+                )
+            )
+            .mappings()
+            .all()
+        )
+        crop_rows = db.query(Crop.name).order_by(func.lower(Crop.name)).all()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise PredictionDataError("Unable to read Dashboard ecosystem matrix from PostgreSQL.") from exc
+
+    district_matrix = {}
+    for row in grid_rows:
+        district = str(row.get("district") or "").strip()
+        lat = coerce_float(row.get("lat"))
+        lng = coerce_float(row.get("lng"))
+        if not district or lat is None or lng is None:
+            continue
+
+        district_matrix[district] = {
+            "lat": lat,
+            "lng": lng,
+            "elev": coerce_float(row.get("elev")),
+            "slope": coerce_float(row.get("slope")),
+            "ph": coerce_float(row.get("ph")),
+            "depth": coerce_float(row.get("depth")),
+            "rain": coerce_float(row.get("rain")),
+            "solar": coerce_float(row.get("solar")),
+            "moisture": coerce_float(row.get("moisture")),
+        }
+
+    crop_list = [
+        canonical_name
+        for (name,) in crop_rows
+        if (canonical_name := canonical_prediction_crop_name(name))
+    ] or list(SUPPORTED_PREDICTION_CROPS)
+
+    if not district_matrix:
+        return {"status": "empty", "message": "Database tables are empty. Run seed.py first."}
+
+    return {
+        "status": "success",
+        "districts": district_matrix,
+        "crops": crop_list,
+    }
+
+
 def query_environment_values(
     db: Session,
     district: str | None = None,
     polygon: list[list[float]] | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
     user_inputs=None,
 ) -> dict:
     columns = get_spatial_grid_columns(db)
+    existing_environment = query_existing_environment_values(db, columns, district=district, polygon=polygon)
+    values = dict(existing_environment["values"])
+    sample_count = existing_environment["sample_count"]
+    value_sources = build_value_source_tracker(values)
+
+    prediction_point = resolve_prediction_point(latitude=latitude, longitude=longitude, polygon=polygon)
+    point_match_type = "not_run"
+
+    if columns and prediction_point:
+        point_environment = query_spatial_grid_point_values(
+            db,
+            columns,
+            lat=prediction_point["lat"],
+            lon=prediction_point["lon"],
+        )
+        point_match_type = point_environment["match_type"]
+        if point_environment["sample_count"] > 0:
+            merge_spatial_grid_point_values(values, point_environment["values"], value_sources)
+            sample_count = max(sample_count, point_environment["sample_count"])
+    elif not prediction_point:
+        logger.debug("spatial_grids point lookup skipped because no prediction latitude/longitude was available.")
+
+    overridden_fields = apply_user_inputs(values, user_inputs)
+    for field in overridden_fields:
+        if field in value_sources:
+            value_sources[field] = "existing raster/current logic"
+
+    finalized_environment = finalize_environment_values(values, sample_count)
+    log_environment_value_sources(
+        finalized_environment["values"],
+        value_sources,
+        prediction_point=prediction_point,
+        point_match_type=point_match_type,
+    )
+    return finalized_environment
+
+
+def query_existing_environment_values(
+    db: Session,
+    columns: set[str],
+    district: str | None = None,
+    polygon: list[list[float]] | None = None,
+) -> dict:
     if columns:
         spatial_environment = query_spatial_grid_environment_values(db, columns, district=district, polygon=polygon)
         if spatial_environment["sample_count"] > 0:
-            values = spatial_environment["values"]
-            apply_user_inputs(values, user_inputs)
-            return finalize_environment_values(values, spatial_environment["sample_count"])
+            raster_environment = query_raster_environment_values(db, polygon=polygon)
+            fill_missing_environment_values(spatial_environment["values"], raster_environment["values"])
+            return {
+                "sample_count": max(spatial_environment["sample_count"], raster_environment["sample_count"]),
+                "values": spatial_environment["values"],
+            }
 
-    raster_environment = query_raster_environment_values(db, polygon=polygon)
-    values = raster_environment["values"]
-    apply_user_inputs(values, user_inputs)
-    return finalize_environment_values(values, raster_environment["sample_count"])
+    return query_raster_environment_values(db, polygon=polygon)
+
+
+def query_spatial_grid_point_values(
+    db: Session,
+    columns: set[str],
+    *,
+    lat: float,
+    lon: float,
+) -> dict:
+    missing_columns = set(SPATIAL_GRID_POINT_COLUMNS) - columns
+    if "geom" not in columns or missing_columns:
+        logger.debug(
+            "spatial_grids point lookup skipped because required columns are missing: %s",
+            sorted({"geom", *missing_columns} - columns),
+        )
+        return {"sample_count": 0, "values": {}, "match_type": "missing_columns"}
+
+    select_fragments = list(SPATIAL_GRID_POINT_COLUMNS)
+    land_cover_column = get_land_cover_source_column(columns)
+    if land_cover_column:
+        select_fragments.append(f"{land_cover_column} AS land_cover")
+    select_columns = ", ".join(select_fragments)
+
+    try:
+        row = (
+            db.execute(
+                text(
+                    f"""
+                    SELECT
+                      {select_columns}
+                    FROM spatial_grids
+                    WHERE ST_Intersects(
+                      geom,
+                      ST_SetSRID(ST_Point(:lon, :lat), 4326)
+                    )
+                    LIMIT 1
+                    """
+                ),
+                {"lat": lat, "lon": lon},
+            )
+            .mappings()
+            .first()
+        )
+        match_type = "intersects"
+
+        if not row:
+            row = (
+                db.execute(
+                    text(
+                        f"""
+                        SELECT
+                          {select_columns}
+                        FROM spatial_grids
+                        ORDER BY geom <-> ST_SetSRID(ST_Point(:lon, :lat), 4326)
+                        LIMIT 1
+                        """
+                    ),
+                    {"lat": lat, "lon": lon},
+                )
+                .mappings()
+                .first()
+            )
+            match_type = "nearest"
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise PredictionDataError("Unable to read point environmental data from spatial_grids.") from exc
+
+    if not row:
+        return {"sample_count": 0, "values": {}, "match_type": "no_match"}
+
+    logger.debug(
+        "spatial_grids point lookup used %s match for lon=%s lat=%s.",
+        match_type,
+        lon,
+        lat,
+    )
+    row_data = dict(row)
+    return {
+        "sample_count": 1,
+        "values": normalize_spatial_grid_point_row(row_data),
+        "district": row_data.get("district"),
+        "match_type": match_type,
+    }
+
+
+def normalize_spatial_grid_point_row(row) -> dict:
+    values = {
+        field: coerce_float(row.get(column_name))
+        for column_name, field in SPATIAL_GRID_POINT_VALUE_MAP.items()
+    }
+
+    if row.get("land_cover") is not None:
+        values["land_cover"] = str(row.get("land_cover"))
+
+    return values
+
+
+def get_land_cover_source_column(columns: set[str]) -> str | None:
+    for column_name in LAND_COVER_SOURCE_COLUMNS:
+        if column_name in columns:
+            return column_name
+    return None
+
+
+def merge_spatial_grid_point_values(values: dict, spatial_values: dict, value_sources: dict[str, str]) -> None:
+    for field in SPATIAL_GRID_MERGE_FIELDS:
+        if spatial_values.get(field) is None:
+            value_sources[field] = (
+                "existing raster/current logic" if values.get(field) is not None else "fallback/default"
+            )
+            continue
+
+        values[field] = spatial_values[field]
+        value_sources[field] = "spatial_grids"
+
+        if field == "elevation_m":
+            values["dem_m"] = spatial_values[field]
+        elif field == "slope_pct":
+            values["slope_deg"] = None
+
+
+def fill_missing_environment_values(values: dict, fallback_values: dict) -> None:
+    filled_fields = []
+    for field in ENVIRONMENT_RESPONSE_FIELDS:
+        if values.get(field) is None and fallback_values.get(field) is not None:
+            values[field] = fallback_values[field]
+            filled_fields.append(field)
+
+    if filled_fields:
+        note = values.get("data_source_note") or ""
+        values["data_source_note"] = (
+            f"{note} Missing fields filled from existing raster/current logic: {', '.join(sorted(filled_fields))}."
+        ).strip()
+
+
+def build_value_source_tracker(values: dict) -> dict[str, str]:
+    return {
+        field: "existing raster/current logic" if values.get(field) is not None else "fallback/default"
+        for field in SPATIAL_GRID_MERGE_FIELDS
+    }
+
+
+def log_environment_value_sources(
+    values: dict,
+    value_sources: dict[str, str],
+    *,
+    prediction_point: dict | None,
+    point_match_type: str,
+) -> None:
+    point_source = prediction_point["source"] if prediction_point else "none"
+    for field in SPATIAL_GRID_MERGE_FIELDS:
+        logger.debug(
+            "Prediction environment value %s=%s came from %s (point_source=%s, spatial_lookup=%s).",
+            field,
+            values.get(field),
+            value_sources.get(field, "fallback/default"),
+            point_source,
+            point_match_type,
+        )
+
+
+def resolve_prediction_point(
+    *,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    polygon: list[list[float]] | None = None,
+) -> dict | None:
+    lat = coerce_float(latitude)
+    lon = coerce_float(longitude)
+    if is_valid_lon_lat(lon, lat):
+        return {"lat": lat, "lon": lon, "source": "request"}
+
+    return polygon_centroid_point(polygon)
 
 
 def query_spatial_grid_environment_values(
@@ -465,7 +825,7 @@ def query_spatial_grid_environment_values(
 
 def query_raster_environment_values(db: Session, polygon: list[list[float]] | None = None) -> dict:
     tables = get_public_table_names(db)
-    values = empty_environment_values("No matching PostGIS raster values were found.")
+    values = empty_environment_values("No matching map layer values were found.")
     counts: dict[str, int] = {}
 
     for field, config in RASTER_LAYERS.items():
@@ -503,8 +863,7 @@ def query_raster_environment_values(db: Session, polygon: list[list[float]] | No
     if sample_count > 0:
         values["data_source"] = "agrow_db"
         values["data_source_note"] = (
-            "Aggregated PostGIS raster tables from agrow_db "
-            "(rainfall, temperature, soil, DEM, slope, and land cover where available)."
+            "Combined local map layers for rainfall, temperature, soil, elevation, slope, and land cover where available."
         )
 
     return {"sample_count": sample_count, "values": values}
@@ -525,7 +884,7 @@ def finalize_environment_values(values: dict, sample_count: int) -> dict:
 
     if sample_count == 0 and not values.get("data_source_note"):
         values["data_source"] = "agrow_db"
-        values["data_source_note"] = "No matching PostgreSQL environmental records were found for the selected filters."
+        values["data_source_note"] = "No matching environmental records were found for the selected filters."
 
     return {"sample_count": sample_count, "values": round_environment_values(values)}
 
@@ -649,7 +1008,7 @@ def normalize_environment_row(row, selected_aliases: set[str], sample_count: int
         values[alias] = str(value) if alias == "land_cover" and value is not None else coerce_float(value)
 
     values["data_source"] = "agrow_db"
-    values["data_source_note"] = f"Aggregated {sample_count} spatial_grids rows from PostgreSQL."
+    values["data_source_note"] = f"Combined {sample_count} local environmental grid rows."
     values["missing_fields"] = []
     values["overridden_fields"] = []
     return values
@@ -665,9 +1024,9 @@ def empty_environment_values(note: str) -> dict:
     }
 
 
-def apply_user_inputs(values: dict, user_inputs) -> None:
+def apply_user_inputs(values: dict, user_inputs) -> list[str]:
     if not user_inputs:
-        return
+        return []
 
     input_values = model_to_dict(user_inputs)
     overridden_fields = []
@@ -679,6 +1038,8 @@ def apply_user_inputs(values: dict, user_inputs) -> None:
     if overridden_fields:
         values["overridden_fields"] = sorted(overridden_fields)
 
+    return overridden_fields
+
 
 def score_crop_suitability(crop: Crop, values: dict, sample_count: int) -> dict:
     parts = [
@@ -686,8 +1047,8 @@ def score_crop_suitability(crop: Crop, values: dict, sample_count: int) -> dict:
             values.get("rainfall_mm"),
             coerce_float(crop.min_annual_rainfall),
             SCORE_WEIGHTS["rainfall_mm"],
-            "Rainfall meets the crop minimum stored in PostgreSQL",
-            "Rainfall is below the crop minimum stored in PostgreSQL",
+            "Rainfall meets the crop minimum for this crop",
+            "Rainfall is below the crop minimum for this crop",
         ),
         score_range(
             values.get("temperature_c"),
@@ -741,15 +1102,15 @@ def score_crop_suitability(crop: Crop, values: dict, sample_count: int) -> dict:
     limitations = [part["limitation"] for part in scored_parts if part["rating"] != "good"]
 
     if missing_essential:
-        limitations.append("Some essential environmental layers are missing from the current database match")
+        limitations.append("Some essential environmental layers are missing from the current data match")
 
     recommendations = build_recommendations(crop.name, values, limitations, missing_essential)
 
     return {
         "score": max(0, min(100, score)),
         "status": score_to_status(score),
-        "strengths": strengths or ["Database layers show usable baseline conditions for this crop"],
-        "limitations": limitations or ["No major threshold conflicts were detected in the database layers"],
+        "strengths": strengths or ["Local data layers show usable baseline conditions for this crop"],
+        "limitations": limitations or ["No major threshold conflicts were detected in the available data layers"],
         "recommendations": recommendations,
         "risk_level": score_to_risk_level(score, limitations, missing_essential),
         "risk_warnings": (limitations or ["No major threshold conflicts were detected"])[:3],
@@ -806,8 +1167,8 @@ def score_organic_matter(values: dict, weight: int) -> dict:
     if organic_value is None:
         return unavailable_score(
             weight,
-            "Soil organic matter is present in the database layers",
-            "Soil organic matter is missing from the current database match",
+            "Soil organic matter is present in the available data layers",
+            "Soil organic matter is missing from the current data match",
         )
 
     if organic_value >= 1.5:
@@ -841,7 +1202,7 @@ def score_part(score: float, weight: int, rating: str, strength: str, limitation
 
 def build_recommendations(crop_name: str, values: dict, limitations: list[str], missing_essential: list[str]) -> list[str]:
     recommendations = [
-        f"Validate the matched database values with a field inspection before planting {crop_name}.",
+        f"Validate the matched environmental values with a field inspection before planting {crop_name}.",
         "Use soil testing to confirm pH, nutrients, and organic carbon before fertilizer planning.",
     ]
 
@@ -854,7 +1215,7 @@ def build_recommendations(crop_name: str, values: dict, limitations: list[str], 
     if "temperature_c" in missing_essential:
         recommendations.append("Add a temperature raster or station-derived temperature layer to improve confidence.")
     if "rainfall_mm" in missing_essential:
-        recommendations.append("Add rainfall data to spatial_grids before making investment decisions.")
+        recommendations.append("Add local rainfall data before making investment decisions.")
     if limitations:
         recommendations.append("Review the limiting factors with an agronomist and adjust the crop plan.")
 
@@ -866,11 +1227,11 @@ def build_explanation(crop: Crop, district: str | None, environment: dict, suita
     values = environment["values"]
     sample_count = environment["sample_count"]
     source_note = values.get("data_source_note") or ""
-    source = "PostGIS raster environmental layers" if "raster" in source_note.lower() else f"{sample_count} PostgreSQL spatial grid records"
+    source = "local environmental map layers" if "map layer" in source_note.lower() else "local environmental grid data"
     rainfall = format_value(values.get("rainfall_mm"), "mm rainfall")
     ph = format_value(values.get("soil_ph"), "soil pH")
     slope = format_value(values.get("slope_pct"), "% slope")
-    limitation = suitability["limitations"][0] if suitability["limitations"] else "no major database threshold conflict was detected"
+    limitation = suitability["limitations"][0] if suitability["limitations"] else "no major crop threshold conflict was detected"
 
     return (
         f"{crop.name} scores {suitability['score']}/100 for {location} based on {source}. "
@@ -884,7 +1245,7 @@ def build_planting_window(values: dict) -> dict:
     if rainfall is None:
         return {
             "best_months": [],
-            "reason": "Planting month guidance needs rainfall seasonality data in PostgreSQL.",
+            "reason": "Planting month guidance needs local rainfall seasonality data.",
         }
     if rainfall >= 2200:
         return {
@@ -903,7 +1264,7 @@ def build_return_estimate(db: Session, crop_name: str, score: int, area_hectares
             "estimated_yield_tonnes": None,
             "estimated_revenue_myr": None,
             "confidence": "Unavailable until a field boundary is provided.",
-            "basis": "No area supplied in request.",
+            "basis": "The return estimate needs a selected farm area before yield and revenue can be calculated.",
         }
 
     try:
@@ -928,8 +1289,8 @@ def build_return_estimate(db: Session, crop_name: str, score: int, area_hectares
         return {
             "estimated_yield_tonnes": None,
             "estimated_revenue_myr": None,
-            "confidence": "Unavailable because crop_statistics has no usable production and value rows for this crop.",
-            "basis": "PostgreSQL crop_statistics aggregate.",
+            "confidence": "Return estimate is unavailable because there is not enough local crop production and value data for this crop.",
+            "basis": "Based on available crop and environmental data.",
         }
 
     yield_per_ha = production / planted_area
@@ -940,8 +1301,11 @@ def build_return_estimate(db: Session, crop_name: str, score: int, area_hectares
     return {
         "estimated_yield_tonnes": round(estimated_yield, 2),
         "estimated_revenue_myr": round(estimated_yield * price_per_tonne, 2),
-        "confidence": "Medium - calculated from PostgreSQL crop_statistics aggregates and suitability score.",
-        "basis": "PostgreSQL crop_statistics aggregate.",
+        "confidence": "Medium confidence estimate based on available crop statistics and the calculated suitability score.",
+        "basis": (
+            "The return estimate is based on historical crop production data, estimated yield, market value, "
+            "and the suitability score for this location."
+        ),
     }
 
 
@@ -964,6 +1328,60 @@ def calculate_polygon_area_hectares(polygon: list[list[float]] | None) -> float:
         area_m2_twice += x1 * y2 - x2 * y1
 
     return round(abs(area_m2_twice) / 20_000.0, 2)
+
+
+def polygon_centroid_point(polygon: list[list[float]] | None) -> dict | None:
+    if not polygon:
+        return None
+
+    points = []
+    for point in polygon:
+        if not isinstance(point, (list, tuple)) or len(point) < 2:
+            continue
+
+        lon = coerce_float(point[0])
+        lat = coerce_float(point[1])
+        if is_valid_lon_lat(lon, lat):
+            points.append((lon, lat))
+
+    if len(points) > 1 and points[0] == points[-1]:
+        points = points[:-1]
+
+    if not points:
+        return None
+
+    if len(points) < 3:
+        lon = sum(point[0] for point in points) / len(points)
+        lat = sum(point[1] for point in points) / len(points)
+        return {"lat": lat, "lon": lon, "source": "polygon_centroid"}
+
+    signed_area = 0.0
+    centroid_x = 0.0
+    centroid_y = 0.0
+
+    for index, (x1, y1) in enumerate(points):
+        x2, y2 = points[(index + 1) % len(points)]
+        cross = (x1 * y2) - (x2 * y1)
+        signed_area += cross
+        centroid_x += (x1 + x2) * cross
+        centroid_y += (y1 + y2) * cross
+
+    signed_area *= 0.5
+    if abs(signed_area) < 1e-12:
+        lon = sum(point[0] for point in points) / len(points)
+        lat = sum(point[1] for point in points) / len(points)
+    else:
+        lon = centroid_x / (6.0 * signed_area)
+        lat = centroid_y / (6.0 * signed_area)
+
+    if not is_valid_lon_lat(lon, lat):
+        return None
+
+    return {"lat": lat, "lon": lon, "source": "polygon_centroid"}
+
+
+def is_valid_lon_lat(lon, lat) -> bool:
+    return lon is not None and lat is not None and -180 <= lon <= 180 and -90 <= lat <= 90
 
 
 def polygon_to_wkt(polygon: list[list[float]]) -> str:
@@ -995,10 +1413,10 @@ def score_to_risk_level(score: int, limitations: list[str], missing_essential: l
 
 def score_confidence(sample_count: int, missing_essential: list[str]) -> str:
     if sample_count == 0:
-        return "Low - no matched database environmental values were found."
+        return "Low confidence because no matched environmental values were found."
     if missing_essential:
-        return "Medium - database rows were matched, but some essential layers are missing."
-    return "High - suitability used matched PostgreSQL environment layers and crop thresholds."
+        return "Medium confidence because some essential environmental layers are missing."
+    return "High confidence because matched environmental values and crop thresholds were available."
 
 
 def coerce_float(value) -> float | None:
