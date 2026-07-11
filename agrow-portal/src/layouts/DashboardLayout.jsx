@@ -171,7 +171,7 @@ export default function DashboardLayout() {
     >
       <aside className='sidebar-panel'>
         <div className='sidebar-top-row'>
-          <Link to='/' className='portal-branding' aria-label='Agrow homepage'>
+          <Link to='/dashboard' className='portal-branding' aria-label='Agrow homepage'>
             <img src={agrowLogo} alt='Agrow' />
           </Link>
 
