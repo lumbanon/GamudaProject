@@ -36,6 +36,7 @@ const finalVertexIcon = L.divIcon({
 
 export default function SatellitePlanningMap({
   district,
+  districtGeoJson = null,
   polygon,
   onPolygonChange,
   clearVersion,
@@ -133,6 +134,20 @@ export default function SatellitePlanningMap({
           noWrap
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
         />
+
+        {districtGeoJson && (
+          <GeoJSON
+            data={districtGeoJson}
+            interactive={false}
+            style={{
+              color: "#ffffff",
+              fillOpacity: 0,
+              opacity: 0.86,
+              weight: 1.35,
+              dashArray: "5 5",
+            }}
+          />
+        )}
 
         <DrawingEvents active={isDrawing} onAddPoint={addPoint} onFinish={finishDrawing} />
         <ZoomControl position="bottomright" />

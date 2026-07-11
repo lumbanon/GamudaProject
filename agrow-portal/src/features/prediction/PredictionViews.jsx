@@ -181,6 +181,7 @@ export default function PredictionViews() {
           <SatellitePlanningMap
             clearVersion={clearVersion}
             district={selectedDistrict}
+            districtGeoJson={sabahDistricts}
             isBlocked={isReservedForestBlocked}
             key={clearVersion}
             polygon={polygon}
