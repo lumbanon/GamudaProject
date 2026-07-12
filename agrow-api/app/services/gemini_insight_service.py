@@ -28,7 +28,7 @@ if load_dotenv is not None:
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-lite"
+DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite"
 GEMINI_ENDPOINT_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 DEFAULT_MISSING_DATA_MESSAGE = "No major missing data was flagged in the current analysis."
 LAND_COVER_PAYLOAD_FIELDS = (
