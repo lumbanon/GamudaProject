@@ -46,7 +46,7 @@ h6 {
 small { font-size: 0.70rem;}
 
 a {text-decoration: none;}
-
+/* use this card format for the card in the prediction card */
 .card {
     background-color: #ffffff !important;
     border: 1px solid #e2e8f0;
