@@ -171,3 +171,10 @@ a {text-decoration: none;}
 .bg-dark      { background-color: #212529 !important; color: #fff !important; }
 
 .text-primary { color: #2d5a27}
+.text-muted { color: #64748b !important;}
+.text-secondary { color: #475569 !important;}
+.text-dark { color: #0f172a !important;}
+.text-white-50 {color: rgba(255, 255, 255, 0.5) !important;}
+.fw-bold {font-weight: 700 !important;}
+.fw-medium {font-weight: 500 !important;}
+.text-uppercase {text-transform: uppercase !important;}
