@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet'
-import sabahGeoJSON from '../../assets/maps/sabah-districts.json'
-import 'leaflet/dist/leaflet.css'
 import './dashboard-view.css'
 import axios from 'axios'
+import InteractiveMap from './InteractiveMap'
+import AdvancedSimulator from './AdvancedSimulator'
 
+
+<<<<<<< HEAD
 const SABAH_BOUNDS = [[3.8, 114.3], [7.5, 119.5]]
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 
@@ -51,17 +52,9 @@ function scoreToSuitabilityClass(score) {
   if (score >= 40) return 'S3'
   return 'N'
 }
-
-function MapResizeTrigger() {
-  const map = useMap()
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      map.invalidateSize()
-    }, 200)
-    return () => clearTimeout(timer)
-  }, [map])
-  return null
-}
+=======
+const API_BASE_URL = 'http://localhost:8000/api/predict'
+>>>>>>> origin/main
 
 export default function DashboardView() {
   const [, setDbCrops] = useState([])
@@ -74,18 +67,14 @@ export default function DashboardView() {
   const [, setApiError] = useState('')
   const [showModeling, setShowModeling] = useState(false)
   const districtMatrixRef = useRef(districtMatrix)
+  const selectedDistrictRef = useRef(selectedDistrict)
 
   useEffect(() => {
     selectedDistrictRef.current = selectedDistrict
   }, [selectedDistrict])
 
   const [simulationParams, setSimulationParams] = useState({
-    elev: 0,
-    slope: 0,
-    ph: 6.5,
-    depth: 0,
-    rain: 0,
-    solar: 0
+    elev: 0, slope: 0, ph: 6.5, depth: 0, rain: 0, solar: 0
   })
 
   const handleParamChange = (key, value) => {
@@ -279,7 +268,6 @@ export default function DashboardView() {
   }, [getMatrixDataForDistrict, activeCrop, selectedDistrict, predictions, allDistrictsSuitability])
 
   const latestStyleRef = useRef(getDistrictStyle)
-  const selectedDistrictRef = useRef(selectedDistrict)
   const geoJsonRef = useRef(null)
 
   useEffect(() => {
@@ -367,7 +355,6 @@ export default function DashboardView() {
 
   const onEachDistrictPolygon = (feature, layer) => {
     const districtName = getDistrictName(feature)
-
     if (!districtName) return
 
     layer.on({
@@ -420,8 +407,6 @@ export default function DashboardView() {
   useEffect(() => {
     districtMatrixRef.current = districtMatrix
   }, [districtMatrix])
-
-  // console.log("Current activeCrop value:", activeCrop)
 
   return (
     <div>
@@ -522,229 +507,26 @@ export default function DashboardView() {
 
       <div className='row'>
         <div className='col-7'>
-          <div className='card'>
-            <div className="row">
-              <div className="col-12">
-                <p className='section-title'>Interactive Sabah Map</p>
-              </div>
-            </div>
-            <div className='row'>
-              <div className='col-4'>
-                <div className='dropdown-container'>
-                  <label htmlFor='crop-select' className='dropdown-label mt-2 mb-0'>
-                    Target Crop Layer:
-                  </label>
-                  <select
-                    id='crop-select'
-                    value={activeCrop}
-                    onChange={(e) => setActiveCrop(e.target.value)}
-                    className='select-dropdown'
-                  >
-                    <option value='' disabled>Select a crop...</option>
-                    <option value='Cabbage' >Cabbage</option>
-                    <option value='Durian' >Durian</option>
-                    <option value='Watermelon' >Watermelon</option>
-                    {/* {dbCrops.map((crop) => (
-                      <option key={crop} value={crop}>
-                        {crop}
-                      </option>
-                    ))} */}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div className='map-wrapper'>
-              <MapContainer
-                center={[5.85, 117.0]}
-                zoom={8}
-                minZoom={7}
-                maxBounds={SABAH_BOUNDS}
-                maxBoundsViscosity={1.0}
-                className='map-instance'
-              >
-                <TileLayer url='https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png' />
-
-                <GeoJSON
-                  ref={geoJsonRef}
-                  key='sabah-district-layers'
-                  data={sabahGeoJSON}
-                  onEachFeature={onEachDistrictPolygon}
-                  style={getDistrictStyle}
-                />
-
-                <MapResizeTrigger />
-              </MapContainer>
-            </div>
-
-          </div>
+          <InteractiveMap 
+            activeCrop={activeCrop} 
+            setActiveCrop={setActiveCrop}
+            onEachDistrictPolygon={onEachDistrictPolygon} 
+            getDistrictStyle={getDistrictStyle} 
+          />
         </div>
-
         <div className='col-5'>
-          <div className='card'>
-            <div className='sandbox-header-container'>
-              <div className='d-flex justify-content-between align-items-center'>
-                <h3 className='section-title m-0'>Advanced Simulator</h3>
-                <div className='custom-toggle-container'>
-                  <input
-                    type='checkbox'
-                    id='customParamToggle'
-                    className='custom-toggle-input'
-                    checked={showModeling}
-                    onChange={(e) => setShowModeling(e.target.checked)}
-                  />
-                  <label htmlFor='customParamToggle' className='custom-toggle-label'>
-                    <span className='custom-toggle-thumb'></span>
-                  </label>
-                </div>
-              </div>
-              <p className='section-description mt-2 mb-0'>
-                Enable to manually simulate chemical soil adjustments, land-terracing, or local micro-climate offsets.
-              </p>
-            </div>
-
-            {!showModeling && (
-              <div className='automated-profile-section mt-4'>
-                <h5 className='section-subtitle subtitle-automated'>AUTOMATED SITE PROFILE for {selectedDistrict || 'Selected Region'}</h5>
-                <div className='profile-grid'>
-                  <div className='profile-box'>
-                    <span className='profile-label'>ELEVATION</span>
-                    <span className='profile-value'>{m ? `${m.elev}m` : '—'}</span>
-                  </div>
-                  <div className='profile-box'>
-                    <span className='profile-label'>TERRAIN SLOPE</span>
-                    <span className='profile-value'>{m ? `${m.slope}%` : '—'}</span>
-                  </div>
-                  <div className='profile-box'>
-                    <span className='profile-label'>SOIL ACIDITY</span>
-                    <span className='profile-value'>{m ? `${m.ph} pH` : '—'}</span>
-                  </div>
-                  <div className='profile-box'>
-                    <span className='profile-label'>SOIL DEPTH</span>
-                    <span className='profile-value'>{m ? `${m.depth}cm` : '—'}</span>
-                  </div>
-                  <div className='profile-box'>
-                    <span className='profile-label'>ANNUAL RAINFALL</span>
-                    <span className='profile-value'>{m ? `${Number(m.rain).toLocaleString()}mm` : '—'}</span>
-                  </div>
-                  <div className='profile-box'>
-                    <span className='profile-label'>SOLAR INTENSITY</span>
-                    <span className='profile-value'>{m ? `${m.solar}` : '—'}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {showModeling && (
-              <div className='interactive-modulators-section mt-4'>
-                <h5 className='section-subtitle subtitle-interactive'>INTERACTIVE MODULATORS</h5>
-
-                <div className='simulator-slider-group'>
-                  <div className='slider-header'>
-                    <span className='slider-title'>Elevation Baseline:</span>
-                    <span className='slider-current-value'>{simulationParams.elev}m</span>
-                  </div>
-                  <input
-                    type='range'
-                    min='0'
-                    max='3000'
-                    step='10'
-                    value={simulationParams.elev}
-                    onChange={(e) => handleParamChange('elev', parseInt(e.target.value))}
-                    className='sandbox-range-input'
-                  />
-                </div>
-
-                <div className='simulator-slider-group'>
-                  <div className='slider-header'>
-                    <span className='slider-title'>Slope Angle:</span>
-                    <span className='slider-current-value'>{simulationParams.slope}%</span>
-                  </div>
-                  <input
-                    type='range'
-                    min='0'
-                    max='100'
-                    step='1'
-                    value={simulationParams.slope}
-                    onChange={(e) => handleParamChange('slope', parseInt(e.target.value))}
-                    className='sandbox-range-input'
-                  />
-                </div>
-
-                <div className='simulator-slider-group'>
-                  <div className='slider-header'>
-                    <span className='slider-title'>Soil Chemistry (pH):</span>
-                    <span className='slider-current-value'>{simulationParams.ph} pH</span>
-                  </div>
-                  <input
-                    type='range'
-                    min='3.5'
-                    max='9.0'
-                    step='0.1'
-                    value={simulationParams.ph}
-                    onChange={(e) => handleParamChange('ph', parseFloat(e.target.value))}
-                    className='sandbox-range-input'
-                  />
-                </div>
-
-                <div className='simulator-slider-group'>
-                  <div className='slider-header'>
-                    <span className='slider-title'>Soil Depth:</span>
-                    <span className='slider-current-value'>{simulationParams.depth} cm</span>
-                  </div>
-                  <input
-                    type='range'
-                    min='0'
-                    max='200'
-                    step='5'
-                    value={simulationParams.depth}
-                    onChange={(e) => handleParamChange('depth', parseInt(e.target.value))}
-                    className='sandbox-range-input'
-                  />
-                </div>
-
-                <div className='simulator-slider-group'>
-                  <div className='slider-header'>
-                    <span className='slider-title'>Annual Rainfall:</span>
-                    <span className='slider-current-value'>{Number(simulationParams.rain).toLocaleString()} mm</span>
-                  </div>
-                  <input
-                    type='range'
-                    min='500'
-                    max='5000'
-                    step='50'
-                    value={simulationParams.rain}
-                    onChange={(e) => handleParamChange('rain', parseInt(e.target.value))}
-                    className='sandbox-range-input'
-                  />
-                </div>
-
-                <div className='simulator-slider-group'>
-                  <div className='slider-header'>
-                    <span className='slider-title'>Solar Intensity:</span>
-                    <span className='slider-current-value'>{simulationParams.solar}</span>
-                  </div>
-                  <input
-                    type='range'
-                    min='0'
-                    max='50'
-                    step='1'
-                    value={simulationParams.solar}
-                    onChange={(e) => handleParamChange('solar', parseInt(e.target.value))}
-                    className='sandbox-range-input'
-                  />
-                </div>
-
-                <div className='modeling-actions mt-4 d-flex gap-2'>
-                  <button onClick={resetParams} className='btn-reset-simulation'>
-                    {m ? '[ Reset to Baseline ]' : '[ Reset ]'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          <AdvancedSimulator
+            selectedDistrict={selectedDistrict}
+            showModeling={showModeling}
+            setShowModeling={setShowModeling}
+            simulationParams={simulationParams}
+            handleParamChange={handleParamChange}
+            resetParams={resetParams}
+            matrixData={m}
+          />
         </div>
       </div>
+      
     </div>
   )
 }
