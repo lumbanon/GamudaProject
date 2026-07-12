@@ -3,6 +3,7 @@ import { Outlet, Link, NavLink, useLocation, useNavigate } from 'react-router-do
 import './dashboard-layout.css'
 import agrowLogo from '../assets/landing/agrow.svg'
 import exitPortalLogo from '../assets/exit-logo/exit-portal-logo.png'
+import miniAgrowLogo from '../assets/sidebar/agrow-sidebar-toggle.png'
 
 const API_AUTH_BASE_URL = 'http://127.0.0.1:8000/api/v1/auth'
 
@@ -172,7 +173,7 @@ export default function DashboardLayout() {
       <aside className='sidebar-panel'>
         <div className='sidebar-top-row'>
           <Link to='/dashboard' className='portal-branding' aria-label='Agrow homepage'>
-            <img src={agrowLogo} alt='Agrow' />
+            <img src={isSidebarOpen ? agrowLogo : miniAgrowLogo} alt='Agrow' />
           </Link>
 
           <button
@@ -182,7 +183,7 @@ export default function DashboardLayout() {
             aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
             aria-expanded={isSidebarOpen}
           >
-            {isSidebarOpen ? '\u2190' : '\u2192'}
+            {isSidebarOpen ? '<' : '>'}
           </button>
         </div>
 
