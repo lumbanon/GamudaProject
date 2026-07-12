@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
 import L from "leaflet"
+import html2canvas from "html2canvas"
 import {
   GeoJSON,
   MapContainer,
@@ -34,7 +35,7 @@ const finalVertexIcon = L.divIcon({
   iconSize: [38, 38],
 })
 
-export default function SatellitePlanningMap({
+const SatellitePlanningMap = forwardRef(function SatellitePlanningMap({
   district,
   districtGeoJson = null,
   polygon,
@@ -42,9 +43,10 @@ export default function SatellitePlanningMap({
   clearVersion,
   isBlocked = false,
   reservedForestGeoJson = null,
-}) {
+}, ref) {
   const [isDrawing, setIsDrawing] = useState(false)
   const [draftPoints, setDraftPoints] = useState([])
+  const captureAreaRef = useRef(null)
 
   const finalPositions = useMemo(() => geoJsonToLeafletPositions(polygon), [polygon])
   const draftPolygon = useMemo(() => leafletPositionsToGeoJson(draftPoints), [draftPoints])
@@ -55,6 +57,21 @@ export default function SatellitePlanningMap({
   )
   const canFinish = isDrawing && draftPoints.length >= 3
   const hasWork = isDrawing || Boolean(polygon?.length)
+
+  const registerCaptureHandler = useCallback((handler) => {
+    captureAreaRef.current = handler
+  }, [])
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      async captureSelectedArea() {
+        if (!polygon?.length || !captureAreaRef.current) return null
+        return captureAreaRef.current()
+      },
+    }),
+    [polygon],
+  )
 
   function beginDrawing() {
     setDraftPoints([])
@@ -129,8 +146,9 @@ export default function SatellitePlanningMap({
         className="satellite-planning-map"
       >
         <TileLayer
-          attribution="Tiles: Esri, Maxar, Earthstar Geographics, and the GIS user community"
+          attribution="Source: Esri, Vantor, Earthstar Geographics, and the GIS User Community"
           bounds={SABAH_VIEW_BOUNDS}
+          crossOrigin="anonymous"
           noWrap
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
         />
@@ -152,6 +170,7 @@ export default function SatellitePlanningMap({
         <DrawingEvents active={isDrawing} onAddPoint={addPoint} onFinish={finishDrawing} />
         <ZoomControl position="bottomright" />
         <MapResizeHandler watchKey={`${clearVersion}-${polygon?.length || 0}-${draftPoints.length}`} />
+        <MapCaptureController polygon={polygon} onCaptureReady={registerCaptureHandler} />
 
         {reservedForestGeoJson && (
           <GeoJSON
@@ -270,7 +289,9 @@ export default function SatellitePlanningMap({
       )}
     </div>
   )
-}
+})
+
+export default SatellitePlanningMap
 
 function VertexMarker({ icon, index, point, onMove }) {
   return (
@@ -335,6 +356,150 @@ function MapResizeHandler({ watchKey }) {
   }, [map, watchKey])
 
   return null
+}
+
+function MapCaptureController({ polygon, onCaptureReady }) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (!polygon?.length) {
+      onCaptureReady(null)
+      return undefined
+    }
+
+    onCaptureReady(() => capturePolygonImage(map, polygon))
+    return () => onCaptureReady(null)
+  }, [map, onCaptureReady, polygon])
+
+  return null
+}
+
+async function capturePolygonImage(map, polygon) {
+  const positions = geoJsonToLeafletPositions(polygon)
+  if (positions.length < 3) return null
+
+  const previousCenter = map.getCenter()
+  const previousZoom = map.getZoom()
+  const bounds = L.latLngBounds(positions)
+
+  try {
+    await moveMapAndWait(map, () => {
+      map.fitBounds(bounds, { animate: false, maxZoom: 16, padding: [36, 36] })
+    })
+    await waitForTileLayers(map)
+
+    const container = map.getContainer()
+    const polygonPoints = positions.map(([lat, lon]) =>
+      map.latLngToContainerPoint(L.latLng(lat, lon)),
+    )
+    const fullCanvas = await html2canvas(container, {
+      backgroundColor: "#101510",
+      logging: false,
+      scale: 1,
+      useCORS: true,
+      ignoreElements(element) {
+        return Boolean(
+          element?.classList?.contains("leaflet-control-container") ||
+            element?.classList?.contains("leaflet-marker-pane") ||
+            element?.classList?.contains("leaflet-overlay-pane") ||
+            element?.classList?.contains("leaflet-tooltip-pane") ||
+            element?.classList?.contains("leaflet-popup-pane"),
+        )
+      },
+    })
+
+    return cropAndMaskPolygon(fullCanvas, container, polygonPoints)
+  } finally {
+    map.setView(previousCenter, previousZoom, { animate: false })
+  }
+}
+
+function cropAndMaskPolygon(fullCanvas, mapContainer, polygonPoints) {
+  const scaleX = fullCanvas.width / Math.max(1, mapContainer.clientWidth)
+  const scaleY = fullCanvas.height / Math.max(1, mapContainer.clientHeight)
+  const padding = 18
+  const minX = Math.max(0, Math.min(...polygonPoints.map((point) => point.x)) - padding)
+  const minY = Math.max(0, Math.min(...polygonPoints.map((point) => point.y)) - padding)
+  const maxX = Math.min(mapContainer.clientWidth, Math.max(...polygonPoints.map((point) => point.x)) + padding)
+  const maxY = Math.min(mapContainer.clientHeight, Math.max(...polygonPoints.map((point) => point.y)) + padding)
+
+  const sourceX = Math.floor(minX * scaleX)
+  const sourceY = Math.floor(minY * scaleY)
+  const sourceWidth = Math.max(1, Math.ceil((maxX - minX) * scaleX))
+  const sourceHeight = Math.max(1, Math.ceil((maxY - minY) * scaleY))
+  const output = document.createElement("canvas")
+  output.width = sourceWidth
+  output.height = sourceHeight
+
+  const context = output.getContext("2d")
+  context.fillStyle = "#101510"
+  context.fillRect(0, 0, output.width, output.height)
+  context.save()
+  drawPolygonPath(context, polygonPoints, minX, minY, scaleX, scaleY)
+  context.clip()
+  context.drawImage(
+    fullCanvas,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+    sourceWidth,
+    sourceHeight,
+  )
+  context.restore()
+
+  drawPolygonPath(context, polygonPoints, minX, minY, scaleX, scaleY)
+  context.strokeStyle = "#f4c84a"
+  context.lineWidth = 3
+  context.stroke()
+  return output.toDataURL("image/jpeg", 0.86)
+}
+
+function drawPolygonPath(context, points, minX, minY, scaleX, scaleY) {
+  context.beginPath()
+  points.forEach((point, index) => {
+    const x = (point.x - minX) * scaleX
+    const y = (point.y - minY) * scaleY
+    if (index === 0) context.moveTo(x, y)
+    else context.lineTo(x, y)
+  })
+  context.closePath()
+}
+
+function moveMapAndWait(map, action) {
+  return new Promise((resolve) => {
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      map.off("moveend", finish)
+      window.clearTimeout(timeoutId)
+      resolve()
+    }
+    const timeoutId = window.setTimeout(finish, 600)
+    map.once("moveend", finish)
+    action()
+  })
+}
+
+async function waitForTileLayers(map) {
+  const waits = []
+  map.eachLayer((layer) => {
+    if (!(layer instanceof L.TileLayer) || !layer.isLoading()) return
+    waits.push(
+      new Promise((resolve) => {
+        const timeoutId = window.setTimeout(resolve, 3500)
+        layer.once("load", () => {
+          window.clearTimeout(timeoutId)
+          resolve()
+        })
+      }),
+    )
+  })
+  await Promise.all(waits)
+  await new Promise((resolve) => window.setTimeout(resolve, 120))
 }
 
 function geoJsonToLeafletPositions(polygon) {

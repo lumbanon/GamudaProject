@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import heroLeafIcon from "../../assets/prediction/hero-leaf.svg?raw";
 import securityShieldIcon from "../../assets/prediction/security-shield.svg?raw";
 import kundasangImage from "../../assets/landing/kundasang.png";
@@ -23,6 +23,7 @@ import {
 import "./prediction-view.css";
 
 export default function PredictionViews() {
+  const satelliteMapRef = useRef(null);
   const [polygon, setPolygon] = useState(null);
   const [selectedCrop, setSelectedCrop] = useState("");
   const [selectedDistrict, setSelectedDistrict] = useState("");
@@ -161,10 +162,21 @@ export default function PredictionViews() {
     setAnalysisResult(null);
 
     try {
+      let satelliteImageDataUrl = null;
+      if (polygon?.length) {
+        try {
+          satelliteImageDataUrl =
+            (await satelliteMapRef.current?.captureSelectedArea?.()) || null;
+        } catch (captureError) {
+          console.warn("Satellite crop could not be prepared for Gemini vision.", captureError);
+        }
+      }
+
       const result = await analyzeCropArea({
         crop: selectedCrop,
         district: selectedDistrict,
         polygon,
+        satelliteImageDataUrl,
       });
       setAnalysisResult(result);
     } catch (err) {
@@ -186,6 +198,7 @@ export default function PredictionViews() {
             key={clearVersion}
             polygon={polygon}
             reservedForestGeoJson={reservedForestOverlay}
+            ref={satelliteMapRef}
             onPolygonChange={handlePolygonChange}
           />
 
@@ -246,7 +259,7 @@ export default function PredictionViews() {
             <PredictionAssetIcon src={securityShieldIcon} />
 
             <span>
-              Your data is secure and used only for analysis purposes.
+              The selected map crop is sent to Gemini for building analysis and is not stored by Agrow.
             </span>
           </div>
         </div>

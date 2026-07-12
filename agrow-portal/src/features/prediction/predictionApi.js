@@ -21,7 +21,7 @@ export async function validateForestReserveArea({ polygon }) {
   })
 }
 
-export async function analyzeCropArea({ crop, district, polygon, userInputs }) {
+export async function analyzeCropArea({ crop, district, polygon, userInputs, satelliteImageDataUrl }) {
   return apiRequest("/api/prediction/suitability", {
     method: "POST",
     body: JSON.stringify({
@@ -29,6 +29,7 @@ export async function analyzeCropArea({ crop, district, polygon, userInputs }) {
       district: district || null,
       polygon: polygon?.length ? polygon : null,
       user_inputs: userInputs || null,
+      satellite_image_data_url: satelliteImageDataUrl || null,
     }),
   })
 }

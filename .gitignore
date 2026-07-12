@@ -34,3 +34,6 @@ agrow-api/myenv/
 agrow-api/.env
 agrow-portal/.env
 **/__pycache__/
+agrow-api/.venv/
+agrow-api/uvicorn.err.log
+agrow-api/uvicorn.out.log

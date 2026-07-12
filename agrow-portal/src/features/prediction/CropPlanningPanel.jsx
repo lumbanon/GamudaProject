@@ -137,6 +137,7 @@ export function EnvironmentDataPanel({ isLoading, result }) {
   const isBlocked = Boolean(result?.allowed === false || result?.blocked_reason === "reserved_forest")
   const features = isBlocked ? null : result?.features || null
   const sourceValue = features?.data_source
+  const satelliteAnalysis = isBlocked ? null : result?.satellite_building_analysis || null
 
   return (
     <section className="sidebar-environment-panel">
@@ -163,11 +164,34 @@ export function EnvironmentDataPanel({ isLoading, result }) {
             <FeatureAccordion title="Climate data" rows={buildClimateFeatureRows(features)} />
             <FeatureAccordion title="Soil data" rows={buildSoilFeatureRows(features)} />
             <FeatureAccordion title="Topography data" rows={buildTopoFeatureRows(features)} />
+            {satelliteAnalysis && (
+              <FeatureAccordion title="Gemini satellite building check" rows={buildSatelliteAnalysisRows(satelliteAnalysis)} />
+            )}
           </div>
         )}
       </div>
     </section>
   )
+}
+
+function buildSatelliteAnalysisRows(analysis) {
+  if (analysis?.status !== "analyzed") {
+    return [
+      { label: "Status", value: "Unavailable" },
+      { label: "Reason", value: analysis?.failure_reason || "No usable satellite crop was provided" },
+    ]
+  }
+
+  const percent = Number(analysis.estimated_built_up_percent)
+  return [
+    { label: "Buildings visible", value: analysis.buildings_detected ? "Yes" : "No" },
+    { label: "Site classification", value: analysis.is_built_up ? "Built-up" : "Not built-up" },
+    {
+      label: "Estimated developed area",
+      value: Number.isFinite(percent) ? `${percent.toLocaleString(undefined, { maximumFractionDigits: 1 })}%` : "N/A",
+    },
+    { label: "Vision confidence", value: String(analysis.confidence || "N/A").replace(/^./, (letter) => letter.toUpperCase()) },
+  ]
 }
 
 function FeatureAccordion({ title, rows }) {

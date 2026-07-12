@@ -31,6 +31,8 @@ class EnvironmentValues(BaseModel):
     slope_deg: float | None = None
     soil_depth_cm: float | None = None
     land_cover: str | None = None
+    raster_land_cover: str | None = None
+    land_cover_source: str | None = None
     solar_radiation: float | None = None
     root_zone_moisture: float | None = None
     data_source: str = "agrow_db"
@@ -72,6 +74,7 @@ class SuitabilityRequest(BaseModel):
     longitude: float | None = None
     polygon: list[list[float]] | None = None
     user_inputs: EnvironmentOverrides | None = None
+    satellite_image_data_url: str | None = Field(default=None, max_length=10_000_000)
 
 
 class ForestReserveValidationRequest(BaseModel):
@@ -125,6 +128,20 @@ class GenAiInsight(BaseModel):
     fallback_reason: str | None = None
 
 
+class SatelliteBuildingAnalysis(BaseModel):
+    status: str
+    buildings_detected: bool | None = None
+    is_built_up: bool | None = None
+    estimated_built_up_percent: float | None = None
+    confidence: str | None = None
+    image_quality: str | None = None
+    explanation: str | None = None
+    land_cover_override_recommended: bool = False
+    model: str | None = None
+    image_bytes: int | None = None
+    failure_reason: str | None = None
+
+
 class SuitabilityResponse(BaseModel):
     allowed: bool = True
     reserved_forest: bool = False
@@ -147,3 +164,4 @@ class SuitabilityResponse(BaseModel):
     return_estimate: ReturnEstimate | None = None
     ai_insight: str | None = None
     genai_insight: GenAiInsight | None = None
+    satellite_building_analysis: SatelliteBuildingAnalysis | None = None

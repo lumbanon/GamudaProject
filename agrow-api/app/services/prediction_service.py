@@ -10,7 +10,10 @@ from sqlalchemy.orm import Session
 from app.models.crop import Crop
 from app.models.crop_statistic import CropStatistic
 from app.services.forest_reserve_service import validate_forest_reserve_overlap
-from app.services.gemini_insight_service import build_gemini_ai_insight
+from app.services.gemini_insight_service import (
+    build_gemini_ai_insight,
+    enforce_land_cover_ai_rules,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -251,7 +254,7 @@ def get_suitability(db: Session, request) -> dict:
     explanation = build_explanation(crop, request.district, environment, suitability)
     estimate = build_return_estimate(db, crop.name, suitability["score"], area_hectares)
     planting_window = build_planting_window(environment["values"])
-    genai_insight = build_gemini_ai_insight(
+    genai_insight, satellite_building_analysis = build_gemini_ai_insight(
         crop=crop,
         district=request.district,
         area_hectares=area_hectares,
@@ -260,7 +263,17 @@ def get_suitability(db: Session, request) -> dict:
         recommendations=suitability["recommendations"],
         planting_window=planting_window,
         return_estimate=estimate,
+        satellite_image_data_url=(
+            request.satellite_image_data_url if request.polygon else None
+        ),
         fallback=explanation,
+    )
+    apply_satellite_land_cover_analysis(environment["values"], satellite_building_analysis)
+    genai_insight = enforce_land_cover_ai_rules(
+        genai_insight,
+        crop=crop,
+        district=request.district,
+        environment=environment,
     )
     ai_insight = genai_insight.get("crop_suitability_summary") or explanation
 
@@ -279,7 +292,29 @@ def get_suitability(db: Session, request) -> dict:
         "return_estimate": estimate,
         "ai_insight": ai_insight,
         "genai_insight": genai_insight,
+        "satellite_building_analysis": satellite_building_analysis,
     }
+
+
+def apply_satellite_land_cover_analysis(values: dict, analysis: dict | None) -> None:
+    if not analysis or analysis.get("status") != "analyzed":
+        return
+
+    if not analysis.get("land_cover_override_recommended"):
+        return
+
+    raster_land_cover = values.get("land_cover")
+    if raster_land_cover and not values.get("raster_land_cover"):
+        values["raster_land_cover"] = raster_land_cover
+
+    values["land_cover"] = "built-up"
+    values["land_cover_source"] = "gemini_satellite_vision"
+    values["missing_fields"] = [
+        field for field in values.get("missing_fields", []) if field != "land_cover"
+    ]
+    overridden_fields = set(values.get("overridden_fields", []))
+    overridden_fields.add("land_cover")
+    values["overridden_fields"] = sorted(overridden_fields)
 
 
 def get_crop_by_name(db: Session, crop_name: str) -> Crop | CropThreshold | None:
@@ -833,17 +868,21 @@ def query_raster_environment_values(db: Session, polygon: list[list[float]] | No
         if table not in tables:
             continue
 
-        count, mean = query_raster_mean(
-            db,
-            table=table,
-            polygon=polygon,
-            zero_is_nodata=config["zero_is_nodata"],
-        )
-        if mean is None:
+        if field == "land_cover":
+            count, raw_value = query_raster_mode(db, table=table, polygon=polygon)
+        else:
+            count, raw_value = query_raster_mean(
+                db,
+                table=table,
+                polygon=polygon,
+                zero_is_nodata=config["zero_is_nodata"],
+            )
+
+        if raw_value is None:
             continue
 
         counts[field] = count
-        scaled_value = mean * config["scale"]
+        scaled_value = raw_value * config["scale"]
         values[field] = land_cover_name(scaled_value) if field == "land_cover" else scaled_value
 
     if values.get("dem_m") is not None:
@@ -949,6 +988,104 @@ def query_raster_mean(
 
     count = int(row["count"] or 0) if row else 0
     return count, coerce_float(row["mean"]) if row else None
+
+
+def query_raster_mode(
+    db: Session,
+    table: str,
+    polygon: list[list[float]] | None = None,
+) -> tuple[int, float | None]:
+    """Return the most frequent non-NoData pixel value for a categorical raster."""
+    try:
+        if polygon:
+            row = (
+                db.execute(
+                    text(
+                        f"""
+                        WITH selected_area AS (
+                            SELECT ST_SetSRID(ST_GeomFromText(:polygon_wkt), 4326) AS geom
+                        ),
+                        pixel_counts AS (
+                            SELECT
+                                (value_count).value AS value,
+                                (value_count).count AS count
+                            FROM {table}
+                            CROSS JOIN selected_area
+                            CROSS JOIN LATERAL ST_ValueCount(
+                                ST_Clip(
+                                    ST_SetBandNoDataValue(rast, 1, 0),
+                                    selected_area.geom,
+                                    true,
+                                    true
+                                ),
+                                1,
+                                true
+                            ) AS value_count
+                            WHERE ST_Intersects(rast, selected_area.geom)
+                        ),
+                        class_counts AS (
+                            SELECT value, SUM(count)::bigint AS count
+                            FROM pixel_counts
+                            WHERE value <> 0
+                            GROUP BY value
+                        )
+                        SELECT
+                            COALESCE(SUM(count), 0)::bigint AS count,
+                            (
+                                SELECT value
+                                FROM class_counts
+                                ORDER BY count DESC, value ASC
+                                LIMIT 1
+                            ) AS mode
+                        FROM class_counts;
+                        """
+                    ),
+                    {"polygon_wkt": polygon_to_wkt(polygon)},
+                )
+                .mappings()
+                .first()
+            )
+        else:
+            row = (
+                db.execute(
+                    text(
+                        f"""
+                        WITH pixel_counts AS (
+                            SELECT (value_count).value AS value, (value_count).count AS count
+                            FROM {table}
+                            CROSS JOIN LATERAL ST_ValueCount(
+                                ST_SetBandNoDataValue(rast, 1, 0),
+                                1,
+                                true
+                            ) AS value_count
+                        ),
+                        class_counts AS (
+                            SELECT value, SUM(count)::bigint AS count
+                            FROM pixel_counts
+                            WHERE value <> 0
+                            GROUP BY value
+                        )
+                        SELECT
+                            COALESCE(SUM(count), 0)::bigint AS count,
+                            (
+                                SELECT value
+                                FROM class_counts
+                                ORDER BY count DESC, value ASC
+                                LIMIT 1
+                            ) AS mode
+                        FROM class_counts;
+                        """
+                    )
+                )
+                .mappings()
+                .first()
+            )
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise PredictionDataError(f"Unable to read categorical raster table '{table}'.") from exc
+
+    count = int(row["count"] or 0) if row else 0
+    return count, coerce_float(row["mode"]) if row else None
 
 
 def get_spatial_grid_columns(db: Session) -> set[str]:

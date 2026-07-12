@@ -104,6 +104,7 @@ function BuiltUpAreaWarning({ result, insight }) {
   const message = hasBuiltAreaTerm(summary)
     ? summary
     : "Selected location is built-up/developed land and is not recommended for crop planting.";
+  const satelliteAnalysis = result?.satellite_building_analysis;
 
   return (
     <article className="reserved-forest-warning" role="alert">
@@ -114,6 +115,12 @@ function BuiltUpAreaWarning({ result, insight }) {
         <strong>Built-Up Area Detected</strong>
         <p>{message}</p>
         <small>Please select another agricultural or undeveloped site.</small>
+        {satelliteAnalysis?.status === "analyzed" && (
+          <small>
+            Gemini satellite check: {satelliteAnalysis.confidence || "unknown"} confidence,
+            {" "}{formatNumber(satelliteAnalysis.estimated_built_up_percent, 1)}% estimated developed coverage.
+          </small>
+        )}
       </div>
     </article>
   );
@@ -650,6 +657,14 @@ function normalizeConfidence(value) {
 
 function detectBuiltArea(result, genAiInsight = null) {
   const features = result?.features || result?.matched_environment || {};
+  const satelliteAnalysis = result?.satellite_building_analysis;
+  if (
+    satelliteAnalysis?.status === "analyzed" &&
+    satelliteAnalysis?.land_cover_override_recommended === true
+  ) {
+    return true;
+  }
+
   const landCoverText = stringifyInsight(
     features.land_cover ||
       features.land_cover_class ||
@@ -693,6 +708,12 @@ function hasBuiltAreaTerm(value) {
     .replaceAll("_", " ")
     .replaceAll("-", " ")
     .toLowerCase();
+  const withoutNegatedClassifications = text
+    .replace(/\b(?:not|is not|isn't)\s+(?:a\s+)?built\s+up\b/g, "")
+    .replace(/\bno\s+(?:visible\s+)?(?:buildings|development)\b/g, "");
 
-  return Boolean(text && BUILT_AREA_TERMS.some((term) => text.includes(term)));
+  return Boolean(
+    withoutNegatedClassifications &&
+      BUILT_AREA_TERMS.some((term) => withoutNegatedClassifications.includes(term)),
+  );
 }

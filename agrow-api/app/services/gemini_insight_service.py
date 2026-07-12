@@ -1,19 +1,30 @@
 import json
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.services.satellite_vision_service import (
+    SATELLITE_VISION_INSTRUCTIONS,
+    decode_image_data_url,
+    normalize_satellite_analysis,
+    satellite_response_schema,
+    unavailable_analysis,
+)
+
 try:
-    from dotenv import load_dotenv
+    from dotenv import dotenv_values, load_dotenv
 except ModuleNotFoundError:
+    dotenv_values = None
     load_dotenv = None
 
 
+BACKEND_ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 if load_dotenv is not None:
-    load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+    load_dotenv(BACKEND_ENV_PATH)
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +61,37 @@ UNKNOWN_LAND_COVER_VALUES = {
 BUILT_AREA_RISK = "The site is built-up/developed land, which is not recommended for crop planting."
 BUILT_AREA_ACTION = "Choose another agricultural or undeveloped site before planning crop planting."
 LAND_COVER_MISSING_MESSAGE = "Land cover is missing or unknown."
+IGNORED_MISSING_DATA_FIELDS = {
+    "nitrogen",
+    "nitrogen_pct",
+    "bdod",
+    "bulk_density",
+    "silt",
+    "silt_pct",
+    "sand",
+    "sand_pct",
+    "clay",
+    "clay_pct",
+    "cec",
+    "cation_exchange_capacity",
+    "soc",
+    "soil_organic_carbon",
+    "organic_carbon",
+    "organic_carbon_pct",
+}
+IGNORED_MISSING_DATA_TERMS = (
+    "nitrogen",
+    "bdod",
+    "bulk density",
+    "silt",
+    "sand",
+    "clay",
+    "cec",
+    "cation exchange capacity",
+    "soc",
+    "soil organic carbon",
+    "organic carbon",
+)
 
 
 class PredictionInsightOutput(BaseModel):
@@ -96,8 +138,9 @@ def build_gemini_ai_insight(
     recommendations: list[str],
     planting_window: dict,
     return_estimate: dict,
+    satellite_image_data_url: str | None,
     fallback: str,
-) -> dict:
+) -> tuple[dict, dict | None]:
     log_land_cover_detection(environment)
     fallback_insight = enforce_land_cover_ai_rules(
         build_rule_based_insight(
@@ -112,15 +155,34 @@ def build_gemini_ai_insight(
         district=district,
         environment=environment,
     )
-    api_key = (
-        os.getenv("GEMINI_API_KEY")
-       
-    )
+    image_part = None
+    image_size = None
+    satellite_analysis = None
+    if satellite_image_data_url:
+        try:
+            mime_type, image_base64, image_size = decode_image_data_url(satellite_image_data_url)
+            image_part = {
+                "inline_data": {
+                    "mime_type": mime_type,
+                    "data": image_base64,
+                }
+            }
+        except ValueError as exc:
+            satellite_analysis = unavailable_analysis(str(exc))
+
+    api_key = get_gemini_api_key()
     if not api_key:
         logger.info("Gemini AI insight skipped because no Gemini API key is configured.")
-        return with_fallback_metadata(fallback_insight, "Gemini API key is not configured.")
+        reason = "Gemini API key is not configured."
+        if image_part:
+            satellite_analysis = unavailable_analysis(reason)
+        return with_fallback_metadata(fallback_insight, reason), satellite_analysis
 
-    model = os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
+    model = (
+        (os.getenv("GEMINI_VISION_MODEL") if image_part else None)
+        or os.getenv("GEMINI_MODEL")
+        or DEFAULT_GEMINI_MODEL
+    )
     prompt = build_prediction_insight_prompt(
         crop=crop,
         district=district,
@@ -130,54 +192,80 @@ def build_gemini_ai_insight(
         recommendations=recommendations,
         planting_window=planting_window,
         return_estimate=return_estimate,
+        include_satellite_image=bool(image_part),
     )
 
-    try:
-        insight = build_langchain_structured_insight(
-            api_key=api_key,
-            model=model,
-            prompt=prompt,
-            fallback_insight=fallback_insight,
-        )
-        return enforce_land_cover_ai_rules(insight, crop=crop, district=district, environment=environment)
-    except ModuleNotFoundError:
-        logger.warning(
-            "LangChain Gemini insight skipped because langchain-google-genai is not installed. "
-            "Falling back to the direct Gemini REST call."
-        )
-    except Exception as exc:
-        logger.warning("LangChain Gemini structured insight failed: %s", exc)
-        return with_fallback_metadata(fallback_insight, "LangChain Gemini structured output failed.")
+    if not image_part:
+        try:
+            insight = build_langchain_structured_insight(
+                api_key=api_key,
+                model=model,
+                prompt=prompt,
+                fallback_insight=fallback_insight,
+            )
+            insight = enforce_land_cover_ai_rules(
+                insight,
+                crop=crop,
+                district=district,
+                environment=environment,
+            )
+            return insight, satellite_analysis
+        except ModuleNotFoundError:
+            logger.info(
+                "LangChain Gemini client is not installed; using the direct Gemini REST API instead."
+            )
+        except Exception as exc:
+            logger.warning("LangChain Gemini structured insight failed: %s", exc)
+            reason = "LangChain Gemini structured output failed."
+            return with_fallback_metadata(fallback_insight, reason), satellite_analysis
 
     try:
         import requests
     except ModuleNotFoundError:
         logger.warning("Gemini AI insight skipped because the requests package is not installed.")
-        return with_fallback_metadata(fallback_insight, "The requests package is not installed.")
+        reason = "The requests package is not installed."
+        if image_part:
+            satellite_analysis = unavailable_analysis(reason, model=model)
+        return with_fallback_metadata(fallback_insight, reason), satellite_analysis
 
     try:
+        parts = ([image_part] if image_part else []) + [{"text": prompt}]
+        generation_config = {
+            "temperature": 0.1 if image_part else 0.2,
+            "topP": 0.7 if image_part else 0.8,
+            "maxOutputTokens": 1000 if image_part else 700,
+            "responseMimeType": "application/json",
+        }
+        if image_part:
+            generation_config["responseSchema"] = combined_prediction_response_schema()
+
         response = requests.post(
             GEMINI_ENDPOINT_TEMPLATE.format(model=model),
-            params={"key": api_key},
+            headers={"x-goog-api-key": api_key},
             json={
                 "contents": [
                     {
                         "role": "user",
-                        "parts": [{"text": prompt}],
+                        "parts": parts,
                     }
                 ],
-                "generationConfig": {
-                    "temperature": 0.2,
-                    "topP": 0.8,
-                    "maxOutputTokens": 700,
-                    "responseMimeType": "application/json",
-                },
+                "generationConfig": generation_config,
             },
-            timeout=15,
+            timeout=30 if image_part else 15,
         )
         response.raise_for_status()
+        response_payload = response.json()
+        validate_gemini_finish_reason(response_payload)
+        payload = parse_insight_json(extract_gemini_text(response_payload))
+        if image_part:
+            satellite_payload = payload.pop("satellite_building_analysis", None)
+            satellite_analysis = normalize_satellite_analysis(
+                satellite_payload,
+                model=model,
+                image_size=image_size or 0,
+            )
         insight = normalize_insight_response(
-            parse_insight_json(extract_gemini_text(response.json())),
+            payload,
             fallback_insight,
             source="gemini",
             model=model,
@@ -185,15 +273,53 @@ def build_gemini_ai_insight(
     except requests.HTTPError as exc:
         status_code = exc.response.status_code if exc.response is not None else "unknown"
         logger.warning("Gemini AI insight request failed with status %s.", status_code)
-        return with_fallback_metadata(fallback_insight, f"Gemini request failed with status {status_code}.")
+        reason = gemini_http_error_reason(status_code)
+        if image_part:
+            satellite_analysis = unavailable_analysis(reason, model=model)
+        return with_fallback_metadata(fallback_insight, reason), satellite_analysis
     except requests.RequestException:
         logger.warning("Gemini AI insight request failed before a valid response was received.")
-        return with_fallback_metadata(fallback_insight, "Gemini request failed before a valid response was received.")
+        reason = "Gemini request failed before a valid response was received."
+        if image_part:
+            satellite_analysis = unavailable_analysis(reason, model=model)
+        return with_fallback_metadata(fallback_insight, reason), satellite_analysis
     except (KeyError, TypeError, ValueError) as exc:
         logger.warning("Gemini AI insight response could not be parsed: %s", exc)
-        return with_fallback_metadata(fallback_insight, "Gemini returned an unusable response.")
+        reason = "Gemini returned an unusable response."
+        if image_part:
+            satellite_analysis = unavailable_analysis(reason, model=model)
+        return with_fallback_metadata(fallback_insight, reason), satellite_analysis
 
-    return enforce_land_cover_ai_rules(insight, crop=crop, district=district, environment=environment)
+    insight = enforce_land_cover_ai_rules(
+        insight,
+        crop=crop,
+        district=district,
+        environment=environment,
+    )
+    return insight, satellite_analysis
+
+
+def gemini_http_error_reason(status_code) -> str:
+    if status_code == 429:
+        return "Gemini quota is exhausted. Try again after the quota resets or increase the API quota."
+    return f"Gemini request failed with status {status_code}."
+
+
+def get_gemini_api_key() -> str | None:
+    key_names = ("GEMINI_API_KEY", "GOOGLE_GEMINI_API_KEY", "VITE_GOOGLE_GEMINI_API_KEY")
+    for key_name in key_names:
+        value = str(os.getenv(key_name) or "").strip()
+        if value:
+            return value
+
+    if dotenv_values is not None:
+        env_values = dotenv_values(BACKEND_ENV_PATH)
+        for key_name in key_names:
+            value = str(env_values.get(key_name) or "").strip()
+            if value:
+                return value
+
+    return None
 
 
 def build_langchain_structured_insight(
@@ -240,6 +366,40 @@ def get_pydantic_json_schema(model_class: type[BaseModel]) -> dict:
     return model_class.schema()
 
 
+def combined_prediction_response_schema() -> dict:
+    return {
+        "type": "OBJECT",
+        "properties": {
+            "crop_suitability_summary": {"type": "STRING"},
+            "key_strengths": {"type": "ARRAY", "items": {"type": "STRING"}},
+            "potential_risks": {"type": "ARRAY", "items": {"type": "STRING"}},
+            "recommended_actions": {"type": "ARRAY", "items": {"type": "STRING"}},
+            "confidence_level": {"type": "STRING", "enum": ["Low", "Medium", "High"]},
+            "missing_data": {"type": "ARRAY", "items": {"type": "STRING"}},
+            "satellite_building_analysis": satellite_response_schema(),
+        },
+        "required": [
+            "crop_suitability_summary",
+            "key_strengths",
+            "potential_risks",
+            "recommended_actions",
+            "confidence_level",
+            "missing_data",
+            "satellite_building_analysis",
+        ],
+    }
+
+
+def validate_gemini_finish_reason(payload: dict) -> None:
+    candidates = payload.get("candidates") if isinstance(payload, dict) else None
+    if not candidates:
+        raise ValueError("Gemini response did not contain a candidate.")
+
+    finish_reason = str(candidates[0].get("finishReason") or "STOP").upper()
+    if finish_reason != "STOP":
+        raise ValueError(f"Gemini response ended with {finish_reason}.")
+
+
 def build_prediction_insight_prompt(
     *,
     crop,
@@ -250,6 +410,7 @@ def build_prediction_insight_prompt(
     recommendations: list[str],
     planting_window: dict,
     return_estimate: dict,
+    include_satellite_image: bool,
 ) -> str:
     values = environment.get("values", {})
     land_cover_value = get_detected_land_cover_value(values)
@@ -291,16 +452,37 @@ def build_prediction_insight_prompt(
         "return_estimate": sanitize_for_json(return_estimate),
     }
 
+    output_keys = (
+        "crop_suitability_summary, key_strengths, potential_risks, recommended_actions, "
+        "confidence_level, missing_data"
+    )
+    satellite_instructions = ""
+    if include_satellite_image:
+        output_keys += ", satellite_building_analysis"
+        satellite_instructions = (
+            f" {SATELLITE_VISION_INSTRUCTIONS} "
+            "Return the result inside satellite_building_analysis using exactly these keys: "
+            "buildings_detected, is_built_up, estimated_built_up_percent, confidence, image_quality, explanation. "
+            "If that image analysis says the site is materially built-up with usable image quality and either high confidence, "
+            "or medium confidence with at least 25% developed coverage, make the farm summary, risks, and actions clearly say "
+            "the site is not recommended for planting, "
+            "even when the coarse raster land-cover value says otherwise."
+        )
+
     return (
         "You are Agrow's agronomy AI assistant for crop planning in Sabah, Malaysia. "
         "Use only the supplied analysis data. Do not invent measurements, prices, yields, location facts, or protected-land status. "
         "The prediction data contains final merged environment values, with spatial_grids point values preferred over existing raster/current fallback values. "
         "Return ONLY valid JSON with exactly these keys: "
-        "crop_suitability_summary, key_strengths, potential_risks, recommended_actions, confidence_level, missing_data. "
+        f"{output_keys}. "
         "Do not wrap the JSON in markdown. Keep the same keys for every crop. "
         "The summary must be one farmer-friendly sentence. Each list should contain 2 to 4 short farmer-friendly items when possible. "
         "confidence_level must be exactly Low, Medium, or High based on the supplied sample count, missing data, and confidence text. "
         "If a value is null, unavailable, or uncertain, mention that in missing_data instead of guessing. "
+        "Do not treat nitrogen, bdod/bulk density, silt, sand, clay, cec/cation exchange capacity, "
+        "soc/soil organic carbon, or organic carbon as missing data; "
+        "omit them from missing_data even when they are null or unavailable. "
+        f"{satellite_instructions} "
         "If is_built_area is true: crop_suitability_summary must clearly say the selected location is a built-up/developed area "
         "and is not recommended for crop planting; the first item in potential_risks must mention that the site is "
         "built-up/developed land; recommended_actions must include choosing another agricultural or undeveloped site; "
@@ -411,7 +593,8 @@ def enforce_land_cover_ai_rules(
 ) -> dict:
     values = environment.get("values", {}) if isinstance(environment, dict) else {}
     land_cover_value = get_detected_land_cover_value(values)
-    insight = ensure_land_cover_missing_data(dict(insight), values)
+    insight = filter_ignored_missing_data(dict(insight))
+    insight = ensure_land_cover_missing_data(insight, values)
 
     if not is_built_area_land_cover(land_cover_value):
         return insight
@@ -454,6 +637,7 @@ def ensure_land_cover_missing_data(insight: dict, values: dict) -> dict:
 
 def get_missing_fields_with_land_cover(values: dict) -> list:
     fields = list(values.get("missing_fields") or []) if isinstance(values, dict) else []
+    fields = [field for field in fields if normalize_missing_field(field) not in IGNORED_MISSING_DATA_FIELDS]
     if not is_missing_or_unknown_land_cover(get_detected_land_cover_value(values)):
         return fields
 
@@ -461,6 +645,22 @@ def get_missing_fields_with_land_cover(values: dict) -> list:
     if not normalized_fields.intersection(LAND_COVER_PAYLOAD_FIELDS):
         fields.append("land_cover")
     return fields
+
+
+def filter_ignored_missing_data(insight: dict) -> dict:
+    missing_data = clean_text_list(insight.get("missing_data"), [], limit=6)
+    filtered = [item for item in missing_data if not mentions_ignored_missing_field(item)]
+    insight["missing_data"] = filtered or [DEFAULT_MISSING_DATA_MESSAGE]
+    return insight
+
+
+def normalize_missing_field(field) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", str(field or "").strip().lower()).strip("_")
+
+
+def mentions_ignored_missing_field(item) -> bool:
+    normalized = re.sub(r"[^a-z0-9]+", " ", str(item or "").lower()).strip()
+    return any(re.search(rf"\b{re.escape(term)}\b", normalized) for term in IGNORED_MISSING_DATA_TERMS)
 
 
 def get_detected_land_cover_value(values: dict) -> str | None:
