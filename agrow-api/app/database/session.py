@@ -6,15 +6,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DB_USER='postgres'
-DB_PASSWORD= os.getenv("DATABASE_PASSWORD")
-DB_HOST='localhost'
-DB_PORT='5432'
-DB_NAME='agrow_db'
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-DATABASE_URL=f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+if not DATABASE_URL:
+    DB_USER = os.getenv("DB_USER", "postgres")
+    DB_PASSWORD = os.getenv("DATABASE_PASSWORD", "")
+    DB_HOST = os.getenv("DB_HOST", "localhost")
+    DB_PORT = os.getenv("DB_PORT", "5432")
+    DB_NAME = os.getenv("DB_NAME", "agrow_db")
+    password_segment = f":{DB_PASSWORD}" if DB_PASSWORD else ""
+    DATABASE_URL = f"postgresql://{DB_USER}{password_segment}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()

@@ -5,7 +5,56 @@ import InteractiveMap from './InteractiveMap'
 import AdvancedSimulator from './AdvancedSimulator'
 
 
+<<<<<<< HEAD
+const SABAH_BOUNDS = [[3.8, 114.3], [7.5, 119.5]]
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+
+async function fetchUnifiedSuitability(basePayload, cropName) {
+  const response = await axios.post(`${API_BASE_URL}/api/prediction/suitability`, {
+    crop: cropName,
+    district: basePayload.district || null,
+    latitude: basePayload.latitude ?? null,
+    longitude: basePayload.longitude ?? null,
+    user_inputs: {
+      elevation_m: basePayload.elevation_meters ?? null,
+      slope_pct: basePayload.slope_pct ?? null,
+      soil_ph: basePayload.soil_ph ?? null,
+      soil_depth_cm: basePayload.soil_depth_cm ?? null,
+      rainfall_mm: basePayload.annual_rainfall_mm ?? null,
+      solar_radiation: basePayload.solar_radiation ?? null,
+      root_zone_moisture: basePayload.root_zone_moisture ?? null,
+    },
+  })
+
+  return toDashboardPrediction(response.data)
+}
+
+function toDashboardPrediction(result) {
+  const score = Number(result?.suitability_score ?? result?.suitability?.score)
+  const roundedScore = Number.isFinite(score) ? Math.round(score) : 0
+  const suitability = scoreToSuitabilityClass(roundedScore)
+
+  return {
+    ...result,
+    prediction_detail: result?.suitability,
+    score: roundedScore,
+    status: result?.suitability?.status || 'N/A',
+    suitability,
+    confidence_matrix: {
+      [suitability]: roundedScore,
+    },
+  }
+}
+
+function scoreToSuitabilityClass(score) {
+  if (score >= 80) return 'S1'
+  if (score >= 60) return 'S2'
+  if (score >= 40) return 'S3'
+  return 'N'
+}
+=======
 const API_BASE_URL = 'http://localhost:8000/api/predict'
+>>>>>>> origin/main
 
 export default function DashboardView() {
   const [, setDbCrops] = useState([])
@@ -64,7 +113,7 @@ export default function DashboardView() {
   useEffect(() => {
     const fetchMatrixData = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/live-matrix`)
+        const response = await fetch(`${API_BASE_URL}/api/prediction/live-matrix`)
         const data = await response.json()
 
         if (data.status === 'success') {
@@ -109,8 +158,8 @@ export default function DashboardView() {
             crop_name: activeCrop
           }
 
-          const res = await axios.post(`${API_BASE_URL}/suitability`, payload)
-          return { districtName, suitability: res.data.suitability }
+          const prediction = await fetchUnifiedSuitability(payload, activeCrop)
+          return { districtName, suitability: prediction.suitability }
 
         })
 
@@ -122,7 +171,7 @@ export default function DashboardView() {
         })
         setAllDistrictsSuitability(suitabilityLookup)
       } catch (err) {
-        setApiError('Failed to generate full crop suitability layers from ML Engine')
+        setApiError('Failed to generate full crop suitability layers from the prediction service')
         console.error(err)
       } finally {
         setIsLoading(false)
@@ -276,13 +325,13 @@ export default function DashboardView() {
 
       try {
         const [watermelonRes, cabbageRes, durianRes] = await Promise.all([
-          axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Watermelon' }),
-          axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Cabbage' }),
-          axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Durian' })
+          fetchUnifiedSuitability(basePayload, 'Watermelon'),
+          fetchUnifiedSuitability(basePayload, 'Cabbage'),
+          fetchUnifiedSuitability(basePayload, 'Durian')
         ])
 
         setPredictions({
-          watermelon: watermelonRes.data, cabbage: cabbageRes.data, durian: durianRes.data
+          watermelon: watermelonRes, cabbage: cabbageRes, durian: durianRes
         })
       } catch (err) {
         setPredictions({ watermelon: null, cabbage: null, durian: null })
@@ -390,7 +439,7 @@ export default function DashboardView() {
                         data-tooltip={getSuitabilityDesc(predictions.watermelon.suitability)}
                         style={{ cursor: 'help', position: 'relative' }}
                       >
-                        {predictions.watermelon.confidence_matrix[predictions.watermelon.suitability]}% ML confidence
+                        {predictions.watermelon.confidence_matrix[predictions.watermelon.suitability]}% score
                       </span>
                     </div>
                   )}
@@ -417,7 +466,7 @@ export default function DashboardView() {
                         data-tooltip={getSuitabilityDesc(predictions.durian.suitability)}
                         style={{ cursor: 'help', position: 'relative' }}
                       >
-                        {predictions.durian.confidence_matrix[predictions.durian.suitability]}% ML confidence
+                        {predictions.durian.confidence_matrix[predictions.durian.suitability]}% score
                       </span>
                     </div>
                   )}
@@ -444,7 +493,7 @@ export default function DashboardView() {
                         data-tooltip={getSuitabilityDesc(predictions.cabbage.suitability)}
                         style={{ cursor: 'help', position: 'relative' }}
                       >
-                        {predictions.cabbage.confidence_matrix[predictions.cabbage.suitability]}% ML confidence
+                        {predictions.cabbage.confidence_matrix[predictions.cabbage.suitability]}% score
                       </span>
                     </div>
                   )}
