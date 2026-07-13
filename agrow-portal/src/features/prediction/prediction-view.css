@@ -479,7 +479,9 @@
 
 .satellite-map-shell {
   position: relative;
-  min-height: 680px;
+  width: 100%;
+  height: clamp(500px, calc(100dvh - 180px), 760px);
+  min-height: 500px;
   overflow: hidden;
   background: #142017;
   border: 1px solid rgba(47, 125, 60, 0.18);
@@ -489,8 +491,8 @@
 
 .satellite-planning-map {
   width: 100%;
-  min-height: 680px;
-  height: min(74vh, 800px);
+  height: 100%;
+  min-height: 0;
   background: #142017;
 }
 
@@ -555,11 +557,11 @@
 
 .map-drawing-toolbar {
   left: 16px;
-  bottom: 16px;
+  bottom: 36px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  max-width: calc(100% - 32px);
+  max-width: calc(100% - 96px);
   padding: 10px;
   border-radius: 8px;
 }
@@ -726,6 +728,7 @@
   color: #245b32;
   background: #eaf5e7;
   border: 1px solid #c8e4c4;
+  font-weight: 500; /* Lighter "Local data" text */
 }
 
 .source-placeholder {
@@ -912,10 +915,22 @@
 .feature-tile span,
 .insight-list span {
   display: block;
-  color: #64748b;
+  color: #060606;
   font-size: 12px;
   font-weight: 900; /* Card labels: Suitability score, Area size, Planting window, Estimated return, feature labels */
   line-height: 1.25;
+}
+
+.feature-tile .environment-card-label,
+.feature-tile .satellite-building-check-label {
+  font-size: 18px;
+  font-weight: 400; /* Environmental and satellite card labels */
+}
+
+.score-result-card > div:last-child > .ai-insight-card-label,
+.result-card .ai-insight-card-label {
+  font-size: 20px;
+  font-weight: 500; /* AI Farm Insight summary card labels */
 }
 
 .score-result-card > div:last-child > strong,
@@ -971,9 +986,19 @@
   background: #ffffff !important;
 }
 
+.insight-summary-card .ai-recommendation-heading {
+  font-size: 20px;
+  font-weight: 500; /* AI recommendation summary heading */
+}
+
 .insight-summary-card p {
   max-width: 980px;
   font-size: 13px;
+}
+
+.insight-summary-card .ai-recommendation-content {
+  color: #111827;
+  font-weight: 400; /* AI recommendation summary content */
 }
 
 .genai-summary-content {
@@ -990,10 +1015,10 @@
   min-width: 0;
 }
 
-.genai-confidence-row span {
+.genai-confidence-row .ai-confidence-label {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900; /* "Confidence level" label */
+  font-weight: 500; /* Confidence level label */
 }
 
 .confidence-pill {
@@ -1003,7 +1028,7 @@
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 600; /* Confidence pill text: High, Medium, Low */
+  font-weight: 500; /* Confidence pill text: High, Medium, Low */
   line-height: 1;
 }
 
@@ -1028,7 +1053,7 @@
 .genai-fallback-note {
   color: #6a746d;
   font-size: 11px;
-  font-weight: 700; /* Gemini fallback note */
+  font-weight: 400; /* Gemini fallback note */
   line-height: 1.4;
 }
 
@@ -1050,23 +1075,23 @@
   background: #ffffff !important;
 }
 
-.insight-preview span {
+.insight-preview .insight-preview-heading {
   color: #1e293b;
   font-size: 13px;
-  font-weight: 600; /* Insight preview titles: Key strengths, Potential risks, Missing data */
+  font-weight: 500; /* Key strengths, Potential risks, and Missing data headings */
 }
 
-.insight-preview strong {
+.insight-preview .insight-preview-item {
   position: relative;
   display: block;
   padding-left: 18px;
   color: #1e293b;
   font-size: 13px;
-  font-weight: 750; /* Insight preview item text */
+  font-weight: 400; /* Key strengths, Potential risks, and Missing data content */
   line-height: 1.35;
 }
 
-.insight-preview strong::before {
+.insight-preview .insight-preview-item::before {
   content: "";
   position: absolute;
   left: 0;
@@ -1131,6 +1156,11 @@
   gap: 8px;
 }
 
+.recommendation-panel > .recommended-actions-heading {
+  font-size: 13px;
+  font-weight: 500; /* Matches the three insight preview headings */
+}
+
 .recommendation-panel .insight-list {
   padding: 0;
 }
@@ -1153,7 +1183,7 @@
   box-shadow: 0 10px 20px rgba(31, 95, 54, 0.16);
   font: inherit;
   font-size: 13px;
-  font-weight: 900; /* Download PDF button */
+  font-weight: 500; /* Lighter "Download PDF" button text */
   cursor: pointer;
   transition:
     transform 140ms ease,
@@ -1183,8 +1213,18 @@
   padding-left: 18px;
   color: var(--ink);
   font-size: 13px;
-  font-weight: 650; /* Recommended actions list items */
+  font-weight: 650;
   line-height: 1.45;
+}
+
+.recommendation-panel .recommended-actions-list li {
+  color: #111827;
+  font-size: 13px;
+  font-weight: 400; /* Recommended actions content */
+}
+
+.recommendation-panel .recommended-actions-list li::marker {
+  color: #4da653; /* Green bullets only; action text remains near-black */
 }
 
 .feature-grid {
@@ -1246,8 +1286,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .satellite-map-shell,
-  .satellite-planning-map {
+  .satellite-map-shell {
     min-height: 560px;
   }
 }
@@ -1338,8 +1377,7 @@
     min-height: 52px;
   }
 
-  .satellite-map-shell,
-  .satellite-planning-map {
+  .satellite-map-shell {
     min-height: 460px;
   }
 
@@ -1350,25 +1388,26 @@
   }
 
   .map-area-chip {
-    top: auto;
+    top: 72px;
     right: 16px;
-    bottom: 88px;
+    bottom: auto;
   }
 
   .map-district-chip {
-    top: auto;
+    top: 140px;
     right: 16px;
-    bottom: 154px;
+    bottom: auto;
   }
 
   .map-reserve-chip {
-    top: auto;
+    top: 208px;
     right: 16px;
-    bottom: 220px;
+    bottom: auto;
   }
 
   .map-drawing-toolbar {
-    right: 16px;
+    right: 72px;
+    max-width: none;
   }
 
   .reserved-forest-warning {
@@ -1381,5 +1420,44 @@
   .score-ring {
     width: 88px;
     height: 88px;
+  }
+}
+
+@media (max-width: 520px) {
+  .map-drawing-toolbar {
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .map-drawing-toolbar button {
+    flex: 1 1 calc(50% - 3px);
+    min-width: 0;
+    padding: 7px 9px;
+  }
+}
+
+@media (max-height: 850px) {
+  .satellite-map-shell {
+    height: clamp(460px, calc(100dvh - 140px), 650px);
+    min-height: 460px;
+  }
+}
+
+@media (max-height: 700px) {
+  .satellite-map-shell {
+    height: clamp(420px, calc(100dvh - 100px), 560px);
+    min-height: 420px;
+  }
+
+  .map-drawing-toolbar {
+    bottom: 30px;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .map-drawing-toolbar button {
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 12px;
   }
 }

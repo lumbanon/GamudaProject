@@ -154,7 +154,7 @@ function PlanningResults({ result }) {
             <span>/100</span>
           </div>
           <div>
-            <span>Suitability score</span>
+            <span className="ai-insight-card-label">Suitability score</span>
             <strong>{suitability.status || "Pending"}</strong>
             <p>Risk level: {suitability.risk_level || "N/A"}</p>
           </div>
@@ -180,14 +180,16 @@ function PlanningResults({ result }) {
       </div>
 
       <article className="insight-summary-card">
-        <span>AI recommendation summary</span>
+        <span className="ai-recommendation-heading">
+          AI recommendation summary
+        </span>
         {genAiInsight ? (
           <GenAiInsightSummary
             insight={genAiInsight}
             hideConfidence={isBuiltArea}
           />
         ) : (
-          <p>{result.ai_insight}</p>
+          <p className="ai-recommendation-content">{result.ai_insight}</p>
         )}
       </article>
 
@@ -207,8 +209,11 @@ function PlanningResults({ result }) {
       </div>
 
       <article className="recommendation-panel">
-        <span>Recommended actions</span>
+        <span className="recommended-actions-heading">
+          Recommended actions
+        </span>
         <InsightList
+          className="recommended-actions-list"
           items={
             genAiInsight?.recommended_actions || suitability.recommendations
           }
@@ -235,10 +240,12 @@ function GenAiInsightSummary({ insight, hideConfidence = false }) {
 
   return (
     <div className="genai-summary-content">
-      <p>{insight.crop_suitability_summary}</p>
+      <p className="ai-recommendation-content">
+        {insight.crop_suitability_summary}
+      </p>
       {!hideConfidence && (
         <div className="genai-confidence-row">
-          <span>Confidence level</span>
+          <span className="ai-confidence-label">Confidence level</span>
           <strong
             className={`confidence-pill confidence-${confidence.toLowerCase()}`}
           >
@@ -259,7 +266,7 @@ function GenAiInsightSummary({ insight, hideConfidence = false }) {
 function ResultCard({ label, value, detail, fullValue, fullDetail }) {
   return (
     <article className="result-card">
-      <span>{label}</span>
+      <span className="ai-insight-card-label">{label}</span>
       <strong title={fullValue || value}>{value}</strong>
       {detail && (
         <p className="card-preview-text" title={fullDetail || detail}>
@@ -273,17 +280,19 @@ function ResultCard({ label, value, detail, fullValue, fullDetail }) {
 function InsightPreview({ title, items = [] }) {
   return (
     <div className="insight-preview">
-      <span>{title}</span>
+      <span className="insight-preview-heading">{title}</span>
       {(items.length ? items : ["No item returned"]).slice(0, 3).map((item) => (
-        <strong key={item}>{item}</strong>
+        <strong className="insight-preview-item" key={item}>
+          {item}
+        </strong>
       ))}
     </div>
   );
 }
 
-function InsightList({ items = [] }) {
+function InsightList({ className = "", items = [] }) {
   return (
-    <div className="insight-list">
+    <div className={`insight-list ${className}`.trim()}>
       <ul>
         {(items.length ? items : ["No item returned"]).map((item) => (
           <li key={item}>{item}</li>

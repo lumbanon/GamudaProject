@@ -29,19 +29,19 @@ export default function YieldTrendChart({ data }) {
           <Legend />
           <Line
             type="monotone"
-            dataKey="Banana"
+            dataKey="Cabbage"
             stroke="#2D8A48"
             strokeWidth={2}
           />
           <Line
             type="monotone"
-            dataKey="Maize"
+            dataKey="Durian"
             stroke="#B87333"
             strokeWidth={2}
           />
           <Line
             type="monotone"
-            dataKey="Soya"
+            dataKey="Watermelon"
             stroke="#8884d8"
             strokeWidth={2}
           />
