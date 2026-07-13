@@ -23,7 +23,7 @@ const summaryCards = [
   },
   {
     label: "Best crop",
-    value: "Banana",
+    value: "Watermelon",
     detail: "Most stable overall performance",
   },
   { label: "Average yield", value: "82%", detail: "Blended suitability index" },
@@ -36,19 +36,19 @@ const summaryCards = [
 
 const cropStats = [
   {
-    crop: "Banana",
+    crop: "Watermelon",
     suitability: 92,
     yield: "31.4 t/ha",
     districts: "Kudat, Tuaran, Ranau",
   },
   {
-    crop: "Corn",
+    crop: "Durian",
     suitability: 78,
     yield: "8.7 t/ha",
     districts: "Sandakan, Kota Marudu, Papar",
   },
   {
-    crop: "Cocoa",
+    crop: "Cabbage",
     suitability: 71,
     yield: "1.9 t/ha",
     districts: "Tawau, Lahad Datu, Kinabatangan",
@@ -56,40 +56,40 @@ const cropStats = [
 ];
 
 const seasonalBands = [
-  { label: "Q1", banana: 88, corn: 74, cocoa: 68 },
-  { label: "Q2", banana: 92, corn: 79, cocoa: 71 },
-  { label: "Q3", banana: 86, corn: 76, cocoa: 73 },
-  { label: "Q4", banana: 90, corn: 81, cocoa: 70 },
+  { label: "Q1", Watermelon: 88, Durian: 74, Cabbage: 68 },
+  { label: "Q2", Watermelon: 92, Durian: 79, Cabbage: 71 },
+  { label: "Q3", Watermelon: 86, Durian: 76, Cabbage: 73 },
+  { label: "Q4", Watermelon: 90, Durian: 81, Cabbage: 70 },
 ];
 
 const districtRows = [
   {
     district: "Sandakan",
-    banana: 84,
-    corn: 79,
-    cocoa: 69,
+    Watermelon: 84,
+    Durian: 79,
+    Cabbage: 69,
     note: "Balanced growth conditions",
   },
   {
     district: "Tuaran",
-    banana: 93,
-    corn: 76,
-    cocoa: 66,
+    Watermelon: 93,
+    Durian: 76,
+    Cabbage: 66,
     note: "Strong rainfall alignment",
   },
   {
     district: "Kudat",
-    banana: 89,
-    corn: 73,
-    cocoa: 62,
-    note: "High banana stability",
+    Watermelon: 89,
+    Durian: 73,
+    Cabbage: 62,
+    note: "High Watermelon stability",
   },
   {
     district: "Tawau",
-    banana: 81,
-    corn: 72,
-    cocoa: 77,
-    note: "Cocoa gains from soil profile",
+    Watermelon: 81,
+    Durian: 72,
+    Cabbage: 77,
+    note: "Cabbage gains from soil profile",
   },
 ];
 
@@ -107,9 +107,9 @@ export default function StatisticViews() {
             district-level performance metrics.
           </p>
         </div>
-        <div className="statistics-hero-badge">
+        {/* <div className="statistics-hero-badge">
           <span>LIVE SYSTEM</span>
-        </div>
+        </div> */}
       </header>
 
       {/* Summary Stats */}
@@ -141,19 +141,19 @@ export default function StatisticViews() {
                 <Legend />
                 <Line
                   type="monotone"
-                  dataKey="banana"
+                  dataKey="Watermelon"
                   stroke="#f59e0b"
                   strokeWidth={3}
                 />
                 <Line
                   type="monotone"
-                  dataKey="corn"
+                  dataKey="Durian"
                   stroke="#10b981"
                   strokeWidth={3}
                 />
                 <Line
                   type="monotone"
-                  dataKey="cocoa"
+                  dataKey="Cabbage"
                   stroke="#78350f"
                   strokeWidth={3}
                 />
@@ -178,8 +178,8 @@ export default function StatisticViews() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="district" />
                 <Tooltip />
-                <Bar dataKey="banana" fill="#f59e0b" />
-                <Bar dataKey="corn" fill="#10b981" />
+                <Bar dataKey="Watermelon" fill="#f59e0b" />
+                <Bar dataKey="Durian" fill="#10b981" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -226,9 +226,9 @@ function MatrixSection({ data }) {
           <thead>
             <tr>
               <th>District</th>
-              <th>Banana</th>
-              <th>Corn</th>
-              <th>Cocoa</th>
+              <th>Watermelon</th>
+              <th>Durian</th>
+              <th>Cabbage</th>
               <th>Notes</th>
             </tr>
           </thead>
@@ -236,9 +236,9 @@ function MatrixSection({ data }) {
             {data.map((row) => (
               <tr key={row.district}>
                 <td>{row.district}</td>
-                <td>{row.banana}%</td>
-                <td>{row.corn}%</td>
-                <td>{row.cocoa}%</td>
+                <td>{row.Watermelon}%</td>
+                <td>{row.Durian}%</td>
+                <td>{row.Cabbage}%</td>
                 <td>{row.note}</td>
               </tr>
             ))}
