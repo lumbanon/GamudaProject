@@ -87,15 +87,15 @@ function LandingPage() {
               with confidence.
             </p>
             <div className="landing-actions">
-              <Link to="/dashboard" className="primary-button">
+              <Link to="/login" className="primary-button">
                 Launch Workspace
               </Link>
-              <Link
+              {/* <Link
                 to="/dashboard/heatmap-analysis"
                 className="secondary-button"
               >
                 Explore Map Layers
-              </Link>
+              </Link> */}
             </div>
           </div>
         </section>
