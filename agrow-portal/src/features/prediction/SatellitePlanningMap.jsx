@@ -344,14 +344,30 @@ function MapResizeHandler({ watchKey }) {
 
   useEffect(() => {
     const invalidate = () => map.invalidateSize({ animate: false })
-    const frameId = window.requestAnimationFrame(invalidate)
+    let frameId = 0
+    const scheduleInvalidate = () => {
+      window.cancelAnimationFrame(frameId)
+      frameId = window.requestAnimationFrame(invalidate)
+    }
+
+    scheduleInvalidate()
     const timeoutId = window.setTimeout(invalidate, 260)
-    window.addEventListener("resize", invalidate)
+    const mapContainer = map.getContainer()
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(scheduleInvalidate)
+
+    resizeObserver?.observe(mapContainer)
+    window.addEventListener("resize", scheduleInvalidate)
+    window.visualViewport?.addEventListener("resize", scheduleInvalidate)
 
     return () => {
       window.cancelAnimationFrame(frameId)
       window.clearTimeout(timeoutId)
-      window.removeEventListener("resize", invalidate)
+      resizeObserver?.disconnect()
+      window.removeEventListener("resize", scheduleInvalidate)
+      window.visualViewport?.removeEventListener("resize", scheduleInvalidate)
     }
   }, [map, watchKey])
 

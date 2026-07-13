@@ -161,11 +161,27 @@ export function EnvironmentDataPanel({ isLoading, result }) {
 
         {features && (
           <div className="environment-sidebar-stack">
-            <FeatureAccordion title="Climate data" rows={buildClimateFeatureRows(features)} />
-            <FeatureAccordion title="Soil data" rows={buildSoilFeatureRows(features)} />
-            <FeatureAccordion title="Topography data" rows={buildTopoFeatureRows(features)} />
+            <FeatureAccordion
+              labelClassName="environment-card-label"
+              title="Climate data"
+              rows={buildClimateFeatureRows(features)}
+            />
+            <FeatureAccordion
+              labelClassName="environment-card-label"
+              title="Soil data"
+              rows={buildSoilFeatureRows(features)}
+            />
+            <FeatureAccordion
+              labelClassName="environment-card-label"
+              title="Topography data"
+              rows={buildTopoFeatureRows(features)}
+            />
             {satelliteAnalysis && (
-              <FeatureAccordion title="Gemini satellite building check" rows={buildSatelliteAnalysisRows(satelliteAnalysis)} />
+              <FeatureAccordion
+                labelClassName="satellite-building-check-label"
+                title="Gemini satellite building check"
+                rows={buildSatelliteAnalysisRows(satelliteAnalysis)}
+              />
             )}
           </div>
         )}
@@ -194,14 +210,14 @@ function buildSatelliteAnalysisRows(analysis) {
   ]
 }
 
-function FeatureAccordion({ title, rows }) {
+function FeatureAccordion({ labelClassName, title, rows }) {
   return (
     <details className="planning-accordion feature-accordion" open>
       <summary>{title}</summary>
       <div className="feature-grid">
         {rows.map((feature) => (
           <div className="feature-tile" key={feature.label}>
-            <span>{feature.label}</span>
+            <span className={labelClassName}>{feature.label}</span>
             <strong>{feature.value}</strong>
           </div>
         ))}
