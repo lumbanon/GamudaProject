@@ -243,56 +243,76 @@ export default function DashboardView() {
         }
       })
     }
-  }, [getDistrictStyle])
+  }, [getDistrictStyle, predictions])
 
   const m = getMatrixDataForDistrict(selectedDistrict)
 
-  useEffect(() => {
-    const getSuitabilityPrediction = async () => {
-      if (!selectedDistrict) return
+useEffect(() => {
+  if (!selectedDistrict) return;
 
-      const metrics = getMatrixDataForDistrict(selectedDistrict)
-      if (!metrics) {
-        setPredictions({ watermelon: null, cabbage: null, durian: null })
-        setApiError(`No database found for selected district: '${selectedDistrict}'`)
-        return
-      }
-
-      setIsLoading(true)
-      setApiError('')
-
-      const basePayload = {
-        latitude: metrics.lat,
-        longitude: metrics.lng,
-        district: selectedDistrict,
-        elevation_meters: metrics.elev,
-        slope_pct: metrics.slope,
-        soil_ph: metrics.ph,
-        soil_depth_cm: metrics.depth,
-        annual_rainfall_mm: metrics.rain,
-        solar_radiation: metrics.solar,
-        root_zone_moisture: metrics.moisture,
-      }
-
-      try {
-        const [watermelonRes, cabbageRes, durianRes] = await Promise.all([
-          axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Watermelon' }),
-          axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Cabbage' }),
-          axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Durian' })
-        ])
-
-        setPredictions({
-          watermelon: watermelonRes.data, cabbage: cabbageRes.data, durian: durianRes.data
-        })
-      } catch (err) {
-        setPredictions({ watermelon: null, cabbage: null, durian: null })
-        setApiError(err.message || 'Network failure while calling ML engine')
-      } finally {
-        setIsLoading(false)
-      }
+  // Move the metrics evaluation inside the asynchronous cycle block
+  const getSuitabilityPrediction = async () => {
+    const metrics = getMatrixDataForDistrict(selectedDistrict);
+    
+    // FIX: Moving these state updates inside the scoped execution flow removes synchronous cascading renders
+    if (!metrics) {
+      setPredictions({ watermelon: null, cabbage: null, durian: null });
+      setApiError(`No database found for selected district: '${selectedDistrict}'`);
+      return;
     }
-    getSuitabilityPrediction()
-  }, [selectedDistrict, getMatrixDataForDistrict])
+
+    setIsLoading(true);
+    setApiError('');
+
+    const payloadSource = showModeling ? simulationParams : {
+      elev: metrics.elev,
+      slope: metrics.slope,
+      ph: metrics.ph,
+      depth: metrics.depth,
+      rain: metrics.rain,
+      solar: metrics.solar
+    };
+
+    const basePayload = {
+      latitude: metrics.lat,
+      longitude: metrics.lng,
+      district: selectedDistrict,
+      elevation_meters: payloadSource.elev,
+      slope_pct: payloadSource.slope,
+      soil_ph: payloadSource.ph,
+      soil_depth_cm: payloadSource.depth,
+      annual_rainfall_mm: payloadSource.rain,
+      solar_radiation: payloadSource.solar,
+      root_zone_moisture: metrics.moisture,
+    };
+
+    try {
+      const [watermelonRes, cabbageRes, durianRes] = await Promise.all([
+        axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Watermelon' }),
+        axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Cabbage' }),
+        axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Durian' })
+      ]);
+
+      setPredictions({
+        watermelon: watermelonRes.data, 
+        cabbage: cabbageRes.data, 
+        durian: durianRes.data
+      });
+    } catch (err) {
+      setPredictions({ watermelon: null, cabbage: null, durian: null });
+      setApiError(err.message || 'Network failure while calling ML engine');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Debounce handler stays intact to throttle fast slider adjustments
+  const delayDebounce = setTimeout(() => {
+    getSuitabilityPrediction();
+  }, 150);
+
+  return () => clearTimeout(delayDebounce);
+}, [selectedDistrict, getMatrixDataForDistrict, showModeling, simulationParams]);
 
   const getBadgeClass = (suitability) => {
     const badgeMap = { S1: 'bg-primary', S2: 'bg-secondary', S3: 'bg-warning', N: 'bg-danger' }
