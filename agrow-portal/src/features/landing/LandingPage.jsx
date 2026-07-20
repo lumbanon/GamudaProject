@@ -82,9 +82,9 @@ function LandingPage() {
           <div className="hero-copy">
             <h1>Data-Driven Crop Intelligence for Sabah's Future</h1>
             <p>
-              Real-time satellite data, predictive ML, and GIS mapping help
-              Sabah growers evaluate land, compare crop suitability, and plan
-              with confidence.
+              Satellite imagery, predictive ML, and GIS mapping help Sabah
+              growers evaluate land, compare crop suitability, and plan with
+              confidence.
             </p>
             <div className="landing-actions">
               <Link to="/login" className="primary-button">
