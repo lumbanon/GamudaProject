@@ -1,8 +1,12 @@
 import logging
 import math
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
+from functools import lru_cache
+from pathlib import Path
 
+import joblib
+import pandas as pd
 from sqlalchemy import func, inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -23,6 +27,14 @@ class PredictionNotFoundError(Exception):
 
 
 class PredictionDataError(Exception):
+    pass
+
+
+class PredictionModelInputError(PredictionNotFoundError):
+    pass
+
+
+class PredictionModelError(PredictionDataError):
     pass
 
 
@@ -72,6 +84,41 @@ CROP_REQUIREMENTS = {
     },
 }
 SUPPORTED_PREDICTION_CROPS = tuple(CROP_REQUIREMENTS)
+
+MODEL_ASSETS_DIR = Path(__file__).resolve().parents[1] / "ml_assets"
+MODEL_PATH = MODEL_ASSETS_DIR / "crop_classifier.joblib"
+ENCODER_PATH = MODEL_ASSETS_DIR / "crop_encoder.joblib"
+MODEL_CLASS_ORDER = ("S1", "S2", "S3", "N")
+MODEL_CLASS_LABELS = {
+    "S1": "Highly suitable",
+    "S2": "Suitable",
+    "S3": "Moderately suitable",
+    "N": "Low suitability",
+}
+MODEL_SCORE_BANDS = {
+    "S1": (80, 100),
+    "S2": (60, 79),
+    "S3": (40, 59),
+    "N": (0, 39),
+}
+MODEL_FEATURE_FIELDS = (
+    "elevation_meters",
+    "slope_pct",
+    "soil_ph",
+    "soil_depth_cm",
+    "annual_rainfall_mm",
+    "solar_radiation",
+    "root_zone_moisture",
+)
+MODEL_ENVIRONMENT_PRECISION = {
+    "elevation_m": 1,
+    "slope_pct": 1,
+    "soil_ph": 1,
+    "soil_depth_cm": 0,
+    "rainfall_mm": 1,
+    "solar_radiation": 2,
+    "root_zone_moisture": 2,
+}
 
 
 NUMERIC_ENV_COLUMNS = (
@@ -222,6 +269,133 @@ def get_environment(db: Session, district: str | None = None) -> dict:
     }
 
 
+def predict_suitability_with_model(crop_name: str, values: dict) -> dict:
+    classifier, encoder = load_prediction_model()
+    normalized_crop_name = canonical_prediction_crop_name(crop_name)
+    if not normalized_crop_name:
+        raise PredictionModelInputError("A supported crop is required for prediction.")
+
+    try:
+        crop_encoded = encoder.transform([normalized_crop_name])[0]
+    except ValueError as exc:
+        raise PredictionModelInputError(
+            f"Crop target '{crop_name}' is not supported by the prediction model."
+        ) from exc
+
+    model_values = build_model_feature_values(values)
+    missing_fields = [
+        field_name
+        for field_name in MODEL_FEATURE_FIELDS
+        if model_values[field_name] is None
+    ]
+    if missing_fields:
+        readable_fields = ", ".join(
+            field_name.replace("_", " ") for field_name in missing_fields
+        )
+        raise PredictionModelInputError(
+            f"Prediction requires values for: {readable_fields}."
+        )
+
+    input_frame = pd.DataFrame(
+        [
+            {
+                "crop_encoded": crop_encoded,
+                **model_values,
+            }
+        ]
+    )
+
+    try:
+        prediction = str(classifier.predict(input_frame)[0])
+        probabilities = classifier.predict_proba(input_frame)[0]
+    except Exception as exc:
+        raise PredictionModelError(
+            "The crop suitability model could not complete the prediction."
+        ) from exc
+
+    raw_probabilities = {
+        str(class_name): round(float(probability) * 100, 2)
+        for class_name, probability in zip(
+            classifier.classes_,
+            probabilities,
+        )
+    }
+    confidence_matrix = {
+        class_name: raw_probabilities.get(class_name, 0.0)
+        for class_name in MODEL_CLASS_ORDER
+    }
+
+    return {
+        "suitability_class": prediction,
+        "confidence_matrix": confidence_matrix,
+        "model_confidence_pct": confidence_matrix.get(prediction, 0.0),
+    }
+
+
+@lru_cache(maxsize=1)
+def load_prediction_model():
+    if not MODEL_PATH.exists() or not ENCODER_PATH.exists():
+        raise PredictionModelError(
+            f"Machine learning assets are missing from {MODEL_ASSETS_DIR}."
+        )
+
+    try:
+        return joblib.load(MODEL_PATH), joblib.load(ENCODER_PATH)
+    except Exception as exc:
+        raise PredictionModelError(
+            "The crop suitability model assets could not be loaded."
+        ) from exc
+
+
+def build_model_feature_values(values: dict) -> dict[str, float | None]:
+    raw_values = {
+        "elevation_meters": first_number(
+            values.get("elevation_meters"),
+            values.get("elevation_m"),
+            values.get("dem_m"),
+        ),
+        "slope_pct": first_number(values.get("slope_pct")),
+        "soil_ph": first_number(values.get("soil_ph")),
+        "soil_depth_cm": first_number(values.get("soil_depth_cm")),
+        "annual_rainfall_mm": first_number(
+            values.get("annual_rainfall_mm"),
+            values.get("rainfall_mm"),
+        ),
+        "solar_radiation": first_number(values.get("solar_radiation")),
+        "root_zone_moisture": first_number(
+            values.get("root_zone_moisture")
+        ),
+    }
+
+    precision_by_field = {
+        "elevation_meters": 1,
+        "slope_pct": 1,
+        "soil_ph": 1,
+        "soil_depth_cm": 0,
+        "annual_rainfall_mm": 1,
+        "solar_radiation": 2,
+        "root_zone_moisture": 2,
+    }
+    return {
+        field_name: (
+            round_model_value(value, precision_by_field[field_name])
+            if value is not None
+            else None
+        )
+        for field_name, value in raw_values.items()
+    }
+
+
+def round_model_value(value: float, decimal_places: int) -> float:
+    quantizer = Decimal("1").scaleb(-decimal_places)
+    return float(
+        Decimal(str(value)).quantize(
+            quantizer,
+            rounding=ROUND_HALF_UP,
+        )
+    )
+
+
 def get_suitability(db: Session, request) -> dict:
     forest_reserve_check = validate_forest_reserve_overlap(db, request.polygon)
     if forest_reserve_check["allowed"] is False:
@@ -250,7 +424,20 @@ def get_suitability(db: Session, request) -> dict:
         raise PredictionNotFoundError(f"No environmental records were found for {location}.")
 
     area_hectares = calculate_polygon_area_hectares(request.polygon) if request.polygon else None
-    suitability = score_crop_suitability(crop, environment["values"], environment["sample_count"])
+    threshold_diagnostics = score_crop_suitability(
+        crop,
+        environment["values"],
+        environment["sample_count"],
+    )
+    model_prediction = predict_suitability_with_model(
+        crop.name,
+        environment["values"],
+    )
+    suitability = build_model_suitability(
+        threshold_diagnostics,
+        model_prediction,
+        environment["sample_count"],
+    )
     explanation = build_explanation(crop, request.district, environment, suitability)
     estimate = build_return_estimate(db, crop.name, suitability["score"], area_hectares)
     planting_window = build_planting_window(environment["values"])
@@ -283,6 +470,8 @@ def get_suitability(db: Session, request) -> dict:
         "district": request.district,
         "area_hectares": area_hectares,
         "suitability_score": suitability["score"],
+        "suitability_class": model_prediction["suitability_class"],
+        "confidence_matrix": model_prediction["confidence_matrix"],
         "matched_environment": environment["values"],
         "features": environment["values"],
         "suitability": suitability,
@@ -815,7 +1004,14 @@ def query_spatial_grid_environment_values(
 
     for column_name, alias in NUMERIC_ENV_COLUMNS:
         if column_name in columns and alias not in selected_aliases:
-            select_fragments.append(f"AVG({column_name}) AS {alias}")
+            decimal_places = MODEL_ENVIRONMENT_PRECISION.get(alias)
+            aggregate = f"AVG({column_name})"
+            if decimal_places is not None:
+                aggregate = (
+                    f"ROUND(AVG({column_name})::numeric, "
+                    f"{decimal_places})"
+                )
+            select_fragments.append(f"{aggregate} AS {alias}")
             selected_aliases.add(alias)
 
     for column_name, alias in TEXT_ENV_COLUMNS:
@@ -1176,6 +1372,68 @@ def apply_user_inputs(values: dict, user_inputs) -> list[str]:
         values["overridden_fields"] = sorted(overridden_fields)
 
     return overridden_fields
+
+
+def build_model_suitability(
+    threshold_diagnostics: dict,
+    model_prediction: dict,
+    sample_count: int,
+) -> dict:
+    suitability_class = model_prediction["suitability_class"]
+    confidence_matrix = model_prediction["confidence_matrix"]
+    model_confidence = float(
+        model_prediction.get("model_confidence_pct", 0.0)
+    )
+    score = model_class_to_score(suitability_class, model_confidence)
+    limitations = list(threshold_diagnostics.get("limitations", []))
+
+    if model_confidence >= 70:
+        confidence_level = "High"
+    elif model_confidence >= 45:
+        confidence_level = "Medium"
+    else:
+        confidence_level = "Low"
+
+    data_note = (
+        "matched environmental records"
+        if sample_count > 0
+        else "the supplied environmental values"
+    )
+
+    return {
+        **threshold_diagnostics,
+        "score": score,
+        "status": MODEL_CLASS_LABELS.get(
+            suitability_class,
+            suitability_class,
+        ),
+        "risk_level": score_to_risk_level(score, limitations, []),
+        "confidence": (
+            f"{confidence_level} model confidence "
+            f"({model_confidence:.2f}%) using {data_note}."
+        ),
+        "classification": suitability_class,
+        "confidence_matrix": confidence_matrix,
+        "model_confidence_pct": model_confidence,
+    }
+
+
+def model_class_to_score(
+    suitability_class: str,
+    confidence_pct: float,
+) -> int:
+    lower_score, upper_score = MODEL_SCORE_BANDS.get(
+        suitability_class,
+        (0, 100),
+    )
+    confidence_ratio = max(0.0, min(100.0, confidence_pct)) / 100
+
+    if suitability_class == "N":
+        return round(upper_score * (1 - confidence_ratio))
+
+    return round(
+        lower_score + ((upper_score - lower_score) * confidence_ratio)
+    )
 
 
 def score_crop_suitability(crop: Crop, values: dict, sample_count: int) -> dict:

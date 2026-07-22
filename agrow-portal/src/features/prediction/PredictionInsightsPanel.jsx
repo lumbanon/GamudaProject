@@ -130,6 +130,12 @@ function PlanningResults({ result }) {
   const suitability = result.suitability || {};
   const estimate = result.return_estimate || {};
   const score = Number(suitability.score || 0);
+  const modelClass =
+    result.suitability_class || suitability.classification || "";
+  const modelConfidence = Number(
+    suitability.model_confidence_pct ??
+      result.confidence_matrix?.[modelClass],
+  );
   const tone = getSuitabilityTone(suitability.status);
   const genAiInsight = normalizeGenAiInsight(
     result.genai_insight,
@@ -155,8 +161,16 @@ function PlanningResults({ result }) {
           </div>
           <div>
             <span className="ai-insight-card-label">Suitability score</span>
-            <strong>{suitability.status || "Pending"}</strong>
-            <p>Risk level: {suitability.risk_level || "N/A"}</p>
+            <strong>
+              {modelClass ? `${modelClass} · ` : ""}
+              {suitability.status || "Pending"}
+            </strong>
+            <p>
+              {Number.isFinite(modelConfidence)
+                ? `Model confidence: ${formatNumber(modelConfidence, 2)}% · `
+                : ""}
+              Risk level: {suitability.risk_level || "N/A"}
+            </p>
           </div>
         </article>
 
@@ -429,6 +443,13 @@ function buildPredictionReportHtml(result, genAiInsight) {
             ${reportBox("Crop", result.crop || "N/A")}
             ${reportBox("District", result.district || "Selected map area")}
             ${reportBox("Suitability score", `${formatNumber(suitability.score, 0)}/100`)}
+            ${reportBox("ML suitability class", suitability.classification || "N/A")}
+            ${reportBox(
+              "Model confidence",
+              Number.isFinite(Number(suitability.model_confidence_pct))
+                ? `${formatNumber(suitability.model_confidence_pct, 2)}%`
+                : "N/A",
+            )}
             ${reportBox("Status", suitability.status || "N/A")}
             ${reportBox("Risk level", suitability.risk_level || "N/A")}
             ${reportBox("Area", formatHectares(result.area_hectares))}

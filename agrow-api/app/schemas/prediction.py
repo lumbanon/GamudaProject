@@ -95,6 +95,9 @@ class ForestReserveValidationResponse(BaseModel):
 class SuitabilityDetail(BaseModel):
     score: int
     status: str
+    classification: str | None = None
+    confidence_matrix: dict[str, float] = Field(default_factory=dict)
+    model_confidence_pct: float | None = None
     strengths: list[str] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
     recommendations: list[str] = Field(default_factory=list)
@@ -155,6 +158,8 @@ class SuitabilityResponse(BaseModel):
     district: str | None = None
     area_hectares: float | None = None
     suitability_score: int | None = None
+    suitability_class: str | None = None
+    confidence_matrix: dict[str, float] = Field(default_factory=dict)
     matched_environment: EnvironmentValues | None = None
     features: EnvironmentValues | None = None
     suitability: SuitabilityDetail | None = None
