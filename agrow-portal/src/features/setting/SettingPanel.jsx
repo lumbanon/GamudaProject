@@ -1,116 +1,463 @@
-import { useState,useEffect } from 'react';
-import './Setting.css';
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  changeCurrentUserPassword,
+  deleteCurrentUser,
+  getCurrentUser,
+  updateCurrentUser,
+} from './settingsApi'
+import eyeIcon from '../../assets/setting/eye.svg'
+import eyeSlashIcon from '../../assets/setting/eye-slash.svg'
+import {
+  APP_PREFERENCE_KEYS,
+  useAppPreference,
+  useAppPreferences,
+} from '../../context/appPreferences'
+import './setting.css'
 
-// FUNCTION : Main Settings Panel Component
+const ALLOWED_EMAIL_DOMAINS = new Set([
+  'gmail.com',
+  'hotmail.com',
+  'icloud.com',
+  'live.com',
+  'outlook.com',
+  'proton.me',
+  'protonmail.com',
+  'yahoo.com',
+  'ymail.com',
+])
 
-export default function SettingsPanel() {
-const [dataPrefActive, setDataPrefActive] = useState(false);
+export default function SettingPanel() {
+  return (
+    <main className='settings-container'>
+      <div className='settings-profile-wrapper'>
+        <ProfileCard />
+      </div>
+    </main>
+  )
+}
+function ProfileCard() {
+  const navigate = useNavigate()
+  const { resetAppPreferences } = useAppPreferences()
+  const [user, setUser] = useAppPreference(
+    APP_PREFERENCE_KEYS.profileUser,
+    null,
+  )
+  const [fullName, setFullName] = useAppPreference(
+    APP_PREFERENCE_KEYS.profileFullName,
+    '',
+  )
+  const [email, setEmail] = useAppPreference(
+    APP_PREFERENCE_KEYS.profileEmail,
+    '',
+  )
+  const [isEditing, setIsEditing] = useAppPreference(
+    APP_PREFERENCE_KEYS.profileIsEditing,
+    false,
+  )
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [visiblePasswords, setVisiblePasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  })
+  const [isLoading, setIsLoading] = useState(() => !user)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isPasswordSaving, setIsPasswordSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
-const [selectedLayer, setSelectedLayer] = useState('topo');
-const [boundariesEnabled, setBoundariesEnabled] = useState(true);
+  useEffect(() => {
+    if (user) {
+      return undefined
+    }
 
-const [CropOption,setCropOption]=useState(['Cocoa']);
-const [reportOptions,setReportoptions]=useState(['Weekly']);
-const [selectedCrop, setSelectedCrop] = useState('Cocoa');
-const [selectedReport, setSelectedReport] = useState('Weekly');
+    const controller = new AbortController()
 
-// useEffect(()=>{},[]);
+    async function loadUser() {
+      setIsLoading(true)
+      setError('')
+
+      try {
+        const currentUser = await getCurrentUser({ signal: controller.signal })
+        setUser(currentUser)
+        setFullName(currentUser.fullName || '')
+        setEmail(currentUser.email || '')
+      } catch (requestError) {
+        if (requestError.name !== 'AbortError') {
+          setError(requestError.message || 'Unable to load your account.')
+        }
+      } finally {
+        if (!controller.signal.aborted) setIsLoading(false)
+      }
+    }
+
+    void loadUser()
+    return () => controller.abort()
+  }, [setEmail, setFullName, setUser, user])
+
+  function cancelEditing() {
+    setFullName(user?.fullName || '')
+    setEmail(user?.email || '')
+    setIsEditing(false)
+    setError('')
+    setSuccess('')
+  }
+
+  function cancelPasswordChange() {
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmPassword('')
+    setVisiblePasswords({ current: false, new: false, confirm: false })
+    setIsChangingPassword(false)
+    setError('')
+    setSuccess('')
+  }
+
+  function togglePasswordVisibility(field) {
+    setVisiblePasswords((currentVisibility) => ({
+      ...currentVisibility,
+      [field]: !currentVisibility[field],
+    }))
+  }
+
+  async function handleSave(event) {
+    event.preventDefault()
+    if (isSaving) return
+
+    const emailDomain = email.trim().toLowerCase().split('@').pop()
+    if (!ALLOWED_EMAIL_DOMAINS.has(emailDomain)) {
+      setError(
+        'Use an email from Gmail, Hotmail, Outlook, Yahoo, iCloud, Live, or Proton.',
+      )
+      setSuccess('')
+      return
+    }
+
+    setIsSaving(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const updatedUser = await updateCurrentUser({ fullName, email })
+      setUser(updatedUser)
+      setFullName(updatedUser.fullName || '')
+      setEmail(updatedUser.email || '')
+      setIsEditing(false)
+      setSuccess('Account information updated.')
+    } catch (requestError) {
+      setError(requestError.message || 'Unable to update your account.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    const confirmed = window.confirm(
+      'Delete your account permanently? This action cannot be undone.',
+    )
+    if (!confirmed) return
+
+    setIsDeleting(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      await deleteCurrentUser()
+      sessionStorage.removeItem('token')
+      sessionStorage.removeItem('user_role')
+      sessionStorage.removeItem('user_email')
+      sessionStorage.removeItem('token_expiry')
+      resetAppPreferences()
+      navigate('/login', { replace: true })
+    } catch (requestError) {
+      setError(requestError.message || 'Unable to delete your account.')
+      setIsDeleting(false)
+    }
+  }
+
+  async function handlePasswordChange(event) {
+    event.preventDefault()
+    if (isPasswordSaving) return
+
+    if (newPassword.length < 6) {
+      setError('New password must be at least 6 characters.')
+      setSuccess('')
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError('New password and confirmation do not match.')
+      setSuccess('')
+      return
+    }
+
+    if (currentPassword === newPassword) {
+      setError('New password must be different from your current password.')
+      setSuccess('')
+      return
+    }
+
+    setIsPasswordSaving(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      await changeCurrentUserPassword({ currentPassword, newPassword })
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setVisiblePasswords({ current: false, new: false, confirm: false })
+      setIsChangingPassword(false)
+      setSuccess('Password changed successfully.')
+    } catch (requestError) {
+      setError(requestError.message || 'Unable to change your password.')
+    } finally {
+      setIsPasswordSaving(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className='settings-card profile-card' aria-busy='true'>
+        <p className='profile-status'>Loading account...</p>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className='settings-card profile-card'>
+        <p className='profile-message profile-message-error' role='alert'>
+          {error || 'Unable to load your account.'}
+        </p>
+      </div>
+    )
+  }
 
   return (
-    <div className="settings-card panel-card">
-      
-      {/* Section A: Data Preferences */}
-
-      <div className="settings-section">
-        <div className="section-header">
-          <h3 className="section-title">Data Preferences</h3>
-          <label className='toggle-switch'>
-            <input type="checkbox"
-                    checked ={dataPrefActive}
-                    onChange={(e)=> setDataPrefActive(e.target.checked)} />
-                  <span className='toggle-slider'></span>
-          </label>
+    <div className='settings-card profile-card'>
+      <div className='profile-header'>
+        <div className='profile-avatar' aria-hidden='true'>ðŸ‘¤</div>
+        <div>
+          <h2 className='profile-name'>{user.fullName || 'Name unavailable'}</h2>
+          <p className='profile-role'>{user.role || 'Role unavailable'}</p>
+          <p className='profile-email'>{user.email || 'Email unavailable'}</p>
         </div>
-        <p className="section-description">Auto-update regional datasets</p>
-        
-        <div className="inputs-row">
-          <div className="input-field-group">
-            <label className="input-label">Crop Focus</label>
-            <select className="custom-select"
-                    value ={selectedCrop}
-                    onChange={(e)=> setSelectedCrop(e.target.value)}
+      </div>
+
+      <hr className='profile-divider' />
+
+      {isEditing && (
+        <form className='profile-edit-form' onSubmit={handleSave}>
+          <label className='profile-field' htmlFor='profile-full-name'>
+            Full name
+            <input
+              id='profile-full-name'
+              type='text'
+              value={fullName}
+              maxLength={255}
+              disabled={isSaving}
+              required
+              onChange={(event) => setFullName(event.target.value)}
+            />
+          </label>
+
+          <label className='profile-field' htmlFor='profile-email'>
+            Email
+            <input
+              id='profile-email'
+              type='email'
+              value={email}
+              maxLength={320}
+              disabled={isSaving}
+              required
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </label>
+
+          <div className='profile-form-actions'>
+            <button
+              className='btn-edit-profile'
+              type='submit'
+              disabled={isSaving}
             >
-              {CropOption.map((crop,index)=>
-              <option key= {index} value ={crop}>{crop}</option>
-              )}
-              </select>
-          </div>
-          <div className="input-field-group">
-            <label className="input-label">Reports</label>
-            <select className="custom-select"
-                    value ={selectedReport}
-                    onChange={(e)=> setSelectedReport(e.target.value)}
+              {isSaving ? 'Saving...' : 'Save changes'}
+            </button>
+            <button
+              className='btn-profile-secondary'
+              type='button'
+              disabled={isSaving}
+              onClick={cancelEditing}
             >
-              {reportOptions.map((report,index)=>
-              <option key ={index} value ={report}>{report}</option>
-              )}
-              </select>
+              Cancel
+            </button>
           </div>
-        </div>
-      </div>
+        </form>
+      )}
 
-      {/* Section B: District Boundaries */}
+      {isChangingPassword && (
+        <form className='profile-edit-form' onSubmit={handlePasswordChange}>
+          <div className='profile-field'>
+            <label htmlFor='current-password'>Current password</label>
+            <div className='profile-password-input'>
+              <input
+                autoComplete='current-password'
+                disabled={isPasswordSaving}
+                id='current-password'
+                maxLength={72}
+                required
+                type={visiblePasswords.current ? 'text' : 'password'}
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+              />
+              <PasswordVisibilityButton
+                isVisible={visiblePasswords.current}
+                disabled={isPasswordSaving}
+                onToggle={() => togglePasswordVisibility('current')}
+              />
+            </div>
+          </div>
 
-      <div className="settings-section">
-        <div className="section-header">
-          <h3 className="section-title">District Boundaries</h3>
-         <label className='toggle-switch'>
-           <input type="checkbox"
-         checked ={boundariesEnabled}
-         onChange={(e)=> setBoundariesEnabled(e.target.checked)} />
-         <span className='toggle-slider'></span>
-          </label> 
-         
-        </div>
-        <p className="section-description" style={{ marginBottom: "12px" }}>District Boundaries</p>
-        
-        <div className="sub-options-container">
-          <span 
-            onClick={() => setSelectedLayer('topo')} 
-            style={{ cursor: 'pointer', userSelect: 'none' }}
+          <div className='profile-field'>
+            <label htmlFor='new-password'>New password</label>
+            <div className='profile-password-input'>
+              <input
+                aria-describedby='new-password-help'
+                autoComplete='new-password'
+                disabled={isPasswordSaving}
+                id='new-password'
+                maxLength={72}
+                minLength={6}
+                required
+                type={visiblePasswords.new ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+              />
+              <PasswordVisibilityButton
+                isVisible={visiblePasswords.new}
+                disabled={isPasswordSaving}
+                onToggle={() => togglePasswordVisibility('new')}
+              />
+            </div>
+          </div>
+          <small className='profile-field-help' id='new-password-help'>
+            Use at least 6 characters and choose a different password.
+          </small>
+
+          <div className='profile-field'>
+            <label htmlFor='confirm-new-password'>Confirm new password</label>
+            <div className='profile-password-input'>
+              <input
+                autoComplete='new-password'
+                disabled={isPasswordSaving}
+                id='confirm-new-password'
+                maxLength={72}
+                minLength={6}
+                required
+                type={visiblePasswords.confirm ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+              />
+              <PasswordVisibilityButton
+                isVisible={visiblePasswords.confirm}
+                disabled={isPasswordSaving}
+                onToggle={() => togglePasswordVisibility('confirm')}
+              />
+            </div>
+          </div>
+
+          <div className='profile-form-actions'>
+            <button
+              className='btn-edit-profile'
+              disabled={isPasswordSaving}
+              type='submit'
+            >
+              {isPasswordSaving ? 'Changing...' : 'Change password'}
+            </button>
+            <button
+              className='btn-profile-secondary'
+              disabled={isPasswordSaving}
+              type='button'
+              onClick={cancelPasswordChange}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      {!isEditing && !isChangingPassword && (
+        <div className='profile-account-actions'>
+          <button
+            className='btn-edit-profile'
+            type='button'
+            disabled={isDeleting}
+            onClick={() => {
+              setIsEditing(true)
+              setError('')
+              setSuccess('')
+            }}
           >
-            {selectedLayer === 'topo' ? '◆' : '◇'}{' '}
-            <span className={selectedLayer === 'topo' ? 'option-active' : 'option-inactive'}>
-              Topographic
-            </span>
-          </span>
-          
-          <span 
-            onClick={() => setSelectedLayer('land')} 
-            style={{ cursor: 'pointer', userSelect: 'none' }}
+            Edit Profile
+          </button>
+          <button
+            className='btn-profile-secondary'
+            type='button'
+            disabled={isDeleting}
+            onClick={() => {
+              setIsChangingPassword(true)
+              setError('')
+              setSuccess('')
+            }}
           >
-            {selectedLayer === 'land' ? '◆' : '◇'}{' '}
-            <span className={selectedLayer === 'land' ? 'option-active' : 'option-inactive'}>
-              Land Use
-            </span>
-          </span>
+            Change Password
+          </button>
         </div>
-      </div>
+      )}
 
-      {/* Section C: Notifications */}
+      <button
+        className='btn-delete-profile'
+        type='button'
+        disabled={isSaving || isPasswordSaving || isDeleting}
+        onClick={handleDelete}
+      >
+        {isDeleting ? 'Deleting account...' : 'Delete Account'}
+      </button>
 
-      <div>
-        <h3 className="section-title"> Notifications</h3>
-        <div className="checkbox-group">
-          <label className="checkbox-label">
-            <input type="checkbox" defaultChecked className="custom-checkbox" /> Prediction Alerts
-          </label>
-          <label className="checkbox-label">
-            <input type="checkbox" defaultChecked className="custom-checkbox" /> Export Status
-          </label>
-        </div>
-      </div>
-
+      {error && (
+        <p className='profile-message profile-message-error' role='alert'>
+          {error}
+        </p>
+      )}
+      {success && (
+        <p className='profile-message profile-message-success' role='status'>
+          {success}
+        </p>
+      )}
     </div>
-  );
+  )
+}
+
+function PasswordVisibilityButton({ disabled, isVisible, onToggle }) {
+  return (
+    <button
+      aria-label={isVisible ? 'Hide password' : 'Show password'}
+      aria-pressed={isVisible}
+      className='profile-password-toggle'
+      disabled={disabled}
+      type='button'
+      onClick={onToggle}
+    >
+      <img
+        alt=''
+        aria-hidden='true'
+        src={isVisible ? eyeSlashIcon : eyeIcon}
+      />
+    </button>
+  )
 }

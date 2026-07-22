@@ -1,6 +1,10 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet'
 import sabahGeoJSON from '../../assets/maps/sabah-districts.json'
+import {
+  APP_PREFERENCE_KEYS,
+  useAppPreference,
+} from '../../context/appPreferences'
 import 'leaflet/dist/leaflet.css'
 import './heatmap-view.css'
 
@@ -19,13 +23,25 @@ function MapResizeTrigger() {
 }
 
 export default function HeatmapView() {
-  const [selectedDistrict, setSelectedDistrict] = useState('')
-  const [selectedCropOverride, setSelectedCropOverride] = useState('')
+  const [selectedDistrict, setSelectedDistrict] = useAppPreference(
+    APP_PREFERENCE_KEYS.heatmapDistrict,
+    '',
+  )
+  const [selectedCropOverride, setSelectedCropOverride] = useAppPreference(
+    APP_PREFERENCE_KEYS.heatmapCrop,
+    '',
+  )
   const geoJsonRef = useRef(null)
   const selectedDistrictRef = useRef(selectedDistrict)
 
-  const [districtMatrix, setDistrictMatrix] = useState({})
-  const [displayedCropData, setDisplayedCropData] = useState(null)
+  const [districtMatrix, setDistrictMatrix] = useAppPreference(
+    APP_PREFERENCE_KEYS.heatmapDistrictMatrix,
+    {},
+  )
+  const [displayedCropData, setDisplayedCropData] = useAppPreference(
+    APP_PREFERENCE_KEYS.heatmapDisplayedCrop,
+    null,
+  )
   const [isLoading, setIsLoading] = useState(false)
 
   const getDistrictName = (feature) => {
@@ -55,7 +71,7 @@ export default function HeatmapView() {
         }
       })
       .catch(err => console.error('Error loading ecosystem matrix:', err))
-  }, [])
+  }, [setDistrictMatrix])
 
   // useEffect(() => {
   //   setSelectedCropOverride('')
@@ -137,7 +153,12 @@ export default function HeatmapView() {
     }
 
     runEvaluationPipeline()
-  }, [selectedDistrict, selectedCropOverride, districtMatrix])
+  }, [
+    districtMatrix,
+    selectedCropOverride,
+    selectedDistrict,
+    setDisplayedCropData,
+  ])
 
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {

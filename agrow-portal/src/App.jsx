@@ -1,7 +1,12 @@
 import AppRoutes from "./routes/AppRoutes"
+import { AppPreferencesProvider } from "./context/AppPreferencesContext"
 
 function App() {
-    return <AppRoutes/>
+    return (
+        <AppPreferencesProvider>
+            <AppRoutes/>
+        </AppPreferencesProvider>
+    )
 }
 
 export default App

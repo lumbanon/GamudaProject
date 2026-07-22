@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
+import {
+  APP_PREFERENCE_KEYS,
+  useAppPreference,
+} from "../../context/appPreferences"
 import StatisticsFilters from "./components/StatisticsFilters"
 import {
   ComparisonBarChart,
@@ -62,7 +66,10 @@ const SUMMARY_CARDS = [
 ]
 
 export default function StatisticViews() {
-  const [filters, setFilters] = useState(createInitialStatisticsFilters)
+  const [filters, setFilters] = useAppPreference(
+    APP_PREFERENCE_KEYS.statisticsFilters,
+    createInitialStatisticsFilters,
+  )
   const [options, setOptions] = useState(EMPTY_OPTIONS)
   const [statistics, setStatistics] = useState(null)
   const [isLoadingOptions, setIsLoadingOptions] = useState(true)
@@ -112,7 +119,7 @@ export default function StatisticViews() {
       isCurrentRequest = false
       controller.abort()
     }
-  }, [optionsRetryKey])
+  }, [optionsRetryKey, setFilters])
 
   useEffect(() => {
     if (validationError) return undefined
@@ -153,12 +160,12 @@ export default function StatisticViews() {
         updateStatisticsFilter(currentFilters, name, value, options),
       )
     },
-    [options],
+    [options, setFilters],
   )
 
   const resetFilters = useCallback(() => {
     setFilters(createInitialStatisticsFilters())
-  }, [])
+  }, [setFilters])
 
   const recordCount = toFiniteNumber(statistics?.record_count)
   const hasMeaningfulSummary = hasMeaningfulAggregate({

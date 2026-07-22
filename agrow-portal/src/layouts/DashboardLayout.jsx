@@ -4,6 +4,7 @@ import './dashboard-layout.css'
 import agrowLogo from '../assets/landing/agrow.svg'
 import exitPortalLogo from '../assets/exit-logo/exit-portal-logo.png'
 import miniAgrowLogo from '../assets/sidebar/agrow-sidebar-toggle.png'
+import { useAppPreferences } from '../context/appPreferences'
 
 const API_AUTH_BASE_URL = 'http://127.0.0.1:8000/api/v1/auth'
 
@@ -259,13 +260,14 @@ function MobileNavigationDrawer({
 }
 
 export default function DashboardLayout() {
+  const { resetAppPreferences } = useAppPreferences()
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [userRoleLabel, setUserRoleLabel] = useState(() =>
-    formatRoleLabel(localStorage.getItem('user_role')),
+    formatRoleLabel(sessionStorage.getItem('user_role')),
   )
   const [userEmail, setUserEmail] = useState(
-    () => localStorage.getItem('user_email') || '',
+    () => sessionStorage.getItem('user_email') || '',
   )
 
   const { pathname } = useLocation()
@@ -389,7 +391,7 @@ export default function DashboardLayout() {
   }, [isMobileMenuOpen, closeMobileMenu])
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
+    const token = sessionStorage.getItem('token')
 
     if (!token) {
       return
@@ -408,13 +410,13 @@ export default function DashboardLayout() {
         return response.json()
       })
       .then((user) => {
-        localStorage.setItem('user_role', user.role || 'free')
-        localStorage.setItem('user_email', user.email || '')
+        sessionStorage.setItem('user_role', user.role || 'free')
+        sessionStorage.setItem('user_email', user.email || '')
         setUserEmail(user.email || '')
         setUserRoleLabel(formatRoleLabel(user.role))
       })
       .catch(() => {
-        setUserRoleLabel(formatRoleLabel(localStorage.getItem('user_role')))
+        setUserRoleLabel(formatRoleLabel(sessionStorage.getItem('user_role')))
       })
   }, [])
 
@@ -443,7 +445,9 @@ export default function DashboardLayout() {
     e.preventDefault()
     sessionStorage.removeItem('token')
     sessionStorage.removeItem('user_role')
+    sessionStorage.removeItem('user_email')
     sessionStorage.removeItem('token_expiry')
+    resetAppPreferences()
     navigate('/')
   }
 
