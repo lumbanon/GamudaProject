@@ -1,250 +1,362 @@
-import React from "react";
+import { useCallback, useEffect, useMemo, useState } from "react"
+import StatisticsFilters from "./components/StatisticsFilters"
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell,
-} from "recharts";
-import "./statistic-view.css";
+  ComparisonBarChart,
+  YieldTrendChart,
+} from "./components/StatisticsCharts"
+import { hasMeaningfulAggregate } from "./components/statisticsChartData"
+import {
+  fetchCropStatistics,
+  fetchStatisticOptions,
+} from "./statisticsApi"
+import {
+  buildStatisticsRequestFilters,
+  createInitialStatisticsFilters,
+  getStatisticsFilterValidationError,
+  hasActiveStatisticsFilters,
+  reconcileStatisticsSelections,
+  updateStatisticsFilter,
+} from "./statisticsFilterUtils"
+import {
+  formatArea,
+  formatCurrency,
+  formatInteger,
+  formatProduction,
+  formatYield,
+  toFiniteNumber,
+} from "./statisticsFormatters"
+import "./statistic-view.css"
 
-// Data Configuration
-const summaryCards = [
-  {
-    label: "Coverage",
-    value: "18",
-    detail: "Districts monitored across Sabah",
-  },
-  {
-    label: "Best crop",
-    value: "Watermelon",
-    detail: "Most stable overall performance",
-  },
-  { label: "Average yield", value: "82%", detail: "Blended suitability index" },
-  {
-    label: "Monitoring",
-    value: "Live",
-    detail: "Updated from dashboard inputs",
-  },
-];
+const EMPTY_OPTIONS = {
+  cropNames: [],
+  districts: [],
+  years: [],
+  districtsByCrop: {},
+}
 
-const cropStats = [
+const SUMMARY_CARDS = [
   {
-    crop: "Watermelon",
-    suitability: 92,
-    yield: "31.4 t/ha",
-    districts: "Kudat, Tuaran, Ranau",
+    key: "total_planted_area_ha",
+    label: "Total Planted Area",
+    detail: "Combined area across the current selection",
+    formatter: formatArea,
   },
   {
-    crop: "Durian",
-    suitability: 78,
-    yield: "8.7 t/ha",
-    districts: "Sandakan, Kota Marudu, Papar",
+    key: "total_production_tonnes",
+    label: "Total Production",
+    detail: "Combined production across the current selection",
+    formatter: formatProduction,
   },
   {
-    crop: "Cabbage",
-    suitability: 71,
-    yield: "1.9 t/ha",
-    districts: "Tawau, Lahad Datu, Kinabatangan",
-  },
-];
-
-const seasonalBands = [
-  { label: "Q1", Watermelon: 88, Durian: 74, Cabbage: 68 },
-  { label: "Q2", Watermelon: 92, Durian: 79, Cabbage: 71 },
-  { label: "Q3", Watermelon: 86, Durian: 76, Cabbage: 73 },
-  { label: "Q4", Watermelon: 90, Durian: 81, Cabbage: 70 },
-];
-
-const districtRows = [
-  {
-    district: "Sandakan",
-    Watermelon: 84,
-    Durian: 79,
-    Cabbage: 69,
-    note: "Balanced growth conditions",
+    key: "total_economic_value_myr",
+    label: "Total Economic Value",
+    detail: "Combined value across the current selection",
+    formatter: formatCurrency,
   },
   {
-    district: "Tuaran",
-    Watermelon: 93,
-    Durian: 76,
-    Cabbage: 66,
-    note: "Strong rainfall alignment",
+    key: "average_yield_tonnes_per_ha",
+    label: "Average Yield",
+    detail: "Combined production divided by combined planted area",
+    formatter: formatYield,
   },
-  {
-    district: "Kudat",
-    Watermelon: 89,
-    Durian: 73,
-    Cabbage: 62,
-    note: "High Watermelon stability",
-  },
-  {
-    district: "Tawau",
-    Watermelon: 81,
-    Durian: 72,
-    Cabbage: 77,
-    note: "Cabbage gains from soil profile",
-  },
-];
+]
 
 export default function StatisticViews() {
+  const [filters, setFilters] = useState(createInitialStatisticsFilters)
+  const [options, setOptions] = useState(EMPTY_OPTIONS)
+  const [statistics, setStatistics] = useState(null)
+  const [isLoadingOptions, setIsLoadingOptions] = useState(true)
+  const [isLoadingStatistics, setIsLoadingStatistics] = useState(true)
+  const [optionsError, setOptionsError] = useState("")
+  const [statisticsError, setStatisticsError] = useState("")
+  const [optionsRetryKey, setOptionsRetryKey] = useState(0)
+  const [statisticsRetryKey, setStatisticsRetryKey] = useState(0)
+
+  const validationError = getStatisticsFilterValidationError(filters)
+  const requestFilters = useMemo(
+    () => buildStatisticsRequestFilters(filters),
+    [filters],
+  )
+  const hasActiveFilters = hasActiveStatisticsFilters(filters)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    let isCurrentRequest = true
+
+    async function loadOptions() {
+      setIsLoadingOptions(true)
+      setOptionsError("")
+
+      try {
+        const nextOptions = await fetchStatisticOptions({
+          signal: controller.signal,
+        })
+        if (isCurrentRequest) {
+          setOptions(nextOptions)
+          setFilters((currentFilters) =>
+            reconcileStatisticsSelections(currentFilters, nextOptions),
+          )
+        }
+      } catch (requestError) {
+        if (requestError?.name !== "AbortError" && isCurrentRequest) {
+          setOptionsError(requestError.message)
+        }
+      } finally {
+        if (isCurrentRequest) setIsLoadingOptions(false)
+      }
+    }
+
+    loadOptions()
+
+    return () => {
+      isCurrentRequest = false
+      controller.abort()
+    }
+  }, [optionsRetryKey])
+
+  useEffect(() => {
+    if (validationError) return undefined
+
+    const controller = new AbortController()
+    let isCurrentRequest = true
+
+    async function loadStatistics() {
+      setIsLoadingStatistics(true)
+      setStatisticsError("")
+      setStatistics(null)
+
+      try {
+        const payload = await fetchCropStatistics(requestFilters, {
+          signal: controller.signal,
+        })
+        if (isCurrentRequest) setStatistics(payload)
+      } catch (requestError) {
+        if (requestError?.name !== "AbortError" && isCurrentRequest) {
+          setStatisticsError(requestError.message)
+        }
+      } finally {
+        if (isCurrentRequest) setIsLoadingStatistics(false)
+      }
+    }
+
+    loadStatistics()
+
+    return () => {
+      isCurrentRequest = false
+      controller.abort()
+    }
+  }, [requestFilters, statisticsRetryKey, validationError])
+
+  const handleFilterChange = useCallback(
+    (name, value) => {
+      setFilters((currentFilters) =>
+        updateStatisticsFilter(currentFilters, name, value, options),
+      )
+    },
+    [options],
+  )
+
+  const resetFilters = useCallback(() => {
+    setFilters(createInitialStatisticsFilters())
+  }, [])
+
+  const recordCount = toFiniteNumber(statistics?.record_count)
+  const hasMeaningfulSummary = hasMeaningfulAggregate({
+    planted_area_ha: statistics?.summary?.total_planted_area_ha,
+    production_tonnes: statistics?.summary?.total_production_tonnes,
+    economic_value_myr: statistics?.summary?.total_economic_value_myr,
+  })
+  const isEmpty =
+    Boolean(statistics) && (recordCount === 0 || !hasMeaningfulSummary)
+  const yearlyTrends = asArray(statistics?.yearly_trends)
+  const cropYearlyTrends = asArray(statistics?.crop_yearly_trends)
+  const districtYearlyTrends = asArray(statistics?.district_yearly_trends)
+  const cropComparison = asArray(statistics?.crop_comparison)
+  const districtComparison = asArray(statistics?.district_comparison)
+  const cropDistrictComparison = asArray(
+    statistics?.crop_district_comparison,
+  )
+
   return (
-    <div className="statistics-page">
+    <div className="statistics-page" aria-busy={isLoadingStatistics}>
       <header className="statistics-hero">
         <div>
-          <span className="statistics-eyebrow">
-            Comprehensive Crop Analytics
-          </span>
+          <span className="statistics-eyebrow">Crop statistics</span>
           <h1>Sabah Agricultural Production Dashboard</h1>
           <p>
-            Real-time monitoring of crop suitability, seasonal trends, and
-            district-level performance metrics.
+            Explore planted area, production, economic value, and yield from
+            recorded agricultural statistics.
           </p>
         </div>
-        {/* <div className="statistics-hero-badge">
-          <span>LIVE SYSTEM</span>
-        </div> */}
+        {statistics && !isLoadingStatistics && !isEmpty && (
+          <span className="statistics-record-badge">
+            {formatInteger(recordCount)} {recordCount === 1 ? "record" : "records"}
+          </span>
+        )}
       </header>
 
-      {/* Summary Stats */}
-      <section className="statistics-summary-grid">
-        {summaryCards.map((card) => (
-          <article className="statistics-summary-card" key={card.label}>
-            <span>{card.label}: </span>
-            <strong>{card.value}</strong>
-            <p>{card.detail}</p>
-          </article>
-        ))}
-      </section>
+      <StatisticsFilters
+        filters={filters}
+        options={options}
+        isLoadingOptions={isLoadingOptions}
+        validationError={validationError}
+        hasActiveFilters={hasActiveFilters}
+        onChange={handleFilterChange}
+        onReset={resetFilters}
+      />
 
-      {/* Primary Content Grid */}
-      <section className="statistics-content-grid">
-        <RankingsSection data={cropStats} />
+      {optionsError && (
+        <section className="statistics-options-error" role="alert">
+          <div>
+            <strong>Filter options could not be loaded.</strong>
+            <span>{optionsError}</span>
+          </div>
+          <button
+            className="statistics-secondary-button"
+            type="button"
+            onClick={() => setOptionsRetryKey((key) => key + 1)}
+          >
+            Retry options
+          </button>
+        </section>
+      )}
 
-        <article className="statistics-card">
-          <div className="statistics-card-heading">
-            <h2>Quarterly Crop Trends</h2>
-          </div>
-          <div style={{ height: "300px", width: "100%" }}>
-            <ResponsiveContainer>
-              <LineChart data={seasonalBands}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="label" />
-                <YAxis domain={[60, 100]} />
-                <Tooltip />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="Watermelon"
-                  stroke="#f59e0b"
-                  strokeWidth={3}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Durian"
-                  stroke="#10b981"
-                  strokeWidth={3}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Cabbage"
-                  stroke="#78350f"
-                  strokeWidth={3}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </article>
-      </section>
+      <div className="statistics-sr-only" aria-live="polite">
+        {getLiveStatus({
+          isLoadingStatistics,
+          statisticsError,
+          recordCount,
+          hasStatistics: Boolean(statistics),
+          isEmpty,
+        })}
+      </div>
 
-      {/* Extended Analysis Grid */}
-      <section className="statistics-analysis-extended">
-        <MatrixSection data={districtRows} />
+      {isLoadingStatistics && (
+        <StatisticsState
+          variant="loading"
+          title="Loading crop statistics"
+          message="Updating the summary and charts with database records."
+        />
+      )}
 
-        <article className="statistics-card">
-          <div className="statistics-card-heading">
-            <h2>District Comparison</h2>
-            <p>Weighted performance overview.</p>
-          </div>
-          <div style={{ height: "350px", width: "100%" }}>
-            <ResponsiveContainer>
-              <BarChart data={districtRows}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="district" />
-                <Tooltip />
-                <Bar dataKey="Watermelon" fill="#f59e0b" />
-                <Bar dataKey="Durian" fill="#10b981" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </article>
-      </section>
+      {!isLoadingStatistics && statisticsError && (
+        <StatisticsState
+          variant="error"
+          title="Crop statistics could not be loaded"
+          message={statisticsError}
+          actionLabel="Try again"
+          onAction={() => setStatisticsRetryKey((key) => key + 1)}
+        />
+      )}
+
+      {!isLoadingStatistics && !statisticsError && isEmpty && (
+        <StatisticsState
+          variant="empty"
+          title="No statistics found"
+          message="No statistics are available for the selected crops, districts, and year range."
+          actionLabel={hasActiveFilters ? "Clear filters" : "Reload data"}
+          onAction={
+            hasActiveFilters
+              ? resetFilters
+              : () => setStatisticsRetryKey((key) => key + 1)
+          }
+        />
+      )}
+
+      {!isLoadingStatistics && !statisticsError && statistics && !isEmpty && (
+        <>
+          <KPISection summary={statistics.summary} />
+
+          <section className="statistics-chart-grid" aria-label="Crop statistics charts">
+            <YieldTrendChart
+              data={yearlyTrends}
+              cropYearlyTrends={cropYearlyTrends}
+              districtYearlyTrends={districtYearlyTrends}
+              selectedCrops={filters.cropNames}
+              selectedDistricts={filters.districts}
+            />
+            <ComparisonBarChart
+              title="Crop Production Comparison"
+              description="Production totals by crop for the selected filters."
+              data={cropComparison}
+              categoryKey="crop_name"
+              categoryLabel="Crop"
+            />
+            <ComparisonBarChart
+              title="District Production Comparison"
+              description="Production totals by district for the selected filters."
+              data={districtComparison}
+              categoryKey="district"
+              categoryLabel="District"
+              groupedData={cropDistrictComparison}
+              selectedCrops={filters.cropNames}
+            />
+          </section>
+        </>
+      )}
     </div>
-  );
+  )
 }
 
-function RankingsSection({ data }) {
+function KPISection({ summary = {} }) {
   return (
-    <article className="statistics-card">
-      <div className="statistics-card-heading">
-        <h2>Highest performing crops</h2>
-      </div>
-      <div className="crop-rank-list">
-        {data.map((item) => (
-          <div key={item.crop} className="crop-rank-item">
-            <div className="crop-rank-topline">
-              <strong> {item.crop}</strong>
-              <span>{item.yield}</span>
-            </div>
-            <div className="crop-score-track">
-              <span style={{ width: `${item.suitability}%` }} />
-            </div>
-            <p className="crop-meta">
-              {item.suitability}% suitability in {item.districts}
-            </p>
-          </div>
-        ))}
-      </div>
-    </article>
-  );
-}
-
-function MatrixSection({ data }) {
-  return (
-    <section className="statistics-card statistics-table-card">
-      <div className="statistics-card-heading">
-        <h2>Comparison across selected districts</h2>
-      </div>
-      <div className="statistics-table-wrap">
-        <table className="statistics-table">
-          <thead>
-            <tr>
-              <th>District</th>
-              <th>Watermelon</th>
-              <th>Durian</th>
-              <th>Cabbage</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((row) => (
-              <tr key={row.district}>
-                <td>{row.district}</td>
-                <td>{row.Watermelon}%</td>
-                <td>{row.Durian}%</td>
-                <td>{row.Cabbage}%</td>
-                <td>{row.note}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <section className="statistics-summary-grid" aria-label="Statistics summary">
+      {SUMMARY_CARDS.map((card) => (
+        <article className="statistics-summary-card" key={card.key}>
+          <span className="statistics-summary-label">{card.label}</span>
+          <strong className="statistics-summary-value">
+            {card.formatter(summary?.[card.key])}
+          </strong>
+          <p>{card.detail}</p>
+        </article>
+      ))}
     </section>
-  );
+  )
+}
+
+function StatisticsState({
+  variant,
+  title,
+  message,
+  actionLabel,
+  onAction,
+}) {
+  const isLoading = variant === "loading"
+
+  return (
+    <section
+      className={`statistics-state statistics-state--${variant}`}
+      role={variant === "error" ? "alert" : "status"}
+      aria-live={variant === "error" ? "assertive" : "polite"}
+    >
+      {isLoading && <span className="statistics-spinner" aria-hidden="true" />}
+      <div>
+        <h2>{title}</h2>
+        <p>{message}</p>
+      </div>
+      {actionLabel && onAction && (
+        <button className="statistics-primary-button" type="button" onClick={onAction}>
+          {actionLabel}
+        </button>
+      )}
+    </section>
+  )
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : []
+}
+
+function getLiveStatus({
+  isLoadingStatistics,
+  statisticsError,
+  recordCount,
+  hasStatistics,
+  isEmpty,
+}) {
+  if (isLoadingStatistics) return "Loading crop statistics."
+  if (statisticsError) return `Unable to load crop statistics. ${statisticsError}`
+  if (isEmpty) return "No crop statistics match the selected filters."
+  if (hasStatistics) return `${formatInteger(recordCount)} crop statistic records loaded.`
+  return ""
 }
