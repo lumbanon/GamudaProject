@@ -441,9 +441,9 @@ export default function DashboardLayout() {
 
   const handleLogout = (e) => {
     e.preventDefault()
-    localStorage.removeItem('token')
-    localStorage.removeItem('user_role')
-    localStorage.removeItem('user_email')
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('user_role')
+    sessionStorage.removeItem('token_expiry')
     navigate('/')
   }
 

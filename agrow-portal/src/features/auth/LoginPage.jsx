@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import agrowLogo from '../../assets/landing/agrow-rectangle.png'
 import backHomeIcon from '../../assets/auth/back-home.png'
 import './login-page.css'
@@ -17,7 +17,15 @@ export default function LoginPage() {
   const [successMsg, setSuccessMsg] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const navigate = useNavigate()
-  const token = localStorage.getItem('token')
+
+  useEffect(() => {
+    const token = sessionStorage.getItem('token')
+    const expiry = sessionStorage.getItem('token_expiry')
+
+    if (token && expiry && Date.now() < parseInt(expiry, 10)){
+      navigate('/dashboard', {replace: true})
+    }
+  }, [navigate])
 
   const toggleMode = () => {
     setIsLoginMode((currentMode) => !currentMode)
@@ -87,15 +95,19 @@ export default function LoginPage() {
 
       const data = await response.json()
 
-      localStorage.setItem('token', data.access_token)
-      localStorage.setItem('user_role', data.user_role)
+      const EXPIRE_IN_MINUTES = 30
+      const expiryTimestamp = Date.now() + EXPIRE_IN_MINUTES * 60 * 1000
+
+      sessionStorage.setItem('token', data.access_token)
+      sessionStorage.setItem('user_role', data.user_role)
+      sessionStorage.setItem('token_expiry', expiryTimestamp.toString())
 
       navigate('/dashboard', {replace: true})
 
   } catch (err) {
     if (err instanceof TypeError) {
-      localStorage.setItem('token', 'local-dev-bypass-token')
-      localStorage.setItem('user_role', 'Local Demo')
+      sessionStorage.setItem('token', 'local-dev-bypass-token')
+      sessionStorage.setItem('user_role', 'Local Demo')
       navigate('/dashboard', {replace: true})
       return
     }
@@ -154,10 +166,6 @@ export default function LoginPage() {
     } finally {
       setIsSubmitting(false)
     }
-  }
-
-  if(token){
-    return <Navigate to='/dashboard' replace />
   }
 
   return (
