@@ -15,9 +15,9 @@ export async function updateCurrentUser({ fullName, email }) {
     }),
   })
 
-  localStorage.setItem('token', user.access_token)
-  localStorage.setItem('user_role', user.role || '')
-  localStorage.setItem('user_email', user.email || '')
+  sessionStorage.setItem('token', user.access_token)
+  sessionStorage.setItem('user_role', user.role || '')
+  sessionStorage.setItem('user_email', user.email || '')
 
   return fromApiUser(user)
 }
@@ -49,7 +49,7 @@ function fromApiUser(user) {
 }
 
 async function apiRequest(path, options = {}) {
-  const token = localStorage.getItem('token')
+  const token = sessionStorage.getItem('token')
   let response
 
   try {
