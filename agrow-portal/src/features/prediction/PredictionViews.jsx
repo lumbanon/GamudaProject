@@ -26,6 +26,12 @@ import {
 } from "./predictionUtils";
 import "./prediction-view.css";
 
+const BANANA_CROP_OPTION = {
+  id: "banana",
+  name: "Banana",
+  scientific_name: "Musa spp.",
+};
+
 export default function PredictionViews() {
   const satelliteMapRef = useRef(null);
   const [polygon, setPolygon] = useAppPreference(
@@ -100,7 +106,7 @@ export default function PredictionViews() {
         ]);
         if (!isMounted) return;
 
-        setCropOptions(Array.isArray(crops) ? crops : []);
+        setCropOptions(withBananaCropOption(crops));
         setDistrictOptions(environment?.available_districts || []);
       } catch (err) {
         if (isMounted) {
@@ -288,6 +294,19 @@ export default function PredictionViews() {
       </section>
     </div>
   );
+}
+
+function withBananaCropOption(crops) {
+  const options = Array.isArray(crops) ? crops : [];
+  const hasBanana = options.some(
+    (crop) => String(crop?.name || "").trim().toLowerCase() === "banana",
+  );
+
+  return hasBanana
+    ? options
+    : [...options, BANANA_CROP_OPTION].sort((left, right) =>
+        left.name.localeCompare(right.name),
+      );
 }
 
 function normalizeReservedForestOverlay(overlay) {

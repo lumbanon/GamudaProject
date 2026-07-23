@@ -34,6 +34,10 @@ class PredictionModelInputError(PredictionNotFoundError):
     pass
 
 
+class PredictionUnsupportedCropError(PredictionModelInputError):
+    pass
+
+
 class PredictionModelError(PredictionDataError):
     pass
 
@@ -55,12 +59,20 @@ class CropThreshold:
 
 
 FALLBACK_SCIENTIFIC_NAMES = {
+    "Banana": "Musa spp.",
     "Cabbage": "Brassica oleracea var. capitata",
     "Durian": "Durio zibethinus",
     "Watermelon": "Citrullus lanatus",
 }
 
 CROP_REQUIREMENTS = {
+    "Banana": {
+        "rainfall": (1800, 2800, 1200, 3500),
+        "temperature": (22, 32, 13, 38),
+        "ph": (5.0, 7.0, 4.8, 7.8),
+        "slope": (0, 8, 0, 19.8),
+        "min_soil_depth_cm": 50,
+    },
     "Cabbage": {
         "rainfall": (1000, 1800, 700, 2500),
         "temperature": (15, 21, 10, 28),
@@ -278,7 +290,7 @@ def predict_suitability_with_model(crop_name: str, values: dict) -> dict:
     try:
         crop_encoded = encoder.transform([normalized_crop_name])[0]
     except ValueError as exc:
-        raise PredictionModelInputError(
+        raise PredictionUnsupportedCropError(
             f"Crop target '{crop_name}' is not supported by the prediction model."
         ) from exc
 
@@ -429,15 +441,22 @@ def get_suitability(db: Session, request) -> dict:
         environment["values"],
         environment["sample_count"],
     )
-    model_prediction = predict_suitability_with_model(
-        crop.name,
-        environment["values"],
-    )
-    suitability = build_model_suitability(
-        threshold_diagnostics,
-        model_prediction,
-        environment["sample_count"],
-    )
+    try:
+        model_prediction = predict_suitability_with_model(
+            crop.name,
+            environment["values"],
+        )
+        suitability = build_model_suitability(
+            threshold_diagnostics,
+            model_prediction,
+            environment["sample_count"],
+        )
+    except PredictionUnsupportedCropError:
+        model_prediction = build_threshold_prediction(threshold_diagnostics)
+        suitability = build_threshold_suitability(
+            threshold_diagnostics,
+            model_prediction,
+        )
     explanation = build_explanation(crop, request.district, environment, suitability)
     estimate = build_return_estimate(db, crop.name, suitability["score"], area_hectares)
     planting_window = build_planting_window(environment["values"])
@@ -1415,6 +1434,44 @@ def build_model_suitability(
         "classification": suitability_class,
         "confidence_matrix": confidence_matrix,
         "model_confidence_pct": model_confidence,
+    }
+
+
+def build_threshold_prediction(threshold_diagnostics: dict) -> dict:
+    score = int(threshold_diagnostics.get("score", 0))
+    if score >= MODEL_SCORE_BANDS["S1"][0]:
+        suitability_class = "S1"
+    elif score >= MODEL_SCORE_BANDS["S2"][0]:
+        suitability_class = "S2"
+    elif score >= MODEL_SCORE_BANDS["S3"][0]:
+        suitability_class = "S3"
+    else:
+        suitability_class = "N"
+
+    return {
+        "suitability_class": suitability_class,
+        "confidence_matrix": {
+            class_name: 100.0 if class_name == suitability_class else 0.0
+            for class_name in MODEL_CLASS_ORDER
+        },
+        "model_confidence_pct": None,
+    }
+
+
+def build_threshold_suitability(
+    threshold_diagnostics: dict,
+    threshold_prediction: dict,
+) -> dict:
+    suitability_class = threshold_prediction["suitability_class"]
+    return {
+        **threshold_diagnostics,
+        "classification": suitability_class,
+        "confidence_matrix": threshold_prediction["confidence_matrix"],
+        "model_confidence_pct": None,
+        "confidence": (
+            "Threshold-based confidence using the crop requirements stored "
+            "in the database; a trained model profile was not available."
+        ),
     }
 
 
