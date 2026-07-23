@@ -1,0 +1,258 @@
+FINAL CROP THRESHOLD METHODOLOGY
+================================
+
+Purpose
+-------
+This file documents the source hierarchy and decisions used in:
+
+crops_gaez_ecocrop_doa_slope_with_pucuk_paku_final.csv
+
+The dataset contains 64 Sabah crops and vegetables.
+
+SOURCE HIERARCHY
+================
+
+1. FAO GAEZ Ecocrop Search
+--------------------------
+Source:
+https://gaez.fao.org/pages/ecocrop-search
+
+For 63 crops with a located GAEZ Ecocrop record, the temperature,
+rainfall, soil-depth and pH values are taken from or reconciled against
+the GAEZ-hosted FAO Ecocrop database.
+
+Pucuk Paku (Diplazium esculentum) was not located as a complete Ecocrop
+record. Its row therefore uses a documented provisional profile derived
+from species-specific field studies, occurrence information and
+conservative agronomic judgement.
+
+2. Malaysia Department of Agriculture slope guidance
+-----------------------------------------------------
+Source:
+https://www.doa.gov.my/doa/resources/aktiviti_sumber/sumber_awam/penerbitan/buku/garis_panduan_pembangunan_pertanian_tanah_bercerun_2025_v2.pdf
+
+max_slope_pct is based on the crop groups and rounded terrain-class
+boundaries published in the Malaysia Department of Agriculture's
+Garis Panduan Pembangunan Pertanian di Tanah Bercerun, Edisi 2025.
+
+The stored rounded boundaries are:
+
+2 degrees  -> 4.0 percent
+12 degrees -> 21.0 percent
+20 degrees -> 36.0 percent
+25 degrees -> 47.0 percent
+30 degrees -> 58.0 percent
+
+Pucuk Paku is treated as Group A, Sayuran:
+
+max_slope_pct = 21.0
+
+This is a Malaysian land-management limit rather than an absolute
+physiological tolerance.
+
+FIELD DEFINITIONS
+=================
+
+min_temp_limit
+    Provisional absolute lower temperature boundary in degrees Celsius.
+
+ideal_temp_min
+    Lower boundary of the preferred or successfully cultivated
+    temperature range.
+
+ideal_temp_max
+    Upper boundary of the preferred or successfully cultivated
+    temperature range.
+
+max_temp_limit
+    Provisional absolute upper temperature boundary in degrees Celsius.
+
+min_annual_rainfall
+    Lower annual-rainfall value in millimetres used by the suitability
+    model. Irrigation and continuous soil moisture must still be
+    considered separately.
+
+min_soil_depth_cm
+    Minimum effective soil-depth class used by the model.
+
+ideal_ph_min and ideal_ph_max
+    Preferred soil-pH range used by the model.
+
+max_slope_pct
+    Upper rounded percentage boundary for the relevant DOA crop group.
+
+PUCUK PAKU PROVISIONAL PROFILE
+==============================
+
+Crop:
+Pucuk Paku
+
+Scientific name:
+Diplazium esculentum
+
+Final values
+------------
+
+min_temp_limit       = 18.00
+ideal_temp_min       = 25.00
+ideal_temp_max       = 34.00
+max_temp_limit       = 36.00
+min_annual_rainfall  = 1200.0
+min_soil_depth_cm    = 20
+ideal_ph_min         = 4.6
+ideal_ph_max         = 6.5
+max_slope_pct        = 21.0
+created_at           = 2026-07-21T13:51:13+08:00
+
+Evidence and decisions by field
+-------------------------------
+
+ideal_temp_min = 25.00
+ideal_temp_max = 34.00
+
+Evidence level: moderate to high.
+
+ECHO Asia successfully cultivated vegetable fern at a site where
+temperatures were typically 25-30 degrees Celsius. A separate
+peer-reviewed field experiment in southern Thailand cultivated it
+during temperatures of 26-34 degrees Celsius. The combined observed
+productive range, 25-34 degrees Celsius, is therefore stored as the
+preferred range.
+
+Sources:
+https://www.echocommunity.org/en/resources/390f2f8b-9835-444e-bfed-6f96abe3b9ec
+https://www.mdpi.com/2311-7524/9/2/259
+
+min_temp_limit = 18.00
+max_temp_limit = 36.00
+
+Evidence level: provisional expert judgement.
+
+No species-specific controlled experiment establishing absolute lethal
+or physiological minimum and maximum temperatures was located. The
+values 18 and 36 degrees Celsius bracket the documented productive
+25-34 degree range while remaining conservative for a moisture-loving,
+cold-sensitive tropical fern.
+
+These are model thresholds, not experimentally proven biological
+limits. They should be revised if controlled temperature-response data
+becomes available.
+
+min_annual_rainfall = 1200.0
+
+Evidence level: low to moderate; occurrence-derived.
+
+A documented occurrence of Diplazium esculentum was reported in an
+environment receiving 1,200-1,400 mm annual rainfall. Field cultivation
+at ECHO occurred under 1,700 mm and 2,297 mm annual rainfall, but
+irrigation was supplied during dry periods. The lower documented
+occurrence value, 1,200 mm, is used as a provisional minimum.
+
+The species requires consistently moist soil. Annual rainfall alone is
+not sufficient: irrigation, drainage, seasonality and proximity to
+waterways remain important.
+
+Sources:
+https://indiabiodiversity.org/observation/show/1805836
+https://www.echocommunity.org/en/resources/390f2f8b-9835-444e-bfed-6f96abe3b9ec
+https://www.nparks.gov.sg/florafaunaweb/flora/8/0/8014
+https://www.jircas.go.jp/en/database/thaivege/047
+
+min_soil_depth_cm = 20
+
+Evidence level: provisional expert judgement.
+
+The peer-reviewed Thailand experiment used rhizomes approximately
+10-15 cm long and prepared the field to a depth of 15 cm. NParks
+describes the plant as having underground fibrous roots and rhizomes.
+No controlled minimum effective rooting-depth threshold was located.
+
+The database uses standardized lower boundaries for soil-depth classes.
+The shallow class begins at 20 cm, so 20 cm is assigned as the
+conservative model value.
+
+Sources:
+https://www.mdpi.com/2311-7524/9/2/259
+https://www.nparks.gov.sg/florafaunaweb/flora/8/0/8014
+
+ideal_ph_min = 4.6
+ideal_ph_max = 6.5
+
+Evidence level: mixed.
+
+The peer-reviewed field experiment successfully cultivated the species
+in strongly acidic soil, with recorded plot pH values from 4.60 to 4.97.
+This directly supports the lower boundary.
+
+The upper boundary of 6.5 is provisional. It extends the usable range
+toward mildly acidic soil, consistent with general fern cultivation and
+the species' preference for moist, fertile loam, but it was not
+established by a species-specific pH-response experiment.
+
+Sources:
+https://www.mdpi.com/2311-7524/9/2/259
+https://www.nparks.gov.sg/florafaunaweb/flora/8/0/8014
+
+Shade and moisture limitation
+-----------------------------
+The threshold table has no columns for shade or soil-moisture regime,
+but both are essential for Pucuk Paku.
+
+The strongest cultivation results were obtained under substantial
+partial shade, while unshaded cultivation showed poorer performance or
+higher damage. The species is commonly associated with moist ground
+near rivers, creeks and rice fields.
+
+Sources:
+https://www.mdpi.com/2311-7524/9/2/259
+https://www.echocommunity.org/en/resources/390f2f8b-9835-444e-bfed-6f96abe3b9ec
+https://www.nparks.gov.sg/florafaunaweb/flora/8/0/8014
+https://www.jircas.go.jp/en/database/thaivege/047
+
+IMPORTANT INTERPRETATION
+========================
+
+The Pucuk Paku values are suitable provisional inputs for a rule-based
+Sabah crop-suitability prototype. They must not be described as official
+FAO Ecocrop limits.
+
+Classification of Pucuk Paku fields:
+
+- Directly supported productive range:
+  ideal_temp_min, ideal_temp_max
+
+- Direct lower evidence plus provisional upper interpretation:
+  ideal_ph_min, ideal_ph_max
+
+- Occurrence-derived:
+  min_annual_rainfall
+
+- Expert-estimated because no exact threshold was located:
+  min_temp_limit, max_temp_limit, min_soil_depth_cm
+
+- Government land-management classification:
+  max_slope_pct
+
+The model should preferably expose a source/confidence note in its user
+interface whenever it reports Pucuk Paku suitability.
+
+CREATED_AT
+==========
+
+The existing timestamp was preserved:
+
+2026-07-21T13:51:13+08:00
+
+It records creation of the dataset row and was not changed merely
+because threshold values were completed.
+
+VALIDATION
+==========
+
+- 64 crop rows were preserved.
+- Crop names remain unique.
+- Pucuk Paku now has values in every crop-threshold field.
+- Pucuk Paku max_slope_pct remains 21.0.
+- Pucuk Paku created_at was preserved.
+- No other crop values were changed.
+- id remains blank for database-side generation.
