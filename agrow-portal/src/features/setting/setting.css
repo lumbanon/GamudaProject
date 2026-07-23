@@ -50,6 +50,11 @@
   font-size: 36px;
 }
 
+.profile-avatar img {
+  width: 40px;
+  height: 40px;
+}
+
 .profile-name {
   font-size: 26px;
   margin: 0 0 8px 0;
