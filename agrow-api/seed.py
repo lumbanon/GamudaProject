@@ -1,6 +1,9 @@
+import csv
+import math
 import os
 import requests
 import random
+from pathlib import Path
 from time import sleep
 from app.database.session import SessionLocal, Base
 from app.models.user import User
@@ -29,6 +32,55 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # USER TABLE
 pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+CROPS_CSV_FILENAME = "crops.csv"
+
+
+# Resolve CSV files from an env var first, then common project locations.
+# This lets seed.py work whether it is run from agrow-api, another folder,
+# or with a custom CSV path for local/import testing.
+def resolve_csv_path(filename, env_var_name, label):
+    """Find a CSV by env var or common project-relative locations."""
+    configured_path = os.getenv(env_var_name)
+    if configured_path:
+        path = Path(configured_path).expanduser()
+        if not path.is_absolute():
+            path = Path.cwd() / path
+        path = path.resolve()
+
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"{label} CSV not found at {env_var_name}={path}"
+            )
+        return path
+
+    script_dir = Path(__file__).resolve().parent
+    candidates = [
+        script_dir / filename,
+        Path.cwd() / filename,
+        script_dir / "data" / filename,
+        script_dir.parent / filename,
+        script_dir.parent.parent / filename,
+    ]
+
+    checked_paths = []
+    for candidate in candidates:
+        candidate = candidate.resolve()
+        if candidate in checked_paths:
+            continue
+        checked_paths.append(candidate)
+        if candidate.is_file():
+            return candidate
+
+    searched = "\n - ".join(str(path) for path in checked_paths)
+    raise FileNotFoundError(
+        f"Could not find {filename}. "
+        f"Set {env_var_name} or place the CSV in one of these locations:\n - {searched}"
+    )
+
+
+def resolve_crops_csv_path():
+    """Find the crops CSV or use CROPS_CSV when provided."""
+    return resolve_csv_path(CROPS_CSV_FILENAME, "CROPS_CSV", "Crops")
 
 def seed_user():
     db = SessionLocal()
@@ -52,41 +104,126 @@ def seed_user():
 
 def seed_crops():
     db = SessionLocal()
-    try:
-        if db.query(Crop).first():
-            print('✅ Crops data already exists. Skipping...')
-            return
 
-        print('Seeding Crop biophysical threshold matrices (Durian, Watermelon, Cabbage)...')
-        crops_data = [
-            Crop(
-                name="Durian",
-                scientific_name="Durio zibethinus",
-                min_temp_limit=22.00, ideal_temp_min=24.00, ideal_temp_max=30.00, max_temp_limit=35.00,
-                min_annual_rainfall=1500.0, min_soil_depth_cm=100, 
-                ideal_ph_min=5.5, ideal_ph_max=6.5, max_slope_pct=25.0 
-            ),
-            Crop(
-                name="Watermelon",
-                scientific_name="Citrullus lanatus",
-                min_temp_limit=18.00, ideal_temp_min=25.00, ideal_temp_max=35.00, max_temp_limit=38.00,
-                min_annual_rainfall=800.0, min_soil_depth_cm=50,
-                ideal_ph_min=6.0, ideal_ph_max=7.0, max_slope_pct=5.0   
-            ),
-            Crop(
-                name="Cabbage",
-                scientific_name="Brassica oleracea var. capitata",
-                min_temp_limit=10.00, ideal_temp_min=15.00, ideal_temp_max=21.00, max_temp_limit=28.00,
-                min_annual_rainfall=1000.0, min_soil_depth_cm=45,
-                ideal_ph_min=6.0, ideal_ph_max=7.5, max_slope_pct=15.0 
-            )
-        ]
-        db.add_all(crops_data)
+    try:
+        csv_path = resolve_crops_csv_path()
+        print(f"📄 Importing crop data from: {csv_path}")
+
+        # Load existing crops once.
+        existing_crops = {
+            str(crop.name or "").strip().casefold(): crop
+            for crop in db.query(Crop).all()
+        }
+
+        inserted_count = 0
+        overwritten_count = 0
+
+        with csv_path.open(
+            "r",
+            encoding="utf-8-sig",
+            newline="",
+        ) as csv_file:
+            reader = csv.DictReader(csv_file)
+
+            required_columns = {
+                "name",
+                "scientific_name",
+                "min_temp_limit",
+                "ideal_temp_min",
+                "ideal_temp_max",
+                "max_temp_limit",
+                "min_annual_rainfall",
+                "min_soil_depth_cm",
+                "ideal_ph_min",
+                "ideal_ph_max",
+                "max_slope_pct",
+            }
+
+            csv_columns = set(reader.fieldnames or [])
+            missing_columns = required_columns - csv_columns
+
+            if missing_columns:
+                raise ValueError(
+                    "crop.csv is missing columns: "
+                    + ", ".join(sorted(missing_columns))
+                )
+
+            for row_number, row in enumerate(reader, start=2):
+                name = str(row["name"] or "").strip()
+                scientific_name = str(
+                    row["scientific_name"] or ""
+                ).strip()
+
+                if not name:
+                    raise ValueError(
+                        f"Row {row_number}: name is blank"
+                    )
+
+                if not scientific_name:
+                    raise ValueError(
+                        f"Row {row_number}: scientific_name is blank"
+                    )
+
+                crop_data = {
+                    "name": name,
+                    "scientific_name": scientific_name,
+                    "min_temp_limit": float(
+                        row["min_temp_limit"]
+                    ),
+                    "ideal_temp_min": float(
+                        row["ideal_temp_min"]
+                    ),
+                    "ideal_temp_max": float(
+                        row["ideal_temp_max"]
+                    ),
+                    "max_temp_limit": float(
+                        row["max_temp_limit"]
+                    ),
+                    "min_annual_rainfall": float(
+                        row["min_annual_rainfall"]
+                    ),
+                    "min_soil_depth_cm": int(
+                        float(row["min_soil_depth_cm"])
+                    ),
+                    "ideal_ph_min": float(
+                        row["ideal_ph_min"]
+                    ),
+                    "ideal_ph_max": float(
+                        row["ideal_ph_max"]
+                    ),
+                    "max_slope_pct": float(
+                        row["max_slope_pct"]
+                    ),
+                }
+
+                crop_key = name.casefold()
+                existing_crop = existing_crops.get(crop_key)
+
+                if existing_crop:
+                    # Overwrite the existing crop values.
+                    for field_name, value in crop_data.items():
+                        setattr(existing_crop, field_name, value)
+
+                    overwritten_count += 1
+
+                else:
+                    new_crop = Crop(**crop_data)
+                    db.add(new_crop)
+
+                    # Prevent duplicates if the same name appears again.
+                    existing_crops[crop_key] = new_crop
+                    inserted_count += 1
+
         db.commit()
-        print('✅ Successfully seeded crops threshold profiles!')
+
+        print("✅ Successfully imported crops from crop.csv!")
+        print(f"   Inserted: {inserted_count}")
+        print(f"   Overwritten: {overwritten_count}")
+
     except Exception as e:
         db.rollback()
-        print(f'❌ Error seeding crops: {e}')
+        print(f"❌ Error importing crops: {e}")
+
     finally:
         db.close()
 
@@ -249,39 +386,221 @@ def seed_spatial_grids():
     finally:
         db.close()
 
+CROP_STATISTICS_CSV_FILENAME = "crop_statistics_2016_2024.csv"
+CROP_STATISTICS_REQUIRED_COLUMNS = {
+    "crop_name",
+    "year",
+    "planted_area_ha",
+    "production_tonnes",
+    "economic_value_myr",
+    "district",
+}
+
+
+def resolve_crop_statistics_csv_path():
+    """Find the crop-statistics CSV or use CROP_STATISTICS_CSV when provided."""
+    return resolve_csv_path(
+        CROP_STATISTICS_CSV_FILENAME,
+        "CROP_STATISTICS_CSV",
+        "Crop statistics",
+    )
+
+
+def parse_csv_number(value, field_name, row_number):
+    """Convert a CSV number to float, treating blank values as zero."""
+    text_value = str(value or "").strip().replace(",", "")
+    if text_value.lower() in {"", "-", "n/a", "na", "null", "none"}:
+        return 0.0
+
+    try:
+        number = float(text_value)
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must be numeric, got {value!r}") from exc
+
+    if not math.isfinite(number):
+        raise ValueError(f"{field_name} must be a finite number, got {value!r}")
+
+    return number
+
+
+def load_crop_statistics_csv(csv_path):
+    """Read, validate, and deduplicate crop statistics from a CSV file."""
+    records_by_key = {}
+    invalid_rows = 0
+    duplicate_rows = 0
+
+    with csv_path.open("r", encoding="utf-8-sig", newline="") as csv_file:
+        reader = csv.DictReader(csv_file)
+        fieldnames = set(reader.fieldnames or [])
+        missing_columns = CROP_STATISTICS_REQUIRED_COLUMNS - fieldnames
+        if missing_columns:
+            missing = ", ".join(sorted(missing_columns))
+            raise ValueError(f"CSV is missing required column(s): {missing}")
+
+        for row_number, row in enumerate(reader, start=2):
+            try:
+                crop_name = (row.get("crop_name") or "").strip()
+                district = (row.get("district") or "").strip()
+                year_text = (row.get("year") or "").strip()
+
+                if not crop_name:
+                    raise ValueError("crop_name is blank")
+                if not district:
+                    raise ValueError("district is blank")
+                if not year_text:
+                    raise ValueError("year is blank")
+
+                try:
+                    year = int(year_text)
+                except ValueError as exc:
+                    raise ValueError(f"year must be an integer, got {year_text!r}") from exc
+
+                record = {
+                    "crop_name": crop_name,
+                    "year": year,
+                    "planted_area_ha": parse_csv_number(
+                        row.get("planted_area_ha"), "planted_area_ha", row_number
+                    ),
+                    "production_tonnes": parse_csv_number(
+                        row.get("production_tonnes"), "production_tonnes", row_number
+                    ),
+                    "economic_value_myr": parse_csv_number(
+                        row.get("economic_value_myr"), "economic_value_myr", row_number
+                    ),
+                    "district": district,
+                    "source_row_number": row_number,
+                }
+
+                # Use a case-insensitive natural key. When the CSV contains the same
+                # key more than once, keep the first occurrence so later zero rows do
+                # not accidentally overwrite earlier populated values.
+                natural_key = (crop_name.casefold(), year, district.casefold())
+                if natural_key in records_by_key:
+                    first_row = records_by_key[natural_key]["source_row_number"]
+                    duplicate_rows += 1
+                    print(
+                        f"   ⚠️ CSV row {row_number} skipped: duplicate of row "
+                        f"{first_row} for {crop_name} / {year} / {district}"
+                    )
+                    continue
+
+                records_by_key[natural_key] = record
+
+            except ValueError as exc:
+                invalid_rows += 1
+                print(f"   ⚠️ CSV row {row_number} skipped: {exc}")
+
+    return records_by_key, invalid_rows, duplicate_rows
+
+
+def numeric_values_match(current_value, csv_value):
+    """Compare database numeric values with parsed CSV floats safely."""
+    try:
+        return math.isclose(
+            float(current_value or 0),
+            float(csv_value),
+            rel_tol=1e-9,
+            abs_tol=1e-9,
+        )
+    except (TypeError, ValueError):
+        return False
+
+
 def seed_doa_statistics():
     db = SessionLocal()
     try:
-        if db.query(CropStatistic).first():
-            print("✅ DOA Statistics already exist. Skipping...")
-            return
+        csv_path = resolve_crop_statistics_csv_path()
+        print(f"📄 Importing Sabah crop statistics from: {csv_path}")
 
-        print("✅ Seeding exact Sabah DOA statistics extracted from images (Values converted from RM '000 to absolute MYR)...")
-        
-        sabah_statistics = [
-            # DURIAN DATA 
-            CropStatistic(crop_name="Durian", year=2024, planted_area_ha=1457.10, production_tonnes=5356.90, economic_value_myr=109762880.00, district="Ranau"),
-            CropStatistic(crop_name="Durian", year=2024, planted_area_ha=1261.80, production_tonnes=1520.20, economic_value_myr=31148900.00, district="Keningau"),
-            CropStatistic(crop_name="Durian", year=2024, planted_area_ha=366.00, production_tonnes=1190.60, economic_value_myr=24395390.00, district="Tawau"),
-            CropStatistic(crop_name="Durian", year=2024, planted_area_ha=308.60, production_tonnes=1544.30, economic_value_myr=31642710.00, district="Kota Belud"),
-            
-            # WATERMELON DATA 
-            CropStatistic(crop_name="Watermelon", year=2024, planted_area_ha=56.00, production_tonnes=1160.00, economic_value_myr=2517200.00, district="Papar"),
-            CropStatistic(crop_name="Watermelon", year=2024, planted_area_ha=45.40, production_tonnes=854.60, economic_value_myr=1854480.00, district="Tawau"),
-            CropStatistic(crop_name="Watermelon", year=2024, planted_area_ha=34.50, production_tonnes=715.50, economic_value_myr=1552640.00, district="Matunggong"),
-            
-            # CABBAGE DATA 
-            CropStatistic(crop_name="Cabbage", year=2024, planted_area_ha=644.50, production_tonnes=7577.70, economic_value_myr=17731820.00, district="Ranau"),
-            CropStatistic(crop_name="Cabbage", year=2024, planted_area_ha=2.20, production_tonnes=22.80, economic_value_myr=53350.00, district="Sipitang"),
-            CropStatistic(crop_name="Cabbage", year=2024, planted_area_ha=0.50, production_tonnes=2.60, economic_value_myr=6080.00, district="Kota Belud")
-        ]
-        
-        db.add_all(sabah_statistics)
+        csv_records, invalid_rows, duplicate_rows = load_crop_statistics_csv(csv_path)
+
+        # Load existing rows once instead of querying the database for every CSV row.
+        existing_by_key = {}
+        duplicate_database_rows = 0
+        for existing_record in db.query(CropStatistic).all():
+            natural_key = (
+                str(existing_record.crop_name or "").strip().casefold(),
+                int(existing_record.year),
+                str(existing_record.district or "").strip().casefold(),
+            )
+            if natural_key in existing_by_key:
+                duplicate_database_rows += 1
+                print(
+                    "   ⚠️ Existing database duplicate found for "
+                    f"{existing_record.crop_name} / {existing_record.year} / "
+                    f"{existing_record.district}; the first row will be updated."
+                )
+                continue
+            existing_by_key[natural_key] = existing_record
+
+        inserted_rows = 0
+        updated_rows = 0
+        unchanged_rows = 0
+
+        for natural_key, csv_record in csv_records.items():
+            existing_record = existing_by_key.get(natural_key)
+
+            if existing_record is None:
+                db.add(
+                    CropStatistic(
+                        crop_name=csv_record["crop_name"],
+                        year=csv_record["year"],
+                        planted_area_ha=csv_record["planted_area_ha"],
+                        production_tonnes=csv_record["production_tonnes"],
+                        economic_value_myr=csv_record["economic_value_myr"],
+                        district=csv_record["district"],
+                    )
+                )
+                inserted_rows += 1
+                continue
+
+            has_changes = (
+                str(existing_record.crop_name or "").strip() != csv_record["crop_name"]
+                or int(existing_record.year) != csv_record["year"]
+                or not numeric_values_match(
+                    existing_record.planted_area_ha,
+                    csv_record["planted_area_ha"],
+                )
+                or not numeric_values_match(
+                    existing_record.production_tonnes,
+                    csv_record["production_tonnes"],
+                )
+                or not numeric_values_match(
+                    existing_record.economic_value_myr,
+                    csv_record["economic_value_myr"],
+                )
+                or str(existing_record.district or "").strip()
+                != csv_record["district"]
+            )
+
+            if has_changes:
+                existing_record.crop_name = csv_record["crop_name"]
+                existing_record.year = csv_record["year"]
+                existing_record.planted_area_ha = csv_record["planted_area_ha"]
+                existing_record.production_tonnes = csv_record["production_tonnes"]
+                existing_record.economic_value_myr = csv_record["economic_value_myr"]
+                existing_record.district = csv_record["district"]
+                updated_rows += 1
+            else:
+                unchanged_rows += 1
+
         db.commit()
-        print("✔️ Successfully populated target DOA regional profiles!")
+        print("✔️ Crop statistics CSV import completed!")
+        print(f"   Inserted: {inserted_rows}")
+        print(f"   Updated: {updated_rows}")
+        print(f"   Unchanged: {unchanged_rows}")
+        print(f"   Invalid rows skipped: {invalid_rows}")
+        print(f"   Duplicate CSV rows skipped: {duplicate_rows}")
+        if duplicate_database_rows:
+            print(f"   Existing database duplicates detected: {duplicate_database_rows}")
+
+    except FileNotFoundError:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
-        print(f"❌ Error seeding statistics: {e}")
+        print(f"❌ Error importing crop statistics CSV: {e}")
+        raise
     finally:
         db.close()
 

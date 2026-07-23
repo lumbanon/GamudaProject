@@ -1,0 +1,65 @@
+﻿id,name,scientific_name,min_temp_limit,ideal_temp_min,ideal_temp_max,max_temp_limit,min_annual_rainfall,min_soil_depth_cm,ideal_ph_min,ideal_ph_max,max_slope_pct
+,Angled Loofah,Luffa acutangula,15.00,20.00,32.00,38.00,700.0,20,5.5,7.0,21.0
+,Asparagus,Asparagus officinalis,6.00,15.00,30.00,38.00,500.0,50,6.0,6.7,36.0
+,Bamboo Shoots,Dendrocalamus asper,15.00,20.00,27.00,34.00,1200.0,50,5.0,6.5,36.0
+,Banana,Musa sp.,13.00,22.00,32.00,38.00,2000.0,50,5.0,7.0,36.0
+,Bitter Gourd,Momordica charantia,15.00,22.00,30.00,38.00,1000.0,20,6.0,6.5,21.0
+,Bottle Gourd,Lagenaria siceraria,12.00,19.00,27.00,38.00,700.0,20,5.5,7.0,21.0
+,Brinjal,Solanum melongena,9.00,20.00,35.00,40.00,800.0,50,5.5,6.8,21.0
+,Broccoli,Brassica oleracea var. italica,3.00,15.00,24.00,35.00,350.0,50,6.0,6.8,21.0
+,Cabbage,Brassica oleracea var. capitata,7.00,15.00,24.00,32.00,300.0,20,6.0,7.5,21.0
+,Carrot,Daucus carota,3.00,15.00,24.00,30.00,400.0,50,5.8,6.8,21.0
+,Cauliflower,Brassica oleracea var. botrytis,5.00,10.00,25.00,30.00,450.0,20,6.0,7.0,21.0
+,Celery,Apium graveolens,5.00,15.00,21.00,25.00,500.0,20,6.0,6.8,21.0
+,Cempedak,Artocarpus integer,16.00,22.00,38.00,47.00,1250.0,50,4.5,6.0,36.0
+,Chilli,Capsicum annuum,8.00,17.00,30.00,35.00,500.0,50,5.5,6.8,21.0
+,Chinese Cabbage,Brassica chinensis,8.00,12.00,22.00,34.00,500.0,20,6.0,7.5,21.0
+,Chinese Celery,Apium graveolens,5.00,15.00,21.00,25.00,500.0,20,6.0,6.8,21.0
+,Chinese Chives,Allium tuberosum,2.00,10.00,20.00,35.00,300.0,20,6.0,6.8,21.0
+,Chinese Kale,Brassica oleracea var. acephala,7.00,15.00,22.00,30.00,300.0,20,5.4,6.0,21.0
+,Chinese Parsley,Coriandrum sativum,4.00,15.00,25.00,32.00,300.0,20,5.5,7.5,21.0
+,Ciku,Manilkara zapota,11.00,20.00,34.00,42.00,400.0,20,6.0,7.0,36.0
+,Cucumber,Cucumis sativus,6.00,18.00,32.00,38.00,400.0,20,6.0,7.5,21.0
+,Dokong,Lansium domesticum,12.00,20.00,35.00,40.00,1000.0,50,6.0,6.5,36.0
+,Dragon Fruit,Hylocereus undatus,12.00,18.00,28.00,34.00,450.0,50,5.3,6.7,36.0
+,Duku,Lansium domesticum,12.00,20.00,35.00,40.00,1000.0,50,6.0,6.5,36.0
+,Durian,Durio zibethinus,12.00,22.00,40.00,45.00,1200.0,50,5.0,6.5,58.0
+,Four-angled Bean,Psophocarpus tetragonolobus,14.00,18.00,30.00,40.00,500.0,20,5.5,7.0,21.0
+,French Bean,Phaseolus vulgaris,7.00,16.00,25.00,32.00,300.0,20,5.5,7.5,21.0
+,Green Cabbage,Brassica oleracea var. capitata,7.00,15.00,24.00,32.00,300.0,20,6.0,7.5,21.0
+,Guava,Psidium guajava,10.00,20.00,33.00,45.00,400.0,20,5.5,7.5,36.0
+,Hot Chilli,Capsicum frutescens,7.00,18.00,30.00,40.00,400.0,20,5.5,6.8,21.0
+,Jackfruit,Artocarpus heterophyllus,16.00,20.00,30.00,34.00,700.0,20,5.5,7.5,47.0
+,Lady's Finger,Abelmoschus esculentus,12.00,20.00,30.00,35.00,300.0,20,5.5,7.0,21.0
+,Langsat,Lansium domesticum,12.00,20.00,35.00,40.00,1000.0,50,6.0,6.5,36.0
+,Leaf Mustard,Brassica juncea,7.00,15.00,28.00,40.00,500.0,20,5.5,6.5,21.0
+,Lettuce,Lactuca sativa var. capitata,5.00,12.00,21.00,30.00,900.0,20,6.0,7.0,21.0
+,Long Bean,Vigna unguiculata ssp. sesquipedalis,14.00,20.00,35.00,38.00,650.0,20,5.5,7.0,21.0
+,Mango,Mangifera indica,8.00,24.00,30.00,48.00,300.0,50,5.5,7.5,36.0
+,Mangosteen,Garcinia mangostana,15.00,20.00,30.00,40.00,1100.0,150,5.0,6.0,36.0
+,Papaya,Carica papaya,12.00,21.00,30.00,44.00,1000.0,50,5.5,7.0,36.0
+,Pineapple,Ananas comosus,10.00,21.00,30.00,36.00,550.0,20,4.5,8.0,36.0
+,Pomelo,Citrus grandis,12.00,23.00,32.00,40.00,700.0,50,5.5,7.0,36.0
+,Pucuk Paku,Diplazium esculentum,18.00,25.00,34.00,36.00,1200.0,20,4.6,6.5,21.0
+,Pulasan,Nephelium mutabile,18.00,26.00,32.00,38.00,1350.0,50,5.0,5.8,36.0
+,Pumpkin,Cucurbita moschata,10.00,20.00,30.00,40.00,300.0,20,5.5,7.5,21.0
+,Radish,Raphanus sativus var. radicula,3.00,12.00,25.00,30.00,500.0,20,6.0,7.0,21.0
+,Rambutan,Nephelium lappaceum,10.00,21.00,35.00,42.00,1400.0,50,5.0,6.5,36.0
+,Saderi Cina,Apium graveolens,5.00,15.00,21.00,25.00,500.0,20,6.0,6.8,21.0
+,Saderi Cina (),Apium graveolens,5.00,15.00,21.00,25.00,500.0,20,6.0,6.8,21.0
+,Salak,Salacca zalacca,12.00,22.00,30.00,36.00,1400.0,20,5.0,6.0,21.0
+,Snake Gourd,Trichosanthes cucumerina,14.00,22.00,35.00,38.00,700.0,20,6.5,7.0,21.0
+,Snow Pea,Pisum sativum,4.00,10.00,24.00,30.00,350.0,20,5.5,7.0,21.0
+,Spinach(Bayam),Amaranthus tricolor,8.00,22.00,30.00,45.00,300.0,20,5.5,7.5,21.0
+,Spinach(Poh Choy),Spinacia oleracea,2.00,13.00,20.00,27.00,300.0,20,6.0,7.5,21.0
+,Spring Onion,Allium fistulosum,6.00,12.00,25.00,30.00,700.0,20,6.6,7.4,21.0
+,Starfruit,Averrhoa carambola,5.00,24.00,30.00,39.00,600.0,50,5.5,6.5,36.0
+,Sweet Leek,Allium ampeloprasum,6.00,18.00,24.00,27.00,350.0,20,6.0,6.5,21.0
+,Sweet Orange,Citrus sinensis,13.00,20.00,30.00,38.00,450.0,50,5.0,6.0,36.0
+,Sweet Pepper,Capsicum annuum,8.00,17.00,30.00,35.00,500.0,50,5.5,6.8,21.0
+,Sweet Shoot,Sauropus androgynus,5.00,26.00,35.00,38.00,600.0,20,6.0,7.0,36.0
+,Tomato,Lycopersicon esculentum,7.00,20.00,27.00,35.00,400.0,20,5.5,6.8,21.0
+,Water Spinach,Ipomoea aquatica var. reptans,10.00,15.00,35.00,40.00,700.0,20,5.0,7.0,21.0
+,Watercress,Nasturtium officinale,6.00,12.00,17.00,32.00,300.0,20,6.5,7.5,21.0
+,Watermelon,Citrullus lanatus,15.00,20.00,35.00,40.00,400.0,50,6.0,7.0,21.0
+,Wax Gourd,Benincasa hispida,12.00,24.00,30.00,37.00,300.0,20,5.6,6.8,21.0
