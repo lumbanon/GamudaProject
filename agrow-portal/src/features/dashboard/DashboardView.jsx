@@ -3,20 +3,42 @@ import './dashboard-view.css'
 import axios from 'axios'
 import InteractiveMap from './InteractiveMap'
 import AdvancedSimulator from './AdvancedSimulator'
+import {
+  APP_PREFERENCE_KEYS,
+  useAppPreference,
+} from '../../context/appPreferences'
 
 
 const API_BASE_URL = 'http://localhost:8000/api/predict'
 
 export default function DashboardView() {
   const [, setDbCrops] = useState([])
-  const [activeCrop, setActiveCrop] = useState('')
-  const [selectedDistrict, setSelectedDistrict] = useState('')
-  const [districtMatrix, setDistrictMatrix] = useState({})
-  const [predictions, setPredictions] = useState({ watermelon: null, cabbage: null, durian: null })
-  const [allDistrictsSuitability, setAllDistrictsSuitability] = useState({})
+  const [activeCrop, setActiveCrop] = useAppPreference(
+    APP_PREFERENCE_KEYS.dashboardActiveCrop,
+    '',
+  )
+  const [selectedDistrict, setSelectedDistrict] = useAppPreference(
+    APP_PREFERENCE_KEYS.dashboardDistrict,
+    '',
+  )
+  const [districtMatrix, setDistrictMatrix] = useAppPreference(
+    APP_PREFERENCE_KEYS.dashboardDistrictMatrix,
+    {},
+  )
+  const [predictions, setPredictions] = useAppPreference(
+    APP_PREFERENCE_KEYS.dashboardPredictions,
+    { watermelon: null, cabbage: null, durian: null },
+  )
+  const [allDistrictsSuitability, setAllDistrictsSuitability] = useAppPreference(
+    APP_PREFERENCE_KEYS.dashboardDistrictSuitability,
+    {},
+  )
   const [isLoading, setIsLoading] = useState(false)
   const [, setApiError] = useState('')
-  const [showModeling, setShowModeling] = useState(false)
+  const [showModeling, setShowModeling] = useAppPreference(
+    APP_PREFERENCE_KEYS.dashboardShowModeling,
+    false,
+  )
   const districtMatrixRef = useRef(districtMatrix)
   const selectedDistrictRef = useRef(selectedDistrict)
 
@@ -24,9 +46,10 @@ export default function DashboardView() {
     selectedDistrictRef.current = selectedDistrict
   }, [selectedDistrict])
 
-  const [simulationParams, setSimulationParams] = useState({
-    elev: 0, slope: 0, ph: 6.5, depth: 0, rain: 0, solar: 0
-  })
+  const [simulationParams, setSimulationParams] = useAppPreference(
+    APP_PREFERENCE_KEYS.dashboardSimulationParameters,
+    { elev: 0, slope: 0, ph: 6.5, depth: 0, rain: 0, solar: 0 },
+  )
 
   const handleParamChange = (key, value) => {
     setSimulationParams((prev) => ({ ...prev, [key]: value }))
@@ -80,7 +103,7 @@ export default function DashboardView() {
       }
     }
     fetchMatrixData()
-  }, [])
+  }, [setDistrictMatrix])
 
   // 3. Fetch ALL Districts across active crop layer
   useEffect(() => {
@@ -129,7 +152,7 @@ export default function DashboardView() {
       }
     }
     fetchAllDistrictSuitability()
-  }, [activeCrop, districtMatrix])
+  }, [activeCrop, districtMatrix, setAllDistrictsSuitability])
 
   // 4. Robust Case-Insensitive District Lookup Styler Function
   const getMatrixDataForDistrict = useCallback((geoJsonName) => {
@@ -312,7 +335,7 @@ useEffect(() => {
   }, 150);
 
   return () => clearTimeout(delayDebounce);
-}, [selectedDistrict, getMatrixDataForDistrict, showModeling, simulationParams]);
+}, [selectedDistrict, getMatrixDataForDistrict, showModeling, simulationParams, setPredictions]);
 
   const getBadgeClass = (suitability) => {
     const badgeMap = { S1: 'bg-primary', S2: 'bg-secondary', S3: 'bg-warning', N: 'bg-danger' }

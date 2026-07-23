@@ -5,7 +5,7 @@ import DashboardLayout from '../layouts/DashboardLayout'
 import HeatmapView from '../features/heatmap/HeatmapView'
 import PredictionViews from '../features/prediction/PredictionViews'
 import StatisticViews from '../features/statistic/StatisticViews'
-import SettingViews from '../features/setting/SettingViews'
+import SettingPanel from '../features/setting/SettingPanel'
 import LoginPage from '../features/auth/LoginPage'
 import ProtectedRoute from './ProtectedRoute'
 
@@ -21,7 +21,7 @@ export default function AppRoutes(){
                     <Route path='heatmap-analysis' element={<HeatmapView/>}/>
                     <Route path='ai-predictions' element={<PredictionViews/>}/>
                     <Route path='crop-statistics' element={<StatisticViews/>}/>
-                    <Route path='settings' element={<SettingViews/>}/>
+                    <Route path='settings' element={<SettingPanel/>}/>
                 </Route>
             </Route>
         </Routes>

@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import agrowLogo from '../../assets/landing/agrow-rectangle.png'
 import backHomeIcon from '../../assets/auth/back-home.png'
+import { useAppPreferences } from '../../context/appPreferences'
 import './login-page.css'
 
 const API_AUTH_BASE_URL = 'http://127.0.0.1:8000/api/v1/auth'
 
 export default function LoginPage() {
+  const { resetAppPreferences } = useAppPreferences()
   const [isLoginMode, setIsLoginMode] = useState(true)
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
@@ -102,12 +104,14 @@ export default function LoginPage() {
       sessionStorage.setItem('user_role', data.user_role)
       sessionStorage.setItem('token_expiry', expiryTimestamp.toString())
 
+      resetAppPreferences()
       navigate('/dashboard', {replace: true})
 
   } catch (err) {
     if (err instanceof TypeError) {
       sessionStorage.setItem('token', 'local-dev-bypass-token')
       sessionStorage.setItem('user_role', 'Local Demo')
+      resetAppPreferences()
       navigate('/dashboard', {replace: true})
       return
     }

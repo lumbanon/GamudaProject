@@ -3,6 +3,10 @@ import heroLeafIcon from "../../assets/prediction/hero-leaf.svg?raw";
 import securityShieldIcon from "../../assets/prediction/security-shield.svg?raw";
 import kundasangImage from "../../assets/landing/kundasang.png";
 import sabahDistricts from "../dashboard/sabahDistricts";
+import {
+  APP_PREFERENCE_KEYS,
+  useAppPreference,
+} from "../../context/appPreferences";
 import CropPlanningPanel, {
   EnvironmentDataPanel,
 } from "./CropPlanningPanel";
@@ -24,17 +28,35 @@ import "./prediction-view.css";
 
 export default function PredictionViews() {
   const satelliteMapRef = useRef(null);
-  const [polygon, setPolygon] = useState(null);
-  const [selectedCrop, setSelectedCrop] = useState("");
-  const [selectedDistrict, setSelectedDistrict] = useState("");
+  const [polygon, setPolygon] = useAppPreference(
+    APP_PREFERENCE_KEYS.predictionPolygon,
+    null,
+  );
+  const [selectedCrop, setSelectedCrop] = useAppPreference(
+    APP_PREFERENCE_KEYS.predictionCrop,
+    "",
+  );
+  const [selectedDistrict, setSelectedDistrict] = useAppPreference(
+    APP_PREFERENCE_KEYS.predictionDistrict,
+    "",
+  );
   const [cropOptions, setCropOptions] = useState([]);
   const [districtOptions, setDistrictOptions] = useState([]);
-  const [analysisResult, setAnalysisResult] = useState(null);
-  const [forestReserveResult, setForestReserveResult] = useState(null);
+  const [analysisResult, setAnalysisResult] = useAppPreference(
+    APP_PREFERENCE_KEYS.predictionAnalysis,
+    null,
+  );
+  const [forestReserveResult, setForestReserveResult] = useAppPreference(
+    APP_PREFERENCE_KEYS.predictionForestReserve,
+    null,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [error, setError] = useState("");
-  const [clearVersion, setClearVersion] = useState(0);
+  const [clearVersion, setClearVersion] = useAppPreference(
+    APP_PREFERENCE_KEYS.predictionClearVersion,
+    0,
+  );
 
   const areaHectares = useMemo(
     () => calculatePolygonAreaHectares(polygon),
@@ -119,7 +141,7 @@ export default function PredictionViews() {
     return () => {
       isMounted = false;
     };
-  }, [polygon]);
+  }, [polygon, setForestReserveResult]);
 
   function handlePolygonChange(nextPolygon) {
     const detectedDistrict = detectDistrictFromPolygon(
