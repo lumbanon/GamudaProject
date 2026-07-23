@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Response, status, Depends
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from pydantic import BaseModel, ConfigDict, EmailStr
@@ -11,30 +11,22 @@ from app.database.session import get_db
 from app.models.user import User
 from app.core.security import ALGORITHM, SECRET_KEY, verify_password, create_access_token
 
-router =  APIRouter()
+router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
-ALLOWED_EMAIL_DOMAINS = {
-    'gmail.com',
-    'hotmail.com',
-    'icloud.com',
-    'live.com',
-    'outlook.com',
-    'proton.me',
-    'protonmail.com',
-    'yahoo.com',
-    'ymail.com',
-}
+
 
 class Token(BaseModel):
     access_token: str
     token_type: str
     user_role: str
 
+
 class UserCreate(BaseModel):
-    full_name : str
-    email : EmailStr
+    full_name: str
+    email: EmailStr
     password: str
     role: str
+
 
 class CurrentUser(BaseModel):
     id: int
@@ -42,15 +34,18 @@ class CurrentUser(BaseModel):
     email: EmailStr
     role: str
 
+
 class UserUpdate(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     full_name: str | None = None
     email: EmailStr | None = None
 
+
 class CurrentUserUpdate(CurrentUser):
     access_token: str
     token_type: str = 'bearer'
+
 
 class PasswordChange(BaseModel):
     model_config = ConfigDict(extra='forbid')
@@ -58,37 +53,69 @@ class PasswordChange(BaseModel):
     current_password: str
     new_password: str
 
+
 class PasswordChangeConfirmation(BaseModel):
     message: str
 
+
+def hash_password(password: str) -> str:
+    password_bytes = password.encode('utf-8')
+    if len(password_bytes) > 72:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Password exceeds maximum length of 72 bytes.",
+        )
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password_bytes, salt).decode('utf-8')
+
+
 @router.post('/register', status_code=status.HTTP_201_CREATED)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
-    existing_user = db.query(User).filter(User.email == user_in.email).first()
+    normalized_email = str(user_in.email).strip().lower()
+
+    existing_user = (
+        db.query(User)
+        .filter(func.lower(User.email) == normalized_email)
+        .first()
+    )
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='email already existed'
         )
-    
-    password_bytes = user_in.password.encode('utf-8')
-    salt = bcrypt.gensalt()
-    hashed_password_string = bcrypt.hashpw(password_bytes, salt).decode('utf-8')
+
+    hashed_password_string = hash_password(user_in.password)
 
     new_user = User(
-        full_name = user_in.full_name,
-        email = user_in.email,
+        full_name=user_in.full_name.strip(),
+        email=normalized_email,
         hashed_password=hashed_password_string,
         role=user_in.role,
         is_active=True
     )
 
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    try:
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='email already existed',
+        ) from exc
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail='Unable to register user',
+        ) from exc
+
 
 @router.post('/login', response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == form_data.username).first()
+    normalized_email = form_data.username.strip().lower()
+    user = db.query(User).filter(func.lower(User.email) == normalized_email).first()
 
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
@@ -96,14 +123,15 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     access_token = create_access_token(data={"sub": user.email})
-    
+
     return {
-        "access_token": access_token, 
+        "access_token": access_token,
         "token_type": "bearer",
         "user_role": user.role
     }
+
 
 @router.get('/me', response_model=CurrentUser)
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
@@ -126,6 +154,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_error
 
     return user
+
 
 @router.patch('/me', response_model=CurrentUserUpdate)
 def update_current_user(
@@ -157,15 +186,6 @@ def update_current_user(
 
     if 'email' in updates:
         normalized_email = str(updates['email']).strip().lower()
-        email_domain = normalized_email.rsplit('@', 1)[-1]
-        if email_domain not in ALLOWED_EMAIL_DOMAINS:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=(
-                    'Use an email from a supported provider such as Gmail, '
-                    'Hotmail, Outlook, Yahoo, iCloud, Live, or Proton.'
-                ),
-            )
 
         duplicate_user = (
             db.query(User.id)
@@ -210,6 +230,7 @@ def update_current_user(
         'token_type': 'bearer',
     }
 
+
 @router.patch('/me/password', response_model=PasswordChangeConfirmation)
 def change_current_user_password(
     password_in: PasswordChange,
@@ -235,29 +256,13 @@ def change_current_user_password(
             detail='New password must be at least 6 characters',
         )
 
-    new_password_bytes = password_in.new_password.encode('utf-8')
-    if len(new_password_bytes) > 72:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail='New password must be 72 bytes or fewer',
-        )
-
     if password_in.new_password == password_in.current_password:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail='New password must be different from the current password',
         )
 
-    try:
-        current_user.hashed_password = bcrypt.hashpw(
-            new_password_bytes,
-            bcrypt.gensalt(),
-        ).decode('utf-8')
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail='New password is too long',
-        ) from exc
+    current_user.hashed_password = hash_password(password_in.new_password)
 
     try:
         db.commit()
@@ -269,6 +274,7 @@ def change_current_user_password(
         ) from exc
 
     return {'message': 'Password updated successfully.'}
+
 
 @router.delete('/me', status_code=status.HTTP_204_NO_CONTENT)
 def delete_current_user(
