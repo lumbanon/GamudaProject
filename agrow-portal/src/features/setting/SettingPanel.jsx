@@ -1,264 +1,274 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   changeCurrentUserPassword,
   deleteCurrentUser,
   getCurrentUser,
   updateCurrentUser,
-} from './settingsApi'
-import eyeIcon from '../../assets/setting/eye.svg'
-import eyeSlashIcon from '../../assets/setting/eye-slash.svg'
+} from "./settingsApi";
+import eyeIcon from "../../assets/setting/eye.svg";
+import eyeSlashIcon from "../../assets/setting/eye-slash.svg";
 import {
   APP_PREFERENCE_KEYS,
   useAppPreference,
   useAppPreferences,
-} from '../../context/appPreferences'
-import './setting.css'
+} from "../../context/appPreferences";
+import "./setting.css";
 
-const ALLOWED_EMAIL_DOMAINS = new Set([
-  'gmail.com',
-  'hotmail.com',
-  'icloud.com',
-  'live.com',
-  'outlook.com',
-  'proton.me',
-  'protonmail.com',
-  'yahoo.com',
-  'ymail.com',
-])
+// Standard email regex format validation
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function SettingPanel() {
   return (
-    <main className='settings-container'>
-      <div className='settings-profile-wrapper'>
+    <main className="settings-container">
+      <div className="settings-profile-wrapper">
         <ProfileCard />
       </div>
     </main>
-  )
+  );
 }
+
 function ProfileCard() {
-  const navigate = useNavigate()
-  const { resetAppPreferences } = useAppPreferences()
+  const navigate = useNavigate();
+  const { resetAppPreferences } = useAppPreferences();
   const [user, setUser] = useAppPreference(
     APP_PREFERENCE_KEYS.profileUser,
     null,
-  )
+  );
   const [fullName, setFullName] = useAppPreference(
     APP_PREFERENCE_KEYS.profileFullName,
-    '',
-  )
+    "",
+  );
   const [email, setEmail] = useAppPreference(
     APP_PREFERENCE_KEYS.profileEmail,
-    '',
-  )
+    "",
+  );
   const [isEditing, setIsEditing] = useAppPreference(
     APP_PREFERENCE_KEYS.profileIsEditing,
     false,
-  )
-  const [isChangingPassword, setIsChangingPassword] = useState(false)
-  const [currentPassword, setCurrentPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
+  );
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [visiblePasswords, setVisiblePasswords] = useState({
     current: false,
     new: false,
     confirm: false,
-  })
-  const [isLoading, setIsLoading] = useState(() => !user)
-  const [isSaving, setIsSaving] = useState(false)
-  const [isPasswordSaving, setIsPasswordSaving] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  });
+  const [isLoading, setIsLoading] = useState(() => !user);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isPasswordSaving, setIsPasswordSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   useEffect(() => {
     if (user) {
-      return undefined
+      return undefined;
     }
 
-    const controller = new AbortController()
+    const controller = new AbortController();
 
     async function loadUser() {
-      setIsLoading(true)
-      setError('')
+      setIsLoading(true);
+      setError("");
 
       try {
-        const currentUser = await getCurrentUser({ signal: controller.signal })
-        setUser(currentUser)
-        setFullName(currentUser.fullName || '')
-        setEmail(currentUser.email || '')
+        const currentUser = await getCurrentUser({ signal: controller.signal });
+        setUser(currentUser);
+        setFullName(currentUser.fullName || "");
+        setEmail(currentUser.email || "");
       } catch (requestError) {
-        if (requestError.name !== 'AbortError') {
-          setError(requestError.message || 'Unable to load your account.')
+        if (requestError.name !== "AbortError") {
+          setError(requestError.message || "Unable to load your account.");
         }
       } finally {
-        if (!controller.signal.aborted) setIsLoading(false)
+        if (!controller.signal.aborted) setIsLoading(false);
       }
     }
 
-    void loadUser()
-    return () => controller.abort()
-  }, [setEmail, setFullName, setUser, user])
+    void loadUser();
+    return () => controller.abort();
+  }, [setEmail, setFullName, setUser, user]);
 
   function cancelEditing() {
-    setFullName(user?.fullName || '')
-    setEmail(user?.email || '')
-    setIsEditing(false)
-    setError('')
-    setSuccess('')
+    setFullName(user?.fullName || "");
+    setEmail(user?.email || "");
+    setIsEditing(false);
+    setError("");
+    setSuccess("");
   }
 
   function cancelPasswordChange() {
-    setCurrentPassword('')
-    setNewPassword('')
-    setConfirmPassword('')
-    setVisiblePasswords({ current: false, new: false, confirm: false })
-    setIsChangingPassword(false)
-    setError('')
-    setSuccess('')
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setVisiblePasswords({ current: false, new: false, confirm: false });
+    setIsChangingPassword(false);
+    setError("");
+    setSuccess("");
   }
 
   function togglePasswordVisibility(field) {
     setVisiblePasswords((currentVisibility) => ({
       ...currentVisibility,
       [field]: !currentVisibility[field],
-    }))
+    }));
   }
 
   async function handleSave(event) {
-    event.preventDefault()
-    if (isSaving) return
+    event.preventDefault();
+    if (isSaving) return;
 
-    const emailDomain = email.trim().toLowerCase().split('@').pop()
-    if (!ALLOWED_EMAIL_DOMAINS.has(emailDomain)) {
-      setError(
-        'Use an email from Gmail, Hotmail, Outlook, Yahoo, iCloud, Live, or Proton.',
-      )
-      setSuccess('')
-      return
+    const trimmedEmail = email.trim();
+
+    if (!EMAIL_REGEX.test(trimmedEmail)) {
+      setError("Please enter a valid email address.");
+      setSuccess("");
+      return;
     }
 
-    setIsSaving(true)
-    setError('')
-    setSuccess('')
+    setIsSaving(true);
+    setError("");
+    setSuccess("");
 
     try {
-      const updatedUser = await updateCurrentUser({ fullName, email })
-      setUser(updatedUser)
-      setFullName(updatedUser.fullName || '')
-      setEmail(updatedUser.email || '')
-      setIsEditing(false)
-      setSuccess('Account information updated.')
+      const updatedUser = await updateCurrentUser({
+        fullName,
+        email: trimmedEmail,
+      });
+      setUser(updatedUser);
+      setFullName(updatedUser.fullName || "");
+      setEmail(updatedUser.email || "");
+      setIsEditing(false);
+      setSuccess("Account information updated.");
     } catch (requestError) {
-      setError(requestError.message || 'Unable to update your account.')
+      setError(requestError.message || "Unable to update your account.");
     } finally {
-      setIsSaving(false)
+      setIsSaving(false);
     }
   }
 
   async function handleDelete() {
     const confirmed = window.confirm(
-      'Delete your account permanently? This action cannot be undone.',
-    )
-    if (!confirmed) return
+      "Delete your account permanently? This action cannot be undone.",
+    );
+    if (!confirmed) return;
 
-    setIsDeleting(true)
-    setError('')
-    setSuccess('')
+    setIsDeleting(true);
+    setError("");
+    setSuccess("");
 
     try {
-      await deleteCurrentUser()
-      sessionStorage.removeItem('token')
-      sessionStorage.removeItem('user_role')
-      sessionStorage.removeItem('user_email')
-      sessionStorage.removeItem('token_expiry')
-      resetAppPreferences()
-      navigate('/login', { replace: true })
+      await deleteCurrentUser();
+      sessionStorage.removeItem("token");
+      sessionStorage.removeItem("user_role");
+      sessionStorage.removeItem("user_email");
+      sessionStorage.removeItem("token_expiry");
+      resetAppPreferences();
+      navigate("/login", { replace: true });
     } catch (requestError) {
-      setError(requestError.message || 'Unable to delete your account.')
-      setIsDeleting(false)
+      setError(requestError.message || "Unable to delete your account.");
+      setIsDeleting(false);
     }
   }
 
   async function handlePasswordChange(event) {
-    event.preventDefault()
-    if (isPasswordSaving) return
+    event.preventDefault();
+    if (isPasswordSaving) return;
 
     if (newPassword.length < 6) {
-      setError('New password must be at least 6 characters.')
-      setSuccess('')
-      return
+      setError("New password must be at least 6 characters.");
+      setSuccess("");
+      return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError('New password and confirmation do not match.')
-      setSuccess('')
-      return
+      setError("New password and confirmation do not match.");
+      setSuccess("");
+      return;
     }
 
     if (currentPassword === newPassword) {
-      setError('New password must be different from your current password.')
-      setSuccess('')
-      return
+      setError("New password must be different from your current password.");
+      setSuccess("");
+      return;
     }
 
-    setIsPasswordSaving(true)
-    setError('')
-    setSuccess('')
+    setIsPasswordSaving(true);
+    setError("");
+    setSuccess("");
 
     try {
-      await changeCurrentUserPassword({ currentPassword, newPassword })
-      setCurrentPassword('')
-      setNewPassword('')
-      setConfirmPassword('')
-      setVisiblePasswords({ current: false, new: false, confirm: false })
-      setIsChangingPassword(false)
-      setSuccess('Password changed successfully.')
+      await changeCurrentUserPassword({ currentPassword, newPassword });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setVisiblePasswords({ current: false, new: false, confirm: false });
+      setIsChangingPassword(false);
+      setSuccess("Password changed successfully.");
     } catch (requestError) {
-      setError(requestError.message || 'Unable to change your password.')
+      setError(requestError.message || "Unable to change your password.");
     } finally {
-      setIsPasswordSaving(false)
+      setIsPasswordSaving(false);
     }
   }
 
   if (isLoading) {
     return (
-      <div className='settings-card profile-card' aria-busy='true'>
-        <p className='profile-status'>Loading account...</p>
+      <div className="settings-card profile-card" aria-busy="true">
+        <p className="profile-status">Loading account...</p>
       </div>
-    )
+    );
   }
 
   if (!user) {
     return (
-      <div className='settings-card profile-card'>
-        <p className='profile-message profile-message-error' role='alert'>
-          {error || 'Unable to load your account.'}
+      <div className="settings-card profile-card">
+        <p className="profile-message profile-message-error" role="alert">
+          {error || "Unable to load your account."}
         </p>
       </div>
-    )
+    );
   }
 
   return (
-    <div className='settings-card profile-card'>
-      <div className='profile-header'>
-        <div className='profile-avatar' aria-hidden='true'>ðŸ‘¤</div>
+    <div className="settings-card profile-card">
+      <div className="profile-header">
+        <div className="profile-avatar" aria-hidden="true">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            width="32"
+            height="32"
+          >
+            <path
+              fillRule="evenodd"
+              d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.6-7.812-1.7a.75.75 0 01-.437-.695z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </div>
         <div>
-          <h2 className='profile-name'>{user.fullName || 'Name unavailable'}</h2>
-          <p className='profile-role'>{user.role || 'Role unavailable'}</p>
-          <p className='profile-email'>{user.email || 'Email unavailable'}</p>
+          <h2 className="profile-name">
+            {user.fullName || "Name unavailable"}
+          </h2>
+          <p className="profile-role">{user.role || "Role unavailable"}</p>
+          <p className="profile-email">{user.email || "Email unavailable"}</p>
         </div>
       </div>
 
-      <hr className='profile-divider' />
+      <hr className="profile-divider" />
 
       {isEditing && (
-        <form className='profile-edit-form' onSubmit={handleSave}>
-          <label className='profile-field' htmlFor='profile-full-name'>
+        <form className="profile-edit-form" onSubmit={handleSave}>
+          <label className="profile-field" htmlFor="profile-full-name">
             Full name
             <input
-              id='profile-full-name'
-              type='text'
+              id="profile-full-name"
+              type="text"
               value={fullName}
               maxLength={255}
               disabled={isSaving}
@@ -267,11 +277,11 @@ function ProfileCard() {
             />
           </label>
 
-          <label className='profile-field' htmlFor='profile-email'>
+          <label className="profile-field" htmlFor="profile-email">
             Email
             <input
-              id='profile-email'
-              type='email'
+              id="profile-email"
+              type="email"
               value={email}
               maxLength={320}
               disabled={isSaving}
@@ -280,17 +290,17 @@ function ProfileCard() {
             />
           </label>
 
-          <div className='profile-form-actions'>
+          <div className="profile-form-actions">
             <button
-              className='btn-edit-profile'
-              type='submit'
+              className="btn-edit-profile"
+              type="submit"
               disabled={isSaving}
             >
-              {isSaving ? 'Saving...' : 'Save changes'}
+              {isSaving ? "Saving..." : "Save changes"}
             </button>
             <button
-              className='btn-profile-secondary'
-              type='button'
+              className="btn-profile-secondary"
+              type="button"
               disabled={isSaving}
               onClick={cancelEditing}
             >
@@ -301,88 +311,88 @@ function ProfileCard() {
       )}
 
       {isChangingPassword && (
-        <form className='profile-edit-form' onSubmit={handlePasswordChange}>
-          <div className='profile-field'>
-            <label htmlFor='current-password'>Current password</label>
-            <div className='profile-password-input'>
+        <form className="profile-edit-form" onSubmit={handlePasswordChange}>
+          <div className="profile-field">
+            <label htmlFor="current-password">Current password</label>
+            <div className="profile-password-input">
               <input
-                autoComplete='current-password'
+                autoComplete="current-password"
                 disabled={isPasswordSaving}
-                id='current-password'
+                id="current-password"
                 maxLength={72}
                 required
-                type={visiblePasswords.current ? 'text' : 'password'}
+                type={visiblePasswords.current ? "text" : "password"}
                 value={currentPassword}
                 onChange={(event) => setCurrentPassword(event.target.value)}
               />
               <PasswordVisibilityButton
                 isVisible={visiblePasswords.current}
                 disabled={isPasswordSaving}
-                onToggle={() => togglePasswordVisibility('current')}
+                onToggle={() => togglePasswordVisibility("current")}
               />
             </div>
           </div>
 
-          <div className='profile-field'>
-            <label htmlFor='new-password'>New password</label>
-            <div className='profile-password-input'>
+          <div className="profile-field">
+            <label htmlFor="new-password">New password</label>
+            <div className="profile-password-input">
               <input
-                aria-describedby='new-password-help'
-                autoComplete='new-password'
+                aria-describedby="new-password-help"
+                autoComplete="new-password"
                 disabled={isPasswordSaving}
-                id='new-password'
+                id="new-password"
                 maxLength={72}
                 minLength={6}
                 required
-                type={visiblePasswords.new ? 'text' : 'password'}
+                type={visiblePasswords.new ? "text" : "password"}
                 value={newPassword}
                 onChange={(event) => setNewPassword(event.target.value)}
               />
               <PasswordVisibilityButton
                 isVisible={visiblePasswords.new}
                 disabled={isPasswordSaving}
-                onToggle={() => togglePasswordVisibility('new')}
+                onToggle={() => togglePasswordVisibility("new")}
               />
             </div>
           </div>
-          <small className='profile-field-help' id='new-password-help'>
+          <small className="profile-field-help" id="new-password-help">
             Use at least 6 characters and choose a different password.
           </small>
 
-          <div className='profile-field'>
-            <label htmlFor='confirm-new-password'>Confirm new password</label>
-            <div className='profile-password-input'>
+          <div className="profile-field">
+            <label htmlFor="confirm-new-password">Confirm new password</label>
+            <div className="profile-password-input">
               <input
-                autoComplete='new-password'
+                autoComplete="new-password"
                 disabled={isPasswordSaving}
-                id='confirm-new-password'
+                id="confirm-new-password"
                 maxLength={72}
                 minLength={6}
                 required
-                type={visiblePasswords.confirm ? 'text' : 'password'}
+                type={visiblePasswords.confirm ? "text" : "password"}
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
               />
               <PasswordVisibilityButton
                 isVisible={visiblePasswords.confirm}
                 disabled={isPasswordSaving}
-                onToggle={() => togglePasswordVisibility('confirm')}
+                onToggle={() => togglePasswordVisibility("confirm")}
               />
             </div>
           </div>
 
-          <div className='profile-form-actions'>
+          <div className="profile-form-actions">
             <button
-              className='btn-edit-profile'
+              className="btn-edit-profile"
               disabled={isPasswordSaving}
-              type='submit'
+              type="submit"
             >
-              {isPasswordSaving ? 'Changing...' : 'Change password'}
+              {isPasswordSaving ? "Changing..." : "Change password"}
             </button>
             <button
-              className='btn-profile-secondary'
+              className="btn-profile-secondary"
               disabled={isPasswordSaving}
-              type='button'
+              type="button"
               onClick={cancelPasswordChange}
             >
               Cancel
@@ -392,27 +402,27 @@ function ProfileCard() {
       )}
 
       {!isEditing && !isChangingPassword && (
-        <div className='profile-account-actions'>
+        <div className="profile-account-actions">
           <button
-            className='btn-edit-profile'
-            type='button'
+            className="btn-edit-profile"
+            type="button"
             disabled={isDeleting}
             onClick={() => {
-              setIsEditing(true)
-              setError('')
-              setSuccess('')
+              setIsEditing(true);
+              setError("");
+              setSuccess("");
             }}
           >
             Edit Profile
           </button>
           <button
-            className='btn-profile-secondary'
-            type='button'
+            className="btn-profile-secondary"
+            type="button"
             disabled={isDeleting}
             onClick={() => {
-              setIsChangingPassword(true)
-              setError('')
-              setSuccess('')
+              setIsChangingPassword(true);
+              setError("");
+              setSuccess("");
             }}
           >
             Change Password
@@ -421,43 +431,39 @@ function ProfileCard() {
       )}
 
       <button
-        className='btn-delete-profile'
-        type='button'
+        className="btn-delete-profile"
+        type="button"
         disabled={isSaving || isPasswordSaving || isDeleting}
         onClick={handleDelete}
       >
-        {isDeleting ? 'Deleting account...' : 'Delete Account'}
+        {isDeleting ? "Deleting account..." : "Delete Account"}
       </button>
 
       {error && (
-        <p className='profile-message profile-message-error' role='alert'>
+        <p className="profile-message profile-message-error" role="alert">
           {error}
         </p>
       )}
       {success && (
-        <p className='profile-message profile-message-success' role='status'>
+        <p className="profile-message profile-message-success" role="status">
           {success}
         </p>
       )}
     </div>
-  )
+  );
 }
 
 function PasswordVisibilityButton({ disabled, isVisible, onToggle }) {
   return (
     <button
-      aria-label={isVisible ? 'Hide password' : 'Show password'}
+      aria-label={isVisible ? "Hide password" : "Show password"}
       aria-pressed={isVisible}
-      className='profile-password-toggle'
+      className="profile-password-toggle"
       disabled={disabled}
-      type='button'
+      type="button"
       onClick={onToggle}
     >
-      <img
-        alt=''
-        aria-hidden='true'
-        src={isVisible ? eyeSlashIcon : eyeIcon}
-      />
+      <img alt="" aria-hidden="true" src={isVisible ? eyeSlashIcon : eyeIcon} />
     </button>
-  )
+  );
 }
