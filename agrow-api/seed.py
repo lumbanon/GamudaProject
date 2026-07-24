@@ -606,9 +606,9 @@ def seed_doa_statistics():
 
 if __name__ == '__main__':
     print('will start to seed...')
-    print('Seeding user table...')
-    seed_user()
-    print('User table seeded...')
+    # print('Seeding user table...')
+    # seed_user()
+    # print('User table seeded...')
     print('Seeding crop table...')
     seed_crops()
     print('Crop table seeded...')

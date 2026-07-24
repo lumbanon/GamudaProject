@@ -5,7 +5,8 @@ import backHomeIcon from '../../assets/auth/back-home.png'
 import { useAppPreferences } from '../../context/appPreferences'
 import './login-page.css'
 
-const API_AUTH_BASE_URL = 'http://127.0.0.1:8000/api/v1/auth'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+const API_AUTH_BASE_URL = `${API_BASE_URL}/api/v1/auth`
 
 export default function LoginPage() {
   const { resetAppPreferences } = useAppPreferences()
@@ -105,14 +106,27 @@ export default function LoginPage() {
       sessionStorage.setItem('token_expiry', expiryTimestamp.toString())
 
       resetAppPreferences()
-      navigate('/dashboard', {replace: true})
+      // navigate('/dashboard', {replace: true})
+
+      setTimeout(() => {
+      navigate('/dashboard', { replace: true })
+    }, 0)
 
   } catch (err) {
     if (err instanceof TypeError) {
+      const EXPIRE_IN_MINUTES = 30
+      const expiryTimestamp = Date.now() + EXPIRE_IN_MINUTES * 60 * 1000
+
       sessionStorage.setItem('token', 'local-dev-bypass-token')
       sessionStorage.setItem('user_role', 'Local Demo')
+      sessionStorage.setItem('token_expiry', expiryTimestamp.toString())
+
       resetAppPreferences()
-      navigate('/dashboard', {replace: true})
+      // navigate('/dashboard', {replace: true})
+
+      setTimeout(() => {
+      navigate('/dashboard', { replace: true })
+    }, 0)
       return
     }
 
