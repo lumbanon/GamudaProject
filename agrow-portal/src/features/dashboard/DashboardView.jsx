@@ -27,7 +27,7 @@ export default function DashboardView() {
   )
   const [predictions, setPredictions] = useAppPreference(
     APP_PREFERENCE_KEYS.dashboardPredictions,
-    { watermelon: null, cabbage: null, durian: null },
+    { banana: null, watermelon: null, cabbage: null, durian: null },
   )
   const [allDistrictsSuitability, setAllDistrictsSuitability] = useAppPreference(
     APP_PREFERENCE_KEYS.dashboardDistrictSuitability,
@@ -279,7 +279,7 @@ useEffect(() => {
     
     // FIX: Moving these state updates inside the scoped execution flow removes synchronous cascading renders
     if (!metrics) {
-      setPredictions({ watermelon: null, cabbage: null, durian: null });
+      setPredictions({ banana: null, watermelon: null, cabbage: null, durian: null });
       setApiError(`No database found for selected district: '${selectedDistrict}'`);
       return;
     }
@@ -310,19 +310,21 @@ useEffect(() => {
     };
 
     try {
-      const [watermelonRes, cabbageRes, durianRes] = await Promise.all([
+      const [bananaRes, watermelonRes, cabbageRes, durianRes] = await Promise.all([
+        axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Banana' }),
         axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Watermelon' }),
         axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Cabbage' }),
         axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Durian' })
       ]);
 
       setPredictions({
+        banana: bananaRes.data,
         watermelon: watermelonRes.data, 
         cabbage: cabbageRes.data, 
         durian: durianRes.data
       });
     } catch (err) {
-      setPredictions({ watermelon: null, cabbage: null, durian: null });
+      setPredictions({ banana: null, watermelon: null, cabbage: null, durian: null });
       setApiError(err.message || 'Network failure while calling ML engine');
     } finally {
       setIsLoading(false);
@@ -407,13 +409,40 @@ useEffect(() => {
       <div className='row mb-4 justify-content-between'>
         <div className='col-12'>
           <div className='card'>
-            <div className='row align-items-center'>
-              <div className='col-3'>
+            <div className='dashboard-overview-grid'>
+              <div className='dashboard-overview-item'>
                 <h2>District overview:</h2>
                 <h2 className='text-primary'>{selectedDistrict || 'Select a region'}</h2>
               </div>
 
-              <div className='col-3'>
+              <div className='dashboard-overview-item'>
+                <div className='card'>
+                  <p>Banana Suitability</p>
+                  <small><i>Musa spp.</i></small>
+                  {!selectedDistrict && !isLoading && (<div className='mt-4'><p>n/a</p></div>)}
+                  {selectedDistrict && isLoading && (<div className='mt-4'><p>Loading...</p></div>)}
+                  {selectedDistrict && !isLoading && predictions.banana && (
+                    <div className='d-flex align-items-center justify-content-between mt-4'>
+                      <span
+                        className={`badge ${getBadgeClass(predictions.banana.suitability)}`}
+                        data-tooltip={getSuitabilityDesc(predictions.banana.suitability)}
+                        style={{ cursor: 'help', position: 'relative' }}
+                      >
+                        {predictions.banana.suitability}
+                      </span>
+                      <span
+                        className={`confidence-text badge ${getBadgeClass(predictions.banana.suitability)} `}
+                        data-tooltip={getSuitabilityDesc(predictions.banana.suitability)}
+                        style={{ cursor: 'help', position: 'relative' }}
+                      >
+                        {predictions.banana.confidence_matrix[predictions.banana.suitability]}% ML confidence
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className='dashboard-overview-item'>
                 <div className='card'>
                   <p>Watermelon Suitability</p>
                   <small><i>Citrullus lanatus.</i></small>
@@ -440,7 +469,7 @@ useEffect(() => {
                 </div>
               </div>
 
-              <div className='col-3'>
+              <div className='dashboard-overview-item'>
                 <div className='card'>
                   <p>Durian Suitability</p>
                   <small><i>Durio zibethinus.</i></small>
@@ -467,7 +496,7 @@ useEffect(() => {
                 </div>
               </div>
 
-              <div className='col-3'>
+              <div className='dashboard-overview-item'>
                 <div className='card'>
                   <p>Cabbage Suitability</p>
                   <small><i>Brassica oleracea var. capitata.</i></small>

@@ -92,7 +92,7 @@ export default function HeatmapView() {
 
     const runEvaluationPipeline = async () => {
       setIsLoading(true)
-      const targetCrops = selectedCropOverride ? [selectedCropOverride] : ['Durian', 'Watermelon', 'Cabbage']
+      const targetCrops = selectedCropOverride ? [selectedCropOverride] : ['Banana', 'Durian', 'Watermelon', 'Cabbage']
 
       const predictionPromises = targetCrops.map(crop => {
         const payload = {
@@ -277,6 +277,7 @@ export default function HeatmapView() {
                       onChange={(e) => setSelectedCropOverride(e.target.value)}
                     >
                       <option value=''>AI Optimal Recommendation</option>
+                      <option value='Banana'>Banana Profile</option>
                       <option value='Durian'>Durian Profile</option>
                       <option value='Watermelon'>Watermelon Profile</option>
                       <option value='Cabbage'>Cabbage Profile</option>

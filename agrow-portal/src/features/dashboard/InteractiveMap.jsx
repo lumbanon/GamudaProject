@@ -55,6 +55,7 @@ export default function InteractiveMap({
                             className='select-dropdown'
                         >
                             <option value='' disabled>Select a crop...</option>
+                            <option value='Banana'>Banana</option>
                             <option value='Cabbage'>Cabbage</option>
                             <option value='Durian'>Durian</option>
                             <option value='Watermelon'>Watermelon</option>

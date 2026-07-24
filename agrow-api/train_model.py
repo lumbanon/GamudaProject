@@ -19,37 +19,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-# 2024 Administrative Census statistics for downscale feature tagging
-
-CENSUS_SAMPLES = {
-    "Durian": {
-        # Sourced directly from Table 2.14 (a) Planted Area (Ha) in image_abd10c.png
-        "Tawau": 366.00, "Semporna": 25.70, "Lahad Datu": 279.90, "Kunak": 71.20,
-        "Sandakan": 109.60, "Kinabatangan": 164.00, "Tongod": 260.20, "Beluran": 87.40,
-        "Telupid": 57.00, "Kudat": 15.50, "Pitas": 37.60,"Kota Marudu": 129.50,
-        "Kota Belud": 308.60, "Ranau": 1457.10, "Tuaran": 367.90, "Kota Kinabalu": 80.10,
-        "Penampang": 49.20, "Putatan": 1.00, "Papar": 315.50, "Beaufort": 410.80,
-        "Sipitang": 723.40, "Kuala Penyu": 72.50, "Tenom": 168.00, "Keningau": 1374.90,
-        "Tambunan": 114.90, "Nabawan": 279.30
-    },
-    "Watermelon": {
-        # Distributed commercial production baselines for Sabah
-        "Papar": 56.0, "Beaufort": 64.0, "Tawau": 45.4, "Kudat": 26.0, "Kota Marudu": 35.0,
-        "Tuaran": 22.0, "Penampang": 12.0, "Sandakan": 18.5, "Keningau": 30.0, "Tenom": 15.0,
-        "Kota Belud": 40.0, "Sipitang": 8.0, "Kuala Penyu": 14.0, "Putatan": 0.0, "Ranau": 0.0,
-        "Semporna": 5.0, "Lahad Datu": 12.0, "Kunak": 4.0, "Kinabatangan": 3.0, "Tongod": 1.0,
-        "Beluran": 6.0, "Telupid": 2.0, "Pitas": 9.0, "Tambunan": 2.0, "Nabawan": 1.0, "Kalabakan": 2.0
-    },
-    "Cabbage": {
-        # High-elevation temperate crops centered heavily around Mount Kinabalu (Ranau/Kundasang)
-        "Ranau": 644.5, "Tambunan": 45.0, "Keningau": 25.0, "Tuaran": 15.0,
-        "Papar": 0.0, "Beaufort": 0.0, "Tawau": 0.0, "Tenom": 0.0, "Kota Belud": 0.0,
-        "Sipitang": 0.0, "Kuala Penyu": 0.0, "Putatan": 0.0, "Semporna": 0.0, "Lahad Datu": 0.0,
-        "Kunak": 0.0, "Kinabatangan": 0.0, "Tongod": 0.0, "Beluran": 0.0, "Telupid": 0.0,
-        "Kudat": 0.0, "Pitas": 0.0, "Kota Marudu": 0.0, "Kota Kinabalu": 0.0, "Penampang": 0.0,
-        "Nabawan": 0.0, "Kalabakan": 0.0
-    }
-}
+SUPPORTED_PREDICTION_CROPS = ("Banana", "Cabbage", "Durian", "Watermelon")
 
 def generate_biophysical_labels_from_db():
     """
@@ -61,9 +31,17 @@ def generate_biophysical_labels_from_db():
     
     with engine.connect() as conn:
 
-        crop_rows = conn.execute(text(
-            "SELECT id, name, ideal_ph_min, ideal_ph_max, max_slope_pct, min_soil_depth_cm FROM crops;"
-        )).fetchall()
+        crop_rows = conn.execute(text("""
+            SELECT
+                id,
+                name,
+                ideal_ph_min,
+                ideal_ph_max,
+                max_slope_pct,
+                min_soil_depth_cm
+            FROM crops
+            WHERE lower(name) IN ('banana', 'cabbage', 'durian', 'watermelon');
+        """)).fetchall()
         
         grid_rows = conn.execute(text("""
             SELECT 
@@ -78,6 +56,18 @@ def generate_biophysical_labels_from_db():
                 root_zone_moisture
             FROM spatial_grids;
         """)).fetchall()
+        # Replace the hardcoded CENSUS_SAMPLES data with historical
+        # district-level production aggregated from PostgreSQL.
+        production_rows = conn.execute(text("""
+            SELECT
+                crop_name,
+                district,
+                SUM(production_tonnes) AS production_tonnes
+            FROM crop_statistics
+            WHERE lower(crop_name) IN ('banana', 'cabbage', 'durian', 'watermelon')
+              AND district IS NOT NULL
+            GROUP BY crop_name, district;
+        """)).fetchall()
 
     if not crop_rows or not grid_rows:
         print("⚠️ Database empty! Please run your seeder (seed.py) first to populate crops and grids.")
@@ -85,6 +75,13 @@ def generate_biophysical_labels_from_db():
 
     crops = [dict(row._mapping) for row in crop_rows]
     grids = [dict(row._mapping) for row in grid_rows]
+    district_production = {
+        (
+            str(row._mapping["crop_name"]).strip().casefold(),
+            str(row._mapping["district"]).strip().casefold(),
+        ): float(row._mapping["production_tonnes"] or 0)
+        for row in production_rows
+    }
 
     print(f"📊 Sourced {len(crops)} Crops and {len(grids)} Spatial Grid Coordinates from DB.")
     print("🧪 Running biophysical rules matching & downscaling pipeline...")
@@ -95,8 +92,11 @@ def generate_biophysical_labels_from_db():
         crop_name = crop["name"]
         for grid in grids:
             raw_district = grid["district"] or ""
-            district = raw_district.strip().title()
-            district_census = CENSUS_SAMPLES.get(crop_name, {}).get(district, 0.0)
+            district = raw_district.strip()
+            historical_production = district_production.get(
+                (crop_name.casefold(), district.casefold()),
+                0.0,
+            )
             
             # --- EVALUATE VETO LIMITATIONS (LIEBIG'S LAW OF THE MINIMUM) ---
             is_viable = True
@@ -113,7 +113,7 @@ def generate_biophysical_labels_from_db():
             # --- ASSIGN TRAINING SUITABILITY CLASSES ---
             if not is_viable:
                 suitability_label = "N" 
-            elif district_census == 0.0:
+            elif historical_production <= 0.0:
                 suitability_label = "S3" 
             else:
                 ph = grid["soil_ph"]
@@ -148,6 +148,9 @@ def execute_training_pipeline():
         print("❌ Training canceled: No data points available.")
         return
 
+    print("Training label distribution:")
+    print(df.groupby(["crop_name", "suitability_class"]).size().unstack(fill_value=0))
+
     # 2. Encode categorical column (crop name)
     encoder = LabelEncoder()
     df["crop_encoded"] = encoder.fit_transform(df["crop_name"])
@@ -167,11 +170,22 @@ def execute_training_pipeline():
     y = df["suitability_class"]
 
     # 4. Train-Test split (80-20 validation)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X,
+        y,
+        test_size=0.20,
+        random_state=42,
+        stratify=y,
+    )
 
     # 5. Initialize & Train the Random Forest Classifier
     print(f"\n🧠 Training Random Forest Classifier Ensemble across {X_train.shape[1]} distinct features...")
-    classifier = RandomForestClassifier(n_estimators=180, max_depth=10, random_state=42)
+    classifier = RandomForestClassifier(
+        n_estimators=180,
+        max_depth=10,
+        class_weight="balanced_subsample",
+        random_state=42,
+    )
     classifier.fit(X_train, y_train)
 
     accuracy = classifier.score(X_test, y_test)
