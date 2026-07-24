@@ -9,7 +9,8 @@ import {
 } from '../../context/appPreferences'
 
 
-const API_BASE_URL = 'http://localhost:8000/api/predict'
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://agrow-api.onrender.com'
+const API_BASE_URL = `${BASE_URL}/api/predict`
 
 export default function DashboardView() {
   const [, setDbCrops] = useState([])
