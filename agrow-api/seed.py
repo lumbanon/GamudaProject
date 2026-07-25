@@ -10,6 +10,7 @@ from app.models.user import User
 from app.models.crop import Crop
 from app.models.crop_statistic import CropStatistic
 from app.models.spatial_grid import SpatialGrid
+from app.models.analysis_history import AnalysisHistory
 from passlib.context import CryptContext
 from geoalchemy2.elements import WKTElement
 from sqlalchemy.orm import sessionmaker
@@ -33,6 +34,15 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # USER TABLE
 pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 CROPS_CSV_FILENAME = "crops.csv"
+
+
+def initialize_seed_schema():
+    """Create missing PostGIS-backed model tables before inserting seed data."""
+    with engine.begin() as connection:
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
+
+    Base.metadata.create_all(bind=engine)
+    print("Database schema is ready, including analysis_history.")
 
 
 # Resolve CSV files from an env var first, then common project locations.
@@ -606,6 +616,8 @@ def seed_doa_statistics():
 
 if __name__ == '__main__':
     print('will start to seed...')
+    print('Preparing database schema...')
+    initialize_seed_schema()
     print('Seeding user table...')
     seed_user()
     print('User table seeded...')

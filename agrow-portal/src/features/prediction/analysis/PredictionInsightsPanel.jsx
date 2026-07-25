@@ -1,4 +1,4 @@
-import warningIcon from "../../assets/prediction/warning.svg?raw";
+import warningIcon from "../../../assets/prediction/warning.svg?raw";
 import PredictionAssetIcon from "./PredictionAssetIcon";
 import {
   formatFarmerDataSource,

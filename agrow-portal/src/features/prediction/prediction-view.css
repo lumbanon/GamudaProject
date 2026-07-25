@@ -48,8 +48,8 @@
   display: grid;
   justify-items: center;
   gap: 14px;
-  min-height: 380px;
-  padding: 16px 0 0;
+  min-height: 0;
+  padding: 16px 0 6px;
   overflow: hidden;
 }
 
@@ -93,6 +93,7 @@
   object-position: center bottom;
   opacity: 0.26;
   filter: saturate(0.82) contrast(0.9);
+  pointer-events: none;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.18) 12%, #000000 34%);
   mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.18) 12%, #000000 34%);
 }
@@ -133,6 +134,48 @@
   font-size: 15px;
   font-weight: 550; /* Hero subtitle: "Select your farm details..." */
   line-height: 1.55;
+}
+
+.prediction-page-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(100%, 640px);
+  margin-top: 10px;
+  padding: 4px;
+  border: 1px solid rgba(47, 125, 60, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 8px 24px rgba(31, 51, 35, 0.08);
+}
+
+.prediction-page-tabs button {
+  min-width: 0;
+  min-height: 46px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 9px;
+  color: var(--forest);
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+
+.prediction-page-tabs button:hover {
+  background: var(--soft-leaf);
+}
+
+.prediction-page-tabs button.is-active {
+  color: #ffffff;
+  background: linear-gradient(135deg, #246b36, #2f7d3c);
+  box-shadow: 0 8px 18px rgba(36, 107, 54, 0.22);
+}
+
+.prediction-page-tabs button:focus-visible {
+  outline: 3px solid rgba(47, 125, 60, 0.3);
+  outline-offset: 3px;
 }
 
 .crop-planning-panel {
@@ -464,6 +507,7 @@
   position: absolute;
   inset: 0;
   z-index: 1;
+  pointer-events: none;
   background:
     linear-gradient(180deg, rgba(255, 254, 248, 0.88) 0%, rgba(247, 250, 242, 0.72) 42%, rgba(241, 247, 238, 0.84) 100%),
     radial-gradient(circle at 8% 10%, rgba(232, 243, 230, 0.42), transparent 22%),
@@ -471,10 +515,36 @@
 }
 
 .prediction-analyzer-hero,
-.prediction-report-stack {
+.prediction-report-stack,
+.prediction-tab-panel {
   position: relative;
   z-index: 2;
   width: 100%;
+}
+
+.prediction-tab-panel {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.prediction-tab-panel[hidden] {
+  display: none;
+}
+
+.prediction-new-analysis-controls {
+  display: grid;
+  justify-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.prediction-history-tab-panel {
+  padding-top: 2px;
+}
+
+.prediction-new-analysis-panel > .prediction-security-note {
+  padding: 2px 0;
 }
 
 .satellite-map-shell {
@@ -531,6 +601,11 @@
   background: var(--gold);
 }
 
+.satellite-planning-map .polygon-vertex-marker-gps .polygon-vertex-dot {
+  background: #1677d2;
+  box-shadow: 0 4px 12px rgba(7, 18, 11, 0.38), 0 0 0 6px rgba(22, 119, 210, 0.24);
+}
+
 .map-instruction-chip,
 .map-area-chip,
 .map-district-chip,
@@ -570,6 +645,44 @@
   min-height: 40px;
   padding: 8px 12px;
   font-size: 13px;
+}
+
+.map-boundary-feedback {
+  position: absolute;
+  top: 64px;
+  left: 16px;
+  z-index: 700;
+  display: grid;
+  gap: 4px;
+  width: min(460px, calc(100% - 32px));
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.46);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 14px 32px rgba(12, 20, 15, 0.22);
+  backdrop-filter: blur(12px);
+}
+
+.map-boundary-feedback p {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.map-boundary-feedback small {
+  color: var(--muted);
+}
+
+.map-boundary-feedback-error {
+  color: #b42318;
+}
+
+.map-boundary-feedback-warning {
+  color: #8a5b00;
+}
+
+.map-boundary-feedback-success {
+  color: #176b2b;
 }
 
 .map-area-chip {
@@ -1424,6 +1537,15 @@
 }
 
 @media (max-width: 520px) {
+  .prediction-page-tabs {
+    width: 100%;
+  }
+
+  .prediction-page-tabs button {
+    padding-inline: 8px;
+    font-size: 13px;
+  }
+
   .map-drawing-toolbar {
     gap: 6px;
     padding: 8px;

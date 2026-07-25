@@ -1,9 +1,9 @@
-import successIcon from "../../assets/prediction/success.svg?raw"
-import locationIcon from "../../assets/prediction/location.svg?raw"
-import mapBoundaryIcon from "../../assets/prediction/map-boundary.svg?raw"
-import mapPinIcon from "../../assets/prediction/map-pin.svg?raw"
-import refreshIcon from "../../assets/prediction/refresh.svg?raw"
-import sproutIcon from "../../assets/prediction/sprout.svg?raw"
+import successIcon from "../../../assets/prediction/success.svg?raw"
+import locationIcon from "../../../assets/prediction/location.svg?raw"
+import mapBoundaryIcon from "../../../assets/prediction/map-boundary.svg?raw"
+import mapPinIcon from "../../../assets/prediction/map-pin.svg?raw"
+import refreshIcon from "../../../assets/prediction/refresh.svg?raw"
+import sproutIcon from "../../../assets/prediction/sprout.svg?raw"
 import PredictionAssetIcon from "./PredictionAssetIcon"
 import {
   buildClimateFeatureRows,

@@ -3,27 +3,34 @@ import heroLeafIcon from "../../assets/prediction/hero-leaf.svg?raw";
 import securityShieldIcon from "../../assets/prediction/security-shield.svg?raw";
 import kundasangImage from "../../assets/landing/kundasang.png";
 import sabahDistricts from "../dashboard/sabahDistricts";
+import PredictionHistoryDetail from "./history/PredictionHistoryDetail";
+import PredictionHistoryPanel from "./history/PredictionHistoryPanel";
+import SaveAnalysisHistoryPanel from "./history/SaveAnalysisHistoryPanel";
+import { restoreHistoryIntoPrediction } from "./history/historyRestore";
 import {
   APP_PREFERENCE_KEYS,
   useAppPreference,
+  useAppPreferences,
 } from "../../context/appPreferences";
 import CropPlanningPanel, {
   EnvironmentDataPanel,
-} from "./CropPlanningPanel";
-import PredictionAssetIcon from "./PredictionAssetIcon";
-import PredictionInsightsPanel from "./PredictionInsightsPanel";
-import SatellitePlanningMap from "./SatellitePlanningMap";
+} from "./analysis/CropPlanningPanel";
+import PredictionAssetIcon from "./analysis/PredictionAssetIcon";
+import PredictionInsightsPanel from "./analysis/PredictionInsightsPanel";
+import PredictionPageTabs from "./PredictionPageTabs";
+import SatellitePlanningMap from "./analysis/SatellitePlanningMap";
 import {
   analyzeCropArea,
   fetchPredictionCrops,
   fetchPredictionEnvironment,
   validateForestReserveArea,
-} from "./predictionApi";
+} from "./analysis/predictionApi";
 import {
   calculatePolygonAreaHectares,
   detectDistrictFromPolygon,
   formatFarmerFacingText,
-} from "./predictionUtils";
+} from "./analysis/predictionUtils";
+import { DEFAULT_PREDICTION_TAB } from "./predictionTabs";
 import "./prediction-view.css";
 
 const BANANA_CROP_OPTION = {
@@ -33,7 +40,11 @@ const BANANA_CROP_OPTION = {
 };
 
 export default function PredictionViews() {
+  const appPreferences = useAppPreferences();
   const satelliteMapRef = useRef(null);
+  const [activeTab, setActiveTab] = useState(DEFAULT_PREDICTION_TAB);
+  const [selectedHistoryId, setSelectedHistoryId] = useState(null);
+  const [restoredFitVersion, setRestoredFitVersion] = useState(0);
   const [polygon, setPolygon] = useAppPreference(
     APP_PREFERENCE_KEYS.predictionPolygon,
     null,
@@ -179,6 +190,7 @@ export default function PredictionViews() {
     setAnalysisResult(null);
     setForestReserveResult(null);
     setError("");
+    setRestoredFitVersion(0);
     setClearVersion((version) => version + 1);
   }
 
@@ -214,22 +226,28 @@ export default function PredictionViews() {
     }
   }
 
+  function handleTabChange(nextTab) {
+    setActiveTab(nextTab);
+    if (nextTab === "history") setSelectedHistoryId(null);
+  }
+
+  function showPredictionHistory() {
+    setSelectedHistoryId(null);
+    setActiveTab("history");
+  }
+
+  function handleRestoreHistory(restoration) {
+    restoreHistoryIntoPrediction(appPreferences, restoration);
+    setError("");
+    setSelectedHistoryId(null);
+    setRestoredFitVersion((version) => version + 1);
+    setActiveTab("new");
+  }
+
   return (
     <div className="prediction-studio-page">
       <section className="planning-studio-layout">
         <div className="satellite-workspace">
-          <SatellitePlanningMap
-            clearVersion={clearVersion}
-            district={selectedDistrict}
-            districtGeoJson={sabahDistricts}
-            isBlocked={isReservedForestBlocked}
-            key={clearVersion}
-            polygon={polygon}
-            reservedForestGeoJson={reservedForestOverlay}
-            ref={satelliteMapRef}
-            onPolygonChange={handlePolygonChange}
-          />
-
           <div className="prediction-content-card">
             <img
               className="prediction-hero-image"
@@ -251,44 +269,108 @@ export default function PredictionViews() {
                 </p>
               </header>
 
-              <CropPlanningPanel
-                areaHectares={areaHectares}
-                canAnalyze={canAnalyze}
-                cropOptions={cropOptions}
-                districtOptions={districtChoices}
-                hasLocation={hasLocation}
-                hasPolygon={Boolean(polygon?.length)}
-                isLoading={isLoading}
-                isLoadingOptions={isLoadingOptions}
-                selectedCrop={selectedCrop}
-                selectedDistrict={selectedDistrict}
-                onAnalyze={handleAnalyze}
-                onClearArea={handleClearArea}
-                onCropChange={handleCropChange}
-                onDistrictChange={handleDistrictChange}
+              <PredictionPageTabs
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
               />
             </section>
 
-            <div className="prediction-report-stack">
-              <PredictionInsightsPanel
-                error={error}
-                isLoading={isLoading}
-                result={displayedResult}
+            <section
+              aria-labelledby="prediction-tab-new"
+              className="prediction-tab-panel prediction-new-analysis-panel"
+              hidden={activeTab !== "new"}
+              id="prediction-panel-new"
+              role="tabpanel"
+            >
+              <SatellitePlanningMap
+                clearVersion={clearVersion}
+                district={selectedDistrict}
+                districtGeoJson={sabahDistricts}
+                fitBoundaryVersion={restoredFitVersion}
+                isBlocked={isReservedForestBlocked}
+                isVisible={activeTab === "new"}
+                key={clearVersion}
+                polygon={polygon}
+                reservedForestGeoJson={reservedForestOverlay}
+                ref={satelliteMapRef}
+                onPolygonChange={handlePolygonChange}
               />
 
-              <EnvironmentDataPanel
-                isLoading={isLoading}
-                result={displayedResult}
-              />
-            </div>
-          </div>
+              <div className="prediction-new-analysis-controls">
+                <CropPlanningPanel
+                  areaHectares={areaHectares}
+                  canAnalyze={canAnalyze}
+                  cropOptions={cropOptions}
+                  districtOptions={districtChoices}
+                  hasLocation={hasLocation}
+                  hasPolygon={Boolean(polygon?.length)}
+                  isLoading={isLoading}
+                  isLoadingOptions={isLoadingOptions}
+                  selectedCrop={selectedCrop}
+                  selectedDistrict={selectedDistrict}
+                  onAnalyze={handleAnalyze}
+                  onClearArea={handleClearArea}
+                  onCropChange={handleCropChange}
+                  onDistrictChange={handleDistrictChange}
+                />
+              </div>
 
-          <div className="prediction-security-note">
-            <PredictionAssetIcon src={securityShieldIcon} />
+              <div className="prediction-report-stack">
+                <PredictionInsightsPanel
+                  error={error}
+                  isLoading={isLoading}
+                  result={displayedResult}
+                />
 
-            <span>
-              The selected map crop is sent to Gemini for building analysis and is not stored by Agrow.
-            </span>
+                <EnvironmentDataPanel
+                  isLoading={isLoading}
+                  result={displayedResult}
+                />
+
+                <SaveAnalysisHistoryPanel
+                  district={selectedDistrict}
+                  onViewHistory={showPredictionHistory}
+                  polygon={polygon}
+                  result={analysisResult}
+                  selectedCrop={selectedCrop}
+                />
+              </div>
+
+              <div className="prediction-security-note">
+                <PredictionAssetIcon src={securityShieldIcon} />
+
+                <span>
+                  The selected map image may be sent to Gemini for analysis and
+                  is not stored by AGROW. Saved history includes your boundary,
+                  farm settings, and analysis results.
+                </span>
+              </div>
+            </section>
+
+            <section
+              aria-labelledby="prediction-tab-history"
+              className="prediction-tab-panel prediction-history-tab-panel"
+              hidden={activeTab !== "history"}
+              id="prediction-panel-history"
+              role="tabpanel"
+            >
+              {activeTab === "history" &&
+                (selectedHistoryId ? (
+                  <PredictionHistoryDetail
+                    historyId={selectedHistoryId}
+                    onBack={() => setSelectedHistoryId(null)}
+                    onRestore={handleRestoreHistory}
+                  />
+                ) : (
+                  <PredictionHistoryPanel
+                    cropOptions={cropOptions}
+                    districtOptions={districtChoices}
+                    onRestore={handleRestoreHistory}
+                    onSelectHistory={setSelectedHistoryId}
+                    onStartNewAnalysis={() => setActiveTab("new")}
+                  />
+                ))}
+            </section>
           </div>
         </div>
       </section>
