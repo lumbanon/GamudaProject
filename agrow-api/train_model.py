@@ -20,6 +20,53 @@ if not DATABASE_URL:
     DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 SUPPORTED_PREDICTION_CROPS = ("Banana", "Cabbage", "Durian", "Watermelon")
+EMPIRICAL_RANGE_FIELDS = (
+    "elevation_meters",
+    "annual_rainfall_mm",
+    "solar_radiation",
+    "root_zone_moisture",
+)
+
+
+def normalize_name(value):
+    return str(value or "").strip().casefold()
+
+
+def build_productive_environment_ranges(crops, grids, district_production):
+    ranges = {}
+    for crop in crops:
+        crop_key = normalize_name(crop["name"])
+        productive_grids = [
+            grid
+            for grid in grids
+            if district_production.get(
+                (crop_key, normalize_name(grid["district"])),
+                0.0,
+            ) > 0
+        ]
+
+        crop_ranges = {}
+        for field in EMPIRICAL_RANGE_FIELDS:
+            values = [
+                float(grid[field])
+                for grid in productive_grids
+                if grid.get(field) is not None
+            ]
+            if values:
+                series = pd.Series(values)
+                crop_ranges[field] = (
+                    float(series.quantile(0.10)),
+                    float(series.quantile(0.90)),
+                )
+        ranges[crop_key] = crop_ranges
+    return ranges
+
+
+def is_within_range(value, bounds):
+    if value is None or not bounds:
+        return False
+    lower, upper = bounds
+    return lower <= float(value) <= upper
 
 def generate_biophysical_labels_from_db():
     """
@@ -38,7 +85,8 @@ def generate_biophysical_labels_from_db():
                 ideal_ph_min,
                 ideal_ph_max,
                 max_slope_pct,
-                min_soil_depth_cm
+                min_soil_depth_cm,
+                min_annual_rainfall
             FROM crops
             WHERE lower(name) IN ('banana', 'cabbage', 'durian', 'watermelon');
         """)).fetchall()
@@ -77,11 +125,16 @@ def generate_biophysical_labels_from_db():
     grids = [dict(row._mapping) for row in grid_rows]
     district_production = {
         (
-            str(row._mapping["crop_name"]).strip().casefold(),
-            str(row._mapping["district"]).strip().casefold(),
+            normalize_name(row._mapping["crop_name"]),
+            normalize_name(row._mapping["district"]),
         ): float(row._mapping["production_tonnes"] or 0)
         for row in production_rows
     }
+    productive_environment_ranges = build_productive_environment_ranges(
+        crops,
+        grids,
+        district_production,
+    )
 
     print(f"📊 Sourced {len(crops)} Crops and {len(grids)} Spatial Grid Coordinates from DB.")
     print("🧪 Running biophysical rules matching & downscaling pipeline...")
@@ -90,11 +143,13 @@ def generate_biophysical_labels_from_db():
 
     for crop in crops:
         crop_name = crop["name"]
+        crop_key = normalize_name(crop_name)
+        crop_ranges = productive_environment_ranges.get(crop_key, {})
         for grid in grids:
             raw_district = grid["district"] or ""
             district = raw_district.strip()
             historical_production = district_production.get(
-                (crop_name.casefold(), district.casefold()),
+                (crop_key, normalize_name(district)),
                 0.0,
             )
             
@@ -105,6 +160,12 @@ def generate_biophysical_labels_from_db():
                 is_viable = False
             if grid["soil_depth_cm"] < crop["min_soil_depth_cm"]:
                 is_viable = False
+            if (
+                grid["annual_rainfall_mm"] is not None
+                and float(grid["annual_rainfall_mm"])
+                < float(crop["min_annual_rainfall"])
+            ):
+                is_viable = False
             if crop_name == "Watermelon" and grid["elevation_meters"] > 350.0:
                 is_viable = False
             if crop_name == "Cabbage" and grid["elevation_meters"] < 600.0:
@@ -112,15 +173,35 @@ def generate_biophysical_labels_from_db():
 
             # --- ASSIGN TRAINING SUITABILITY CLASSES ---
             if not is_viable:
-                suitability_label = "N" 
-            elif historical_production <= 0.0:
-                suitability_label = "S3" 
+                suitability_label = "N"
             else:
-                ph = grid["soil_ph"]
-                if crop["ideal_ph_min"] <= ph <= crop["ideal_ph_max"]:
-                    suitability_label = "S1" 
+                matched_conditions = [
+                    crop["ideal_ph_min"] <= grid["soil_ph"] <= crop["ideal_ph_max"],
+                    is_within_range(
+                        grid["elevation_meters"],
+                        crop_ranges.get("elevation_meters"),
+                    ),
+                    is_within_range(
+                        grid["annual_rainfall_mm"],
+                        crop_ranges.get("annual_rainfall_mm"),
+                    ),
+                    is_within_range(
+                        grid["solar_radiation"],
+                        crop_ranges.get("solar_radiation"),
+                    ),
+                    is_within_range(
+                        grid["root_zone_moisture"],
+                        crop_ranges.get("root_zone_moisture"),
+                    ),
+                    historical_production > 0.0,
+                ]
+                condition_score = sum(matched_conditions)
+                if condition_score >= 5:
+                    suitability_label = "S1"
+                elif condition_score >= 3:
+                    suitability_label = "S2"
                 else:
-                    suitability_label = "S2" 
+                    suitability_label = "S3"
 
             # NASA climate values into the mapping dictionary
             training_samples.append({
