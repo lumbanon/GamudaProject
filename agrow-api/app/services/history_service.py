@@ -39,6 +39,16 @@ POLYGON_VALIDATION_SQL = text(
     """
 )
 
+BUILT_AREA_TERMS = (
+    "built",
+    "urban",
+    "developed",
+    "settlement",
+    "residential",
+    "commercial",
+    "industrial",
+)
+
 
 def create_history(
     db: Session,
@@ -47,6 +57,13 @@ def create_history(
     payload: HistoryCreate,
     idempotency_key: str,
 ) -> dict[str, Any]:
+    block_reason = history_save_block_reason(payload)
+    if block_reason:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=block_reason,
+        )
+
     existing = (
         db.query(AnalysisHistory)
         .filter(
@@ -113,6 +130,33 @@ def create_history(
         raise history_storage_error() from exc
 
     return get_history(db, user_id=user_id, history_id=record.id)
+
+
+def history_save_block_reason(payload: HistoryCreate) -> str | None:
+    forest = payload.forest_reserve_result or {}
+    prediction = payload.prediction_result or {}
+    if (
+        forest.get("reserved_forest") is True
+        or forest.get("allowed") is False
+        or prediction.get("reserved_forest") is True
+        or prediction.get("allowed") is False
+    ):
+        return "Analyses inside a forest reserve cannot be saved."
+
+    land_cover = payload.land_cover_result or {}
+    satellite = land_cover.get("satellite_building_analysis") or {}
+    if (
+        satellite.get("buildings_detected") is True
+        or satellite.get("is_built_up") is True
+        or satellite.get("land_cover_override_recommended") is True
+    ):
+        return "Analyses containing a detected building or built-up area cannot be saved."
+
+    land_cover_value = str(land_cover.get("land_cover") or "").strip().lower()
+    if land_cover_value and any(term in land_cover_value for term in BUILT_AREA_TERMS):
+        return "Analyses containing a detected building or built-up area cannot be saved."
+
+    return None
 
 
 def list_history(

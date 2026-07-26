@@ -674,10 +674,9 @@ def enforce_land_cover_ai_rules(
         return insight
 
     crop_name = getattr(crop, "name", str(crop))
-    location = district or "the selected location"
     insight["crop_suitability_summary"] = (
         f"The selected location is a built-up/developed area, so {crop_name} is not recommended "
-        f"for crop planting at {location}."
+        "for crop planting in this area."
     )
     insight["potential_risks"] = prepend_unique_text(
         insight.get("potential_risks"),
