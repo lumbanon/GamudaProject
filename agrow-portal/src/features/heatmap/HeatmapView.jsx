@@ -384,7 +384,7 @@ export default function HeatmapView() {
                   <div className='insight-header d-flex align-items-center mb-2' style={{ gap: '6px' }}>
                     <span className='insight-icon'>💡</span>
                     <h6 className='insight-title text-dark fw-bold' style={{ textTransform: 'none', letterSpacing: 'normal' }}>
-                      Agro-Ecosystem Insight
+                      Agrow-Ecosystem Insight
                     </h6>
                   </div>
                   <p className='insight-text text-muted' style={{ fontSize: '0.8rem', fontWeight: '500', lineHeight: '1.5' }}>

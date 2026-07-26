@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, text
 from app.services.prediction_service import (
     PredictionModelError,
     PredictionModelInputError,
+    apply_simulator_ph_guardrail,
     predict_suitability_with_model,
 )
 
@@ -49,6 +50,11 @@ def predict_crop_suitability(data: PredictionInput):
                 'root_zone_moisture': data.root_zone_moisture,
             },
         )
+        prediction_result = apply_simulator_ph_guardrail(
+            data.crop_name,
+            data.soil_ph,
+            model_result,
+        )
     except PredictionModelInputError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except PredictionModelError as exc:
@@ -62,8 +68,10 @@ def predict_crop_suitability(data: PredictionInput):
             'district': data.district
         },
         'crop': data.crop_name,
-        'suitability': model_result['suitability_class'],
-        'confidence_matrix': model_result['confidence_matrix']
+        'suitability': prediction_result['suitability_class'],
+        'confidence_matrix': prediction_result['confidence_matrix'],
+        'prediction_basis': prediction_result['prediction_basis'],
+        'adjustment_reasons': prediction_result['adjustment_reasons'],
     }
 
 @router.get("/live-matrix")

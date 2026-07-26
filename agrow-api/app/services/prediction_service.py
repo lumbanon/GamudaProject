@@ -344,6 +344,62 @@ def predict_suitability_with_model(crop_name: str, values: dict) -> dict:
     }
 
 
+def apply_simulator_ph_guardrail(
+    crop_name: str,
+    soil_ph: float,
+    model_result: dict,
+) -> dict:
+    """Keep what-if pH results within the crop's documented agronomic limits."""
+    normalized_crop_name = canonical_prediction_crop_name(crop_name)
+    requirements = CROP_REQUIREMENTS.get(normalized_crop_name or "")
+    if not requirements:
+        return {
+            **model_result,
+            "prediction_basis": "model",
+            "adjustment_reasons": [],
+        }
+
+    ideal_min, ideal_max, absolute_min, absolute_max = requirements["ph"]
+    model_class = model_result["suitability_class"]
+    adjusted_class = model_class
+    adjustment_reason = ""
+
+    if soil_ph < absolute_min or soil_ph > absolute_max:
+        adjusted_class = "N"
+        adjustment_reason = (
+            f"Soil pH {soil_ph:g} is outside the supported range "
+            f"of {absolute_min:g} to {absolute_max:g} for {normalized_crop_name}."
+        )
+    elif (
+        soil_ph < ideal_min or soil_ph > ideal_max
+    ) and model_class in {"S1", "S2"}:
+        adjusted_class = "S3"
+        adjustment_reason = (
+            f"Soil pH {soil_ph:g} is outside the ideal range "
+            f"of {ideal_min:g} to {ideal_max:g} for {normalized_crop_name}."
+        )
+
+    if not adjustment_reason:
+        return {
+            **model_result,
+            "prediction_basis": "model",
+            "adjustment_reasons": [],
+        }
+
+    confidence_matrix = {
+        class_name: 100.0 if class_name == adjusted_class else 0.0
+        for class_name in MODEL_CLASS_ORDER
+    }
+    return {
+        **model_result,
+        "suitability_class": adjusted_class,
+        "confidence_matrix": confidence_matrix,
+        "model_confidence_pct": None,
+        "prediction_basis": "agronomic_guardrail",
+        "adjustment_reasons": [adjustment_reason],
+    }
+
+
 @lru_cache(maxsize=1)
 def load_prediction_model():
     if not MODEL_PATH.exists() or not ENCODER_PATH.exists():

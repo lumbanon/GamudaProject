@@ -349,6 +349,15 @@ useEffect(() => {
     return descMap[suitability?.trim()?.toUpperCase()] || 'Unknown Suitability'
   }
 
+  const getConfidenceText = (prediction) => {
+    if (prediction?.prediction_basis === 'agronomic_guardrail') {
+      return 'Agronomic limit'
+    }
+
+    const confidence = prediction?.confidence_matrix?.[prediction?.suitability]
+    return `${confidence ?? 0}% ML confidence`
+  }
+
   const onEachDistrictPolygon = (feature, layer) => {
     const districtName = getDistrictName(feature)
     if (!districtName) return
@@ -435,7 +444,7 @@ useEffect(() => {
                         data-tooltip={getSuitabilityDesc(predictions.banana.suitability)}
                         style={{ cursor: 'help', position: 'relative' }}
                       >
-                        {predictions.banana.confidence_matrix[predictions.banana.suitability]}% ML confidence
+                        {getConfidenceText(predictions.banana)}
                       </span>
                     </div>
                   )}
@@ -462,7 +471,7 @@ useEffect(() => {
                         data-tooltip={getSuitabilityDesc(predictions.watermelon.suitability)}
                         style={{ cursor: 'help', position: 'relative' }}
                       >
-                        {predictions.watermelon.confidence_matrix[predictions.watermelon.suitability]}% ML confidence
+                        {getConfidenceText(predictions.watermelon)}
                       </span>
                     </div>
                   )}
@@ -489,7 +498,7 @@ useEffect(() => {
                         data-tooltip={getSuitabilityDesc(predictions.durian.suitability)}
                         style={{ cursor: 'help', position: 'relative' }}
                       >
-                        {predictions.durian.confidence_matrix[predictions.durian.suitability]}% ML confidence
+                        {getConfidenceText(predictions.durian)}
                       </span>
                     </div>
                   )}
@@ -516,7 +525,7 @@ useEffect(() => {
                         data-tooltip={getSuitabilityDesc(predictions.cabbage.suitability)}
                         style={{ cursor: 'help', position: 'relative' }}
                       >
-                        {predictions.cabbage.confidence_matrix[predictions.cabbage.suitability]}% ML confidence
+                        {getConfidenceText(predictions.cabbage)}
                       </span>
                     </div>
                   )}
