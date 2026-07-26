@@ -461,10 +461,10 @@ function buildPredictionReportHtml(result, genAiInsight) {
           <div class="grid">
             ${reportBox("Planting window", plantingWindow.fullText)}
             ${reportBox("Planting reason", reportData.plantingReason.fullText)}
-            ${reportBox("Estimated revenue", formatCurrency(estimate.estimated_revenue_myr))}
+            ${reportBox("Estimated gross revenue", formatCurrency(estimate.estimated_revenue_myr))}
             ${reportBox("Estimated yield", formatYieldTonnes(estimate.estimated_yield_tonnes))}
             ${reportBox("Estimated return explanation", reportData.returnExplanation.fullText)}
-            ${reportBox("Return basis", reportData.returnBasis.fullText)}
+            ${reportBox("Calculation basis", reportData.returnBasis.fullText)}
           </div>
         </section>
 
@@ -529,14 +529,18 @@ function buildPredictionReportData(result, genAiInsight, isBuiltArea = false) {
     : [estimatedYieldText, returnConfidenceText]
         .filter((item) => item && item !== "N/A")
         .join(", ") || "N/A";
-  const returnExplanationText = isBuiltArea
-    ? builtAreaReturnText
-    : [returnConfidenceText, returnBasisText]
-        .filter((item) => item && item !== "N/A")
-        .join(" Basis: ") || "N/A";
-  const returnBasisReportText = isBuiltArea
-    ? builtAreaReturnText
-    : returnBasisText;
+  const returnExplanationText = buildReturnExplanation(
+    estimate,
+    returnConfidenceText,
+    builtAreaReturnText,
+    isBuiltArea,
+  );
+  const returnBasisReportText = buildReturnCalculationBasis(
+    estimate,
+    returnBasisText,
+    builtAreaReturnText,
+    isBuiltArea,
+  );
 
   return {
     suitability,
@@ -564,6 +568,67 @@ function buildPredictionReportData(result, genAiInsight, isBuiltArea = false) {
     ),
     missingData: listPair(genAiInsight?.missing_data),
   };
+}
+
+function buildReturnExplanation(
+  estimate,
+  confidenceText,
+  builtAreaReturnText,
+  isBuiltArea,
+) {
+  if (isBuiltArea) return builtAreaReturnText;
+
+  const estimatedYield = Number(estimate.estimated_yield_tonnes);
+  const estimatedRevenue = Number(estimate.estimated_revenue_myr);
+  if (
+    !Number.isFinite(estimatedYield) ||
+    estimatedYield <= 0 ||
+    !Number.isFinite(estimatedRevenue)
+  ) {
+    return confidenceText || "A return estimate is not available.";
+  }
+
+  const confidenceLevel = returnConfidenceLevel(estimate.confidence);
+  return (
+    `Estimated gross revenue is ${formatCurrency(estimatedRevenue)}, calculated from ` +
+    `${formatYieldTonnes(estimatedYield)} of expected yield multiplied by the available ` +
+    `historical market value per tonne. This is a ${confidenceLevel.toLowerCase()}-confidence ` +
+    "estimate because actual yield and selling price may vary. Production costs are not deducted."
+  );
+}
+
+function buildReturnCalculationBasis(
+  estimate,
+  fallbackBasis,
+  builtAreaReturnText,
+  isBuiltArea,
+) {
+  if (isBuiltArea) return builtAreaReturnText;
+
+  const estimatedYield = Number(estimate.estimated_yield_tonnes);
+  const estimatedRevenue = Number(estimate.estimated_revenue_myr);
+  if (
+    !Number.isFinite(estimatedYield) ||
+    estimatedYield <= 0 ||
+    !Number.isFinite(estimatedRevenue)
+  ) {
+    return fallbackBasis || "N/A";
+  }
+
+  const historicalValuePerTonne = estimatedRevenue / estimatedYield;
+  return (
+    `Gross revenue = ${formatYieldTonnes(estimatedYield)} × ` +
+    `${formatCurrency(historicalValuePerTonne)} per tonne = ` +
+    `${formatCurrency(estimatedRevenue)}. The yield estimate reflects the selected farm area ` +
+    "and calculated suitability score."
+  );
+}
+
+function returnConfidenceLevel(value) {
+  const normalized = stringifyInsight(value).toLowerCase();
+  if (normalized.includes("high")) return "High";
+  if (normalized.includes("low")) return "Low";
+  return "Medium";
 }
 
 function textPair(value, previewLimit = null) {
