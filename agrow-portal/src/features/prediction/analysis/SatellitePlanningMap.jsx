@@ -34,6 +34,7 @@ const SABAH_VIEW_BOUNDS = [
   [3.85, 114.95],
   [7.65, 119.65],
 ]
+const MAX_SATELLITE_ZOOM = 19
 
 const draftVertexIcon = L.divIcon({
   className: "polygon-vertex-marker polygon-vertex-marker-draft",
@@ -268,7 +269,7 @@ const SatellitePlanningMap = forwardRef(function SatellitePlanningMap({
         center={SABAH_CENTER}
         zoom={8}
         minZoom={7}
-        maxZoom={16}
+        maxZoom={MAX_SATELLITE_ZOOM}
         maxBounds={SABAH_VIEW_BOUNDS}
         maxBoundsViscosity={1}
         zoomControl={false}
@@ -280,6 +281,8 @@ const SatellitePlanningMap = forwardRef(function SatellitePlanningMap({
           attribution="Source: Esri, Vantor, Earthstar Geographics, and the GIS User Community"
           bounds={SABAH_VIEW_BOUNDS}
           crossOrigin="anonymous"
+          maxNativeZoom={MAX_SATELLITE_ZOOM}
+          maxZoom={MAX_SATELLITE_ZOOM}
           noWrap
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
         />
@@ -571,7 +574,7 @@ function RestoredBoundaryMapController({
       map.invalidateSize({ animate: false })
       map.fitBounds(positions, {
         animate: false,
-        maxZoom: 16,
+        maxZoom: MAX_SATELLITE_ZOOM,
         padding: [36, 36],
       })
     })
@@ -608,7 +611,11 @@ async function capturePolygonImage(map, polygon) {
 
   try {
     await moveMapAndWait(map, () => {
-      map.fitBounds(bounds, { animate: false, maxZoom: 16, padding: [36, 36] })
+      map.fitBounds(bounds, {
+        animate: false,
+        maxZoom: MAX_SATELLITE_ZOOM,
+        padding: [36, 36],
+      })
     })
     await waitForTileLayers(map)
 
@@ -678,7 +685,9 @@ function cropAndMaskPolygon(fullCanvas, mapContainer, polygonPoints) {
   context.strokeStyle = "#f4c84a"
   context.lineWidth = 3
   context.stroke()
-  return output.toDataURL("image/jpeg", 0.86)
+  // Preserve small roof edges and shadows. JPEG artifacts at the previous quality
+  // setting could erase the few pixels that distinguish a building at map scale.
+  return output.toDataURL("image/png")
 }
 
 function drawPolygonPath(context, points, minX, minY, scaleX, scaleY) {

@@ -264,6 +264,15 @@ def build_gemini_ai_insight(
                 model=model,
                 image_size=image_size or 0,
             )
+            if satellite_analysis.get("buildings_detected") is not True:
+                satellite_analysis = verify_negative_satellite_analysis(
+                    requests_module=requests,
+                    api_key=api_key,
+                    model=model,
+                    image_part=image_part,
+                    image_size=image_size or 0,
+                    primary_analysis=satellite_analysis,
+                )
         insight = normalize_insight_response(
             payload,
             fallback_insight,
@@ -303,6 +312,71 @@ def gemini_http_error_reason(status_code) -> str:
     if status_code == 429:
         return "Gemini quota is exhausted. Try again after the quota resets or increase the API quota."
     return f"Gemini request failed with status {status_code}."
+
+
+def verify_negative_satellite_analysis(
+    *,
+    requests_module,
+    api_key: str,
+    model: str,
+    image_part: dict,
+    image_size: int,
+    primary_analysis: dict,
+) -> dict:
+    """Run a focused second look before accepting that no building is visible."""
+    prompt = (
+        f"{SATELLITE_VISION_INSTRUCTIONS}\n\n"
+        "This is a verification pass because an earlier broad analysis did not detect a building. "
+        "Ignore all agronomy questions and inspect only for buildings and developed surfaces. "
+        "Return only the satellite analysis JSON object."
+    )
+
+    try:
+        response = requests_module.post(
+            GEMINI_ENDPOINT_TEMPLATE.format(model=model),
+            headers={"x-goog-api-key": api_key},
+            json={
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [image_part, {"text": prompt}],
+                    }
+                ],
+                "generationConfig": {
+                    "temperature": 0,
+                    "topP": 0.5,
+                    "maxOutputTokens": 350,
+                    "responseMimeType": "application/json",
+                    "responseSchema": satellite_response_schema(),
+                },
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        response_payload = response.json()
+        validate_gemini_finish_reason(response_payload)
+        verification = normalize_satellite_analysis(
+            parse_insight_json(extract_gemini_text(response_payload)),
+            model=model,
+            image_size=image_size,
+        )
+    except Exception as exc:
+        logger.warning("Focused Gemini building verification failed: %s", exc)
+        return primary_analysis
+
+    # Detection is safety-sensitive for land selection: a positive sighting on
+    # either pass wins. A confident usable verification may also resolve an
+    # inconclusive primary result.
+    if verification.get("buildings_detected") is True:
+        return verification
+    if (
+        primary_analysis.get("buildings_detected") is None
+        and verification.get("buildings_detected") is False
+        and verification.get("image_quality") == "usable"
+        and verification.get("confidence") in {"medium", "high"}
+    ):
+        return verification
+    return primary_analysis
 
 
 def get_gemini_api_key() -> str | None:

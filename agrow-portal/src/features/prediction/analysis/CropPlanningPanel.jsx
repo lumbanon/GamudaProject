@@ -200,8 +200,24 @@ function buildSatelliteAnalysisRows(analysis) {
 
   const percent = Number(analysis.estimated_built_up_percent)
   return [
-    { label: "Buildings visible", value: analysis.buildings_detected ? "Yes" : "No" },
-    { label: "Site classification", value: analysis.is_built_up ? "Built-up" : "Not built-up" },
+    {
+      label: "Buildings visible",
+      value:
+        analysis.buildings_detected === true
+          ? "Yes"
+          : analysis.buildings_detected === false
+            ? "No"
+            : "Inconclusive",
+    },
+    {
+      label: "Site classification",
+      value:
+        analysis.is_built_up === true
+          ? "Built-up"
+          : analysis.is_built_up === false
+            ? "Not built-up"
+            : "Inconclusive",
+    },
     {
       label: "Estimated developed area",
       value: Number.isFinite(percent) ? `${percent.toLocaleString(undefined, { maximumFractionDigits: 1 })}%` : "N/A",

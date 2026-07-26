@@ -232,6 +232,11 @@
   justify-content: space-between;
 }
 
+.history-card-heading > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .history-card-heading span {
   color: var(--history-muted);
   font-size: 0.78rem;
@@ -243,6 +248,67 @@
   font-size: 1.15rem;
   font-weight: 550;
   overflow-wrap: anywhere;
+}
+
+.history-inline-rename {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 4px;
+}
+
+.history-inline-rename input {
+  flex: 1 1 220px;
+  min-width: 120px;
+  width: auto;
+  min-height: 40px;
+  padding: 9px 11px;
+  border: 1px solid #cddbd2;
+  border-radius: 9px;
+  color: #182b20;
+  background: #ffffff;
+  font: inherit;
+  font-weight: 550;
+}
+
+.history-inline-rename input:focus {
+  border-color: #4f8a64;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(79, 138, 100, 0.14);
+}
+
+.history-inline-rename button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid var(--history-leaf);
+  border-radius: 9px;
+  color: #ffffff;
+  background: var(--history-leaf);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.history-inline-rename button:hover {
+  background: var(--history-forest);
+}
+
+.history-inline-rename button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.history-inline-rename .history-inline-cancel {
+  border-color: var(--history-leaf);
+  color: var(--history-forest);
+  background: #ffffff;
+}
+
+.history-inline-rename .history-inline-cancel:hover {
+  color: #ffffff;
+  background: var(--history-forest);
 }
 
 .history-card-heading .history-status {
@@ -306,6 +372,42 @@
 .history-card-actions .history-delete-button:hover {
   color: #ffffff;
   background: #a5372e;
+}
+
+.history-inline-delete {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 12px;
+  border: 1px solid var(--history-line);
+  border-radius: 9px;
+  background: var(--history-pale);
+}
+
+.history-inline-delete > span {
+  flex: 1 1 240px;
+  color: var(--history-forest);
+  font-size: 0.8rem;
+  font-weight: 550;
+}
+
+.history-card-actions .history-confirm-delete-button {
+  border-color: #a5372e;
+  color: #ffffff;
+  background: #a5372e;
+}
+
+.history-card-actions .history-confirm-delete-button:hover {
+  background: #842b24;
+}
+
+.history-card-actions .history-cancel-delete-button {
+  border-color: var(--history-leaf);
+  color: var(--history-forest);
+  background: #ffffff;
 }
 
 .history-pagination {

@@ -31,6 +31,9 @@ export default function PredictionHistoryPanel({
   const [history, setHistory] = useState({ items: [], total: 0, pages: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const [busyId, setBusyId] = useState("")
+  const [editingId, setEditingId] = useState("")
+  const [editingName, setEditingName] = useState("")
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState("")
   const [error, setError] = useState("")
 
   const query = useMemo(() => {
@@ -105,17 +108,32 @@ export default function PredictionHistoryPanel({
     }
   }
 
-  async function renameRecord(record) {
-    const nextName = window.prompt(
-      "Name this saved analysis:",
-      record.name || "",
-    )
-    if (nextName === null) return
+  function startRenaming(record) {
+    setConfirmingDeleteId("")
+    setEditingId(record.id)
+    setEditingName(record.name || "")
+    setError("")
+  }
+
+  function cancelRenaming() {
+    setEditingId("")
+    setEditingName("")
+  }
+
+  async function renameRecord(event, record) {
+    event.preventDefault()
+    const nextName = editingName.trim()
+    if (!nextName) {
+      setError("Please enter a name for this analysis.")
+      return
+    }
+
     setBusyId(record.id)
     setError("")
     try {
       await renameAnalysisHistory(record.id, nextName)
       setHistory(await requestHistory())
+      cancelRenaming()
     } catch (requestError) {
       setError(requestError.message || "Unable to rename this analysis.")
     } finally {
@@ -124,15 +142,11 @@ export default function PredictionHistoryPanel({
   }
 
   async function deleteRecord(record) {
-    const confirmed = window.confirm(
-      `Delete "${record.name || "Untitled analysis"}"? This cannot be undone.`,
-    )
-    if (!confirmed) return
-
     setBusyId(record.id)
     setError("")
     try {
       await deleteAnalysisHistory(record.id)
+      setConfirmingDeleteId("")
       if (history.items.length === 1 && page > 1) {
         setIsLoading(true)
         setPage((currentPage) => currentPage - 1)
@@ -301,7 +315,44 @@ export default function PredictionHistoryPanel({
                 <div className="history-card-heading">
                   <div>
                     <span>{formatDate(record.created_at)}</span>
-                    <h3>{record.name || "Untitled analysis"}</h3>
+                    {editingId === record.id ? (
+                      <form
+                        className="history-inline-rename"
+                        onSubmit={(event) => renameRecord(event, record)}
+                      >
+                        <input
+                          type="text"
+                          value={editingName}
+                          onChange={(event) =>
+                            setEditingName(event.target.value)
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === "Escape") cancelRenaming()
+                          }}
+                          aria-label="Analysis name"
+                          maxLength={120}
+                          autoFocus
+                        />
+                        <button
+                          type="submit"
+                          disabled={
+                            busyId === record.id || !editingName.trim()
+                          }
+                        >
+                          {busyId === record.id ? "Saving..." : "Save"}
+                        </button>
+                        <button
+                          type="button"
+                          className="history-inline-cancel"
+                          onClick={cancelRenaming}
+                          disabled={busyId === record.id}
+                        >
+                          Cancel
+                        </button>
+                      </form>
+                    ) : (
+                      <h3>{record.name || "Untitled analysis"}</h3>
+                    )}
                   </div>
                   <span
                     className={`history-status ${record.analysis_status}`}
@@ -353,19 +404,56 @@ export default function PredictionHistoryPanel({
                   </button>
                   <button
                     type="button"
-                    onClick={() => renameRecord(record)}
-                    disabled={busyId === record.id}
+                    onClick={() => startRenaming(record)}
+                    disabled={busyId === record.id || editingId === record.id}
                   >
                     Rename
                   </button>
                   <button
                     type="button"
                     className="history-delete-button"
-                    onClick={() => deleteRecord(record)}
-                    disabled={busyId === record.id}
+                    onClick={() => {
+                      cancelRenaming()
+                      setConfirmingDeleteId(record.id)
+                      setError("")
+                    }}
+                    disabled={
+                      busyId === record.id ||
+                      confirmingDeleteId === record.id
+                    }
                   >
                     Delete
                   </button>
+                  {confirmingDeleteId === record.id && (
+                    <div
+                      className="history-inline-delete"
+                      role="group"
+                      aria-label={`Confirm deletion of ${
+                        record.name || "Untitled analysis"
+                      }`}
+                    >
+                      <span>Delete this saved analysis? This cannot be undone.</span>
+                      <button
+                        type="button"
+                        className="history-confirm-delete-button"
+                        onClick={() => deleteRecord(record)}
+                        disabled={busyId === record.id}
+                        autoFocus
+                      >
+                        {busyId === record.id
+                          ? "Deleting..."
+                          : "Confirm delete"}
+                      </button>
+                      <button
+                        type="button"
+                        className="history-cancel-delete-button"
+                        onClick={() => setConfirmingDeleteId("")}
+                        disabled={busyId === record.id}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
                 </div>
               </article>
             ))}

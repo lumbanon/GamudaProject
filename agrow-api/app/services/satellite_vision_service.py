@@ -10,15 +10,19 @@ DATA_URL_PATTERN = re.compile(
 )
 
 SATELLITE_VISION_INSTRUCTIONS = """
-Analyze this overhead satellite-map crop inside the highlighted farm boundary. Pixels outside the
-selected polygon may be black or transparent and must be ignored. Determine whether visible roofs,
-building clusters, paved compounds, or dense developed surfaces make the selected site a built-up
-area. Roads by themselves are not buildings. Do not infer buildings from labels or surrounding
-masked pixels. If the image is too blurry, too zoomed out, obscured, or mostly missing, mark the
-image quality unusable and do not guess. Set buildings_detected true when at least one clear building
-roof or cluster is visible. Set is_built_up true only when development occupies a material part of the
-selected site or clearly makes normal crop planting unsuitable. Estimate developed coverage from 0
-to 100 and give one short explanation based only on visible evidence.
+Perform a dedicated visual scan of this overhead satellite-map crop inside the highlighted farm
+boundary. Pixels outside the selected polygon may be black or transparent and must be ignored.
+Scan the entire unmasked area systematically, including its edges, for individual rectilinear roofs,
+roof shadows, groups of roofs, paved compounds, and dense developed surfaces. A single visible
+building is enough for buildings_detected=true; do not require a cluster or a large developed area.
+Keep buildings_detected separate from is_built_up: the former means any building is visible, while
+the latter means development materially occupies the site or makes ordinary crop planting
+unsuitable. Roads by themselves are not buildings. Do not infer buildings from labels, roads alone,
+or surrounding masked pixels. Set buildings_detected=false only after scanning the full usable
+boundary and finding no credible roof. If resolution, blur, cloud, masking, or zoom prevents that
+determination, mark image_quality limited or unusable and lower confidence instead of claiming a
+confident absence. Estimate developed coverage from 0 to 100 and give one short explanation naming
+the visible evidence and where it appears in the boundary.
 """.strip()
 
 
@@ -98,6 +102,16 @@ def normalize_satellite_analysis(payload: dict, *, model: str, image_size: int) 
     explanation = " ".join(str(payload.get("explanation") or "").split()).strip()
     if not explanation:
         raise ValueError("Satellite analysis explanation is missing.")
+
+    # A weak image cannot support a definitive absence. Preserve positive sightings,
+    # but turn weak negative answers into an explicit unknown for the API and UI.
+    if (
+        buildings_detected is False
+        and (image_quality != "usable" or confidence == "low")
+    ):
+        buildings_detected = None
+        if is_built_up is False:
+            is_built_up = None
 
     override_recommended = bool(
         buildings_detected
