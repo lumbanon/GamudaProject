@@ -11,7 +11,8 @@ import './heatmap-view.css'
 const SABAH_BOUNDS = [[3.8, 114.3], [7.5, 119.5]]
 const BASE_URL =
   import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
-const API_BASE_URL = `${BASE_URL}/api/predict`
+const DATABASE_API_URL = `${BASE_URL}/api/prediction`
+const MODEL_API_URL = `${BASE_URL}/api/predict`
 
 function MapResizeTrigger() {
   const map = useMap()
@@ -65,7 +66,7 @@ export default function HeatmapView() {
   }, [selectedDistrict])
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/live-matrix`)
+    fetch(`${DATABASE_API_URL}/live-matrix`)
       .then(res => res.json())
       .then(data => {
         if (data.status === 'success') {
@@ -111,7 +112,7 @@ export default function HeatmapView() {
           root_zone_moisture: metrics.moisture
         }
 
-        return fetch(`${API_BASE_URL}/suitability`, {
+        return fetch(`${MODEL_API_URL}/suitability`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)

@@ -11,7 +11,8 @@ import {
 
 const BASE_URL =
   import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
-const API_BASE_URL = `${BASE_URL}/api/predict`
+const DATABASE_API_URL = `${BASE_URL}/api/prediction`
+const MODEL_API_URL = `${BASE_URL}/api/predict`
 
 export default function DashboardView() {
   const [, setDbCrops] = useState([])
@@ -89,7 +90,7 @@ export default function DashboardView() {
   useEffect(() => {
     const fetchMatrixData = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/live-matrix`)
+        const response = await fetch(`${DATABASE_API_URL}/live-matrix`)
         const data = await response.json()
 
         if (data.status === 'success') {
@@ -134,7 +135,7 @@ export default function DashboardView() {
             crop_name: activeCrop
           }
 
-          const res = await axios.post(`${API_BASE_URL}/suitability`, payload)
+          const res = await axios.post(`${MODEL_API_URL}/suitability`, payload)
           return { districtName, suitability: res.data.suitability }
 
         })
@@ -313,10 +314,10 @@ useEffect(() => {
 
     try {
       const [bananaRes, watermelonRes, cabbageRes, durianRes] = await Promise.all([
-        axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Banana' }),
-        axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Watermelon' }),
-        axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Cabbage' }),
-        axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Durian' })
+        axios.post(`${MODEL_API_URL}/suitability`, { ...basePayload, crop_name: 'Banana' }),
+        axios.post(`${MODEL_API_URL}/suitability`, { ...basePayload, crop_name: 'Watermelon' }),
+        axios.post(`${MODEL_API_URL}/suitability`, { ...basePayload, crop_name: 'Cabbage' }),
+        axios.post(`${MODEL_API_URL}/suitability`, { ...basePayload, crop_name: 'Durian' })
       ]);
 
       setPredictions({
