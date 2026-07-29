@@ -35,7 +35,6 @@ class EnvironmentValues(BaseModel):
     land_cover_source: str | None = None
     solar_radiation: float | None = None
     root_zone_moisture: float | None = None
-    monthly_rainfall_mm: dict[str, float] = Field(default_factory=dict)
     data_source: str = "agrow_db"
     data_source_note: str | None = None
     missing_fields: list[str] = Field(default_factory=list)
@@ -124,6 +123,8 @@ class GenAiInsight(BaseModel):
     key_strengths: list[str] = Field(default_factory=list)
     potential_risks: list[str] = Field(default_factory=list)
     recommended_actions: list[str] = Field(default_factory=list)
+    best_planting_months: list[str] = Field(default_factory=list)
+    planting_window_reason: str = ""
     confidence_level: str
     missing_data: list[str] = Field(default_factory=list)
     source: str = "fallback"

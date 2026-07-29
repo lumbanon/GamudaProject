@@ -107,6 +107,12 @@ class PredictionInsightOutput(BaseModel):
     recommended_actions: list[str] = Field(
         description="Two to four short farmer-friendly next actions."
     )
+    best_planting_months: list[str] = Field(
+        description="Two to four full English month names recommended for planting in Sabah."
+    )
+    planting_window_reason: str = Field(
+        description="A short explanation based on the crop, location, supplied conditions, and Sabah seasonality."
+    )
     confidence_level: Literal["Low", "Medium", "High"] = Field(
         description="Confidence based on sample count, missing data, and supplied confidence text."
     )
@@ -123,6 +129,16 @@ INSIGHT_FIELD_ALIASES = {
     "key_strengths": ("key_strengths", "keyStrengths", "Key Strengths"),
     "potential_risks": ("potential_risks", "potentialRisks", "Potential Risks"),
     "recommended_actions": ("recommended_actions", "recommendedActions", "Recommended Actions"),
+    "best_planting_months": (
+        "best_planting_months",
+        "bestPlantingMonths",
+        "Best Planting Months",
+    ),
+    "planting_window_reason": (
+        "planting_window_reason",
+        "plantingWindowReason",
+        "Planting Window Reason",
+    ),
     "confidence_level": ("confidence_level", "confidenceLevel", "Confidence Level"),
     "missing_data": ("missing_data", "missingData", "Missing Data"),
 }
@@ -149,6 +165,7 @@ def build_gemini_ai_insight(
             environment=environment,
             suitability=suitability,
             recommendations=recommendations,
+            planting_window=planting_window,
             fallback_summary=fallback,
         ),
         crop=crop,
@@ -448,6 +465,8 @@ def combined_prediction_response_schema() -> dict:
             "key_strengths": {"type": "ARRAY", "items": {"type": "STRING"}},
             "potential_risks": {"type": "ARRAY", "items": {"type": "STRING"}},
             "recommended_actions": {"type": "ARRAY", "items": {"type": "STRING"}},
+            "best_planting_months": {"type": "ARRAY", "items": {"type": "STRING"}},
+            "planting_window_reason": {"type": "STRING"},
             "confidence_level": {"type": "STRING", "enum": ["Low", "Medium", "High"]},
             "missing_data": {"type": "ARRAY", "items": {"type": "STRING"}},
             "satellite_building_analysis": satellite_response_schema(),
@@ -457,6 +476,8 @@ def combined_prediction_response_schema() -> dict:
             "key_strengths",
             "potential_risks",
             "recommended_actions",
+            "best_planting_months",
+            "planting_window_reason",
             "confidence_level",
             "missing_data",
             "satellite_building_analysis",
@@ -528,7 +549,7 @@ def build_prediction_insight_prompt(
 
     output_keys = (
         "crop_suitability_summary, key_strengths, potential_risks, recommended_actions, "
-        "confidence_level, missing_data"
+        "best_planting_months, planting_window_reason, confidence_level, missing_data"
     )
     satellite_instructions = ""
     if include_satellite_image:
@@ -551,6 +572,10 @@ def build_prediction_insight_prompt(
         f"{output_keys}. "
         "Do not wrap the JSON in markdown. Keep the same keys for every crop. "
         "The summary must be one farmer-friendly sentence. Each list should contain 2 to 4 short farmer-friendly items when possible. "
+        "For best_planting_months, use 2 to 4 full English month names based on the selected crop, district or Sabah location, "
+        "the supplied annual conditions, and your general knowledge of Sabah rainfall seasonality. "
+        "Do not invent monthly rainfall measurements. planting_window_reason must clearly state that the recommendation is "
+        "AI seasonal guidance rather than a weather forecast or measured monthly result. "
         "confidence_level must be exactly Low, Medium, or High based on the supplied sample count, missing data, and confidence text. "
         "If a value is null, unavailable, or uncertain, mention that in missing_data instead of guessing. "
         "Do not treat nitrogen, bdod/bulk density, silt, sand, clay, cec/cation exchange capacity, "
@@ -573,6 +598,7 @@ def build_rule_based_insight(
     environment: dict,
     suitability: dict,
     recommendations: list[str],
+    planting_window: dict,
     fallback_summary: str,
 ) -> dict:
     values = environment.get("values", {})
@@ -601,6 +627,14 @@ def build_rule_based_insight(
             recommendations or suitability.get("recommendations"),
             ["Validate the matched database values with a field inspection before planting."],
         ),
+        "best_planting_months": clean_text_list(
+            planting_window.get("best_months"),
+            [],
+        ),
+        "planting_window_reason": clean_text(
+            planting_window.get("reason"),
+            "Planting month guidance is unavailable.",
+        ),
         "confidence_level": normalize_confidence_label(suitability.get("confidence")),
         "missing_data": format_missing_fields(get_missing_fields_with_land_cover(values)),
         "source": "fallback",
@@ -627,6 +661,14 @@ def normalize_insight_response(payload: dict, fallback_insight: dict, *, source:
         "recommended_actions": clean_text_list(
             get_insight_value(payload, "recommended_actions"),
             fallback_insight["recommended_actions"],
+        ),
+        "best_planting_months": clean_text_list(
+            get_insight_value(payload, "best_planting_months"),
+            fallback_insight["best_planting_months"],
+        ),
+        "planting_window_reason": clean_text(
+            get_insight_value(payload, "planting_window_reason"),
+            fallback_insight["planting_window_reason"],
         ),
         "confidence_level": normalize_confidence_label(
             get_insight_value(payload, "confidence_level"),
