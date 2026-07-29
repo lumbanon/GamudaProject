@@ -6,7 +6,6 @@ from app.database.session import get_db
 from app.services.prediction_service import (
     PredictionModelError,
     PredictionModelInputError,
-    apply_simulator_agronomic_guardrails,
     get_live_ecosystem_matrix,
     predict_suitability_with_model,
 )
@@ -41,19 +40,6 @@ def predict_crop_suitability(data: PredictionInput):
                 'root_zone_moisture': data.root_zone_moisture,
             },
         )
-        prediction_result = apply_simulator_agronomic_guardrails(
-            data.crop_name,
-            {
-                'elevation_meters': data.elevation_meters,
-                'slope_pct': data.slope_pct,
-                'soil_ph': data.soil_ph,
-                'soil_depth_cm': data.soil_depth_cm,
-                'annual_rainfall_mm': data.annual_rainfall_mm,
-                'solar_radiation': data.solar_radiation,
-                'root_zone_moisture': data.root_zone_moisture,
-            },
-            model_result,
-        )
     except PredictionModelInputError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except PredictionModelError as exc:
@@ -67,10 +53,10 @@ def predict_crop_suitability(data: PredictionInput):
             'district': data.district
         },
         'crop': data.crop_name,
-        'suitability': prediction_result['suitability_class'],
-        'confidence_matrix': prediction_result['confidence_matrix'],
-        'prediction_basis': prediction_result['prediction_basis'],
-        'adjustment_reasons': prediction_result['adjustment_reasons'],
+        'suitability': model_result['suitability_class'],
+        'confidence_matrix': model_result['confidence_matrix'],
+        'prediction_basis': 'model',
+        'adjustment_reasons': [],
     }
 
 @router.get("/live-matrix")

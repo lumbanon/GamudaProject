@@ -353,10 +353,6 @@ useEffect(() => {
   }
 
   const getConfidenceText = (prediction) => {
-    if (prediction?.prediction_basis === 'agronomic_guardrail') {
-      return 'Agronomic limit'
-    }
-
     const confidence = prediction?.confidence_matrix?.[prediction?.suitability]
     return `${confidence ?? 0}% ML confidence`
   }
