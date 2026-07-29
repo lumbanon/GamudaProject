@@ -6,7 +6,7 @@ from app.database.session import get_db
 from app.services.prediction_service import (
     PredictionModelError,
     PredictionModelInputError,
-    apply_simulator_ph_guardrail,
+    apply_simulator_agronomic_guardrails,
     get_live_ecosystem_matrix,
     predict_suitability_with_model,
 )
@@ -41,9 +41,17 @@ def predict_crop_suitability(data: PredictionInput):
                 'root_zone_moisture': data.root_zone_moisture,
             },
         )
-        prediction_result = apply_simulator_ph_guardrail(
+        prediction_result = apply_simulator_agronomic_guardrails(
             data.crop_name,
-            data.soil_ph,
+            {
+                'elevation_meters': data.elevation_meters,
+                'slope_pct': data.slope_pct,
+                'soil_ph': data.soil_ph,
+                'soil_depth_cm': data.soil_depth_cm,
+                'annual_rainfall_mm': data.annual_rainfall_mm,
+                'solar_radiation': data.solar_radiation,
+                'root_zone_moisture': data.root_zone_moisture,
+            },
             model_result,
         )
     except PredictionModelInputError as exc:

@@ -344,12 +344,12 @@ def predict_suitability_with_model(crop_name: str, values: dict) -> dict:
     }
 
 
-def apply_simulator_ph_guardrail(
+def apply_simulator_agronomic_guardrails(
     crop_name: str,
-    soil_ph: float,
+    values: dict,
     model_result: dict,
 ) -> dict:
-    """Keep what-if pH results within the crop's documented agronomic limits."""
+    """Keep simulator results within documented crop-specific limits."""
     normalized_crop_name = canonical_prediction_crop_name(crop_name)
     requirements = CROP_REQUIREMENTS.get(normalized_crop_name or "")
     if not requirements:
@@ -359,27 +359,50 @@ def apply_simulator_ph_guardrail(
             "adjustment_reasons": [],
         }
 
-    ideal_min, ideal_max, absolute_min, absolute_max = requirements["ph"]
     model_class = model_result["suitability_class"]
     adjusted_class = model_class
-    adjustment_reason = ""
+    adjustment_reasons = []
+    class_severity = {"S1": 0, "S2": 1, "S3": 2, "N": 3}
 
-    if soil_ph < absolute_min or soil_ph > absolute_max:
-        adjusted_class = "N"
-        adjustment_reason = (
-            f"Soil pH {soil_ph:g} is outside the supported range "
-            f"of {absolute_min:g} to {absolute_max:g} for {normalized_crop_name}."
-        )
-    elif (
-        soil_ph < ideal_min or soil_ph > ideal_max
-    ) and model_class in {"S1", "S2"}:
-        adjusted_class = "S3"
-        adjustment_reason = (
-            f"Soil pH {soil_ph:g} is outside the ideal range "
-            f"of {ideal_min:g} to {ideal_max:g} for {normalized_crop_name}."
+    def downgrade(target_class: str, reason: str) -> None:
+        nonlocal adjusted_class
+        if class_severity.get(target_class, 0) > class_severity.get(adjusted_class, 0):
+            adjusted_class = target_class
+            adjustment_reasons.append(reason)
+
+    range_checks = (
+        ("soil_ph", "Soil pH", requirements["ph"]),
+        ("annual_rainfall_mm", "Annual rainfall", requirements["rainfall"]),
+        ("slope_pct", "Slope", requirements["slope"]),
+    )
+    for field_name, label, limits in range_checks:
+        value = first_number(values.get(field_name))
+        if value is None:
+            continue
+        ideal_min, ideal_max, absolute_min, absolute_max = limits
+        if value < absolute_min or value > absolute_max:
+            downgrade(
+                "N",
+                f"{label} {value:g} is outside the supported range "
+                f"of {absolute_min:g} to {absolute_max:g} for {normalized_crop_name}.",
+            )
+        elif value < ideal_min or value > ideal_max:
+            downgrade(
+                "S3",
+                f"{label} {value:g} is outside the ideal range "
+                f"of {ideal_min:g} to {ideal_max:g} for {normalized_crop_name}.",
+            )
+
+    soil_depth = first_number(values.get("soil_depth_cm"))
+    minimum_soil_depth = requirements["min_soil_depth_cm"]
+    if soil_depth is not None and soil_depth < minimum_soil_depth:
+        downgrade(
+            "S3",
+            f"Soil depth {soil_depth:g} cm is below the recommended minimum "
+            f"of {minimum_soil_depth:g} cm for {normalized_crop_name}.",
         )
 
-    if not adjustment_reason:
+    if not adjustment_reasons:
         return {
             **model_result,
             "prediction_basis": "model",
@@ -396,8 +419,21 @@ def apply_simulator_ph_guardrail(
         "confidence_matrix": confidence_matrix,
         "model_confidence_pct": None,
         "prediction_basis": "agronomic_guardrail",
-        "adjustment_reasons": [adjustment_reason],
+        "adjustment_reasons": adjustment_reasons,
     }
+
+
+def apply_simulator_ph_guardrail(
+    crop_name: str,
+    soil_ph: float,
+    model_result: dict,
+) -> dict:
+    """Backward-compatible wrapper for callers that only provide soil pH."""
+    return apply_simulator_agronomic_guardrails(
+        crop_name,
+        {"soil_ph": soil_ph},
+        model_result,
+    )
 
 
 @lru_cache(maxsize=1)
