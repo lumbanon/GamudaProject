@@ -211,6 +211,29 @@ RASTER_LAYERS = {
     "land_cover": {"table": "land_cover", "scale": 1.0, "zero_is_nodata": True},
 }
 
+# Future-use raster datasets currently present in PostgreSQL/PostGIS but
+# intentionally excluded from runtime prediction queries:
+#
+# - Monthly climate:
+#   rainfall_01 ... rainfall_12
+#   temperature_01 ... temperature_12
+# - Deeper soil layers:
+#   phh2o_5_15cm, phh2o_15_30cm
+#   nitrogen_5_15cm, nitrogen_15_30cm
+#   soc_5_15cm, soc_15_30cm
+#   clay_5_15cm, clay_15_30cm
+#   sand_5_15cm, sand_15_30cm
+# - Additional soil properties:
+#   bdod_0_5cm, bdod_5_15cm, bdod_15_30cm
+#   cec_0_5cm, cec_5_15cm, cec_15_30cm
+#   silt_0_5cm, silt_5_15cm, silt_15_30cm
+#
+# These tables are retained for possible seasonal, deeper-soil, soil-texture,
+# or future model analysis. Do not add them to RASTER_LAYERS indiscriminately:
+# querying every raster for every polygon would increase database and API
+# latency. Prefer an opt-in detailed-analysis path, precomputed aggregates,
+# caching, and performance testing before enabling any of them.
+
 SPATIAL_GRID_POINT_COLUMNS = (
     "district",
     "elevation_meters",
