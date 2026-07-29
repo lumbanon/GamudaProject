@@ -211,11 +211,25 @@ RASTER_LAYERS = {
     "land_cover": {"table": "land_cover", "scale": 1.0, "zero_is_nodata": True},
 }
 
+MONTHLY_RAINFALL_TABLES = (
+    ("January", "rainfall_01"),
+    ("February", "rainfall_02"),
+    ("March", "rainfall_03"),
+    ("April", "rainfall_04"),
+    ("May", "rainfall_05"),
+    ("June", "rainfall_06"),
+    ("July", "rainfall_07"),
+    ("August", "rainfall_08"),
+    ("September", "rainfall_09"),
+    ("October", "rainfall_10"),
+    ("November", "rainfall_11"),
+    ("December", "rainfall_12"),
+)
+
 # Future-use raster datasets currently present in PostgreSQL/PostGIS but
 # intentionally excluded from runtime prediction queries:
 #
-# - Monthly climate:
-#   rainfall_01 ... rainfall_12
+# - Monthly temperature:
 #   temperature_01 ... temperature_12
 # - Deeper soil layers:
 #   phh2o_5_15cm, phh2o_15_30cm
@@ -504,15 +518,21 @@ def get_suitability(db: Session, request) -> dict:
         district=request.district,
         environment=environment,
     )
-    ai_planting_months = genai_insight.get("best_planting_months") or []
-    if ai_planting_months:
-        planting_window = {
-            "best_months": ai_planting_months,
-            "reason": (
-                genai_insight.get("planting_window_reason")
-                or "AI seasonal guidance based on the crop and Sabah climate; not a weather forecast."
-            ),
-        }
+    if planting_window.get("source") != "postgis_monthly_raster":
+        ai_planting_months = genai_insight.get("best_planting_months") or []
+        if ai_planting_months and not genai_insight.get("fallback_used"):
+            planting_window = {
+                "best_months": ai_planting_months,
+                "reason": (
+                    genai_insight.get("planting_window_reason")
+                    or "AI seasonal guidance based on the crop and Sabah climate; not a weather forecast."
+                ),
+                "source": "gemini_seasonal_guidance",
+            }
+        else:
+            planting_window = build_annual_rainfall_planting_fallback(
+                environment["values"]
+            )
     ai_insight = genai_insight.get("crop_suitability_summary") or explanation
 
     return {
@@ -1002,6 +1022,10 @@ def fill_missing_environment_values(values: dict, fallback_values: dict) -> None
             f"{note} Missing fields filled from existing raster/current logic: {', '.join(sorted(filled_fields))}."
         ).strip()
 
+    if not values.get("monthly_rainfall_mm") and fallback_values.get("monthly_rainfall_mm"):
+        values["monthly_rainfall_mm"] = fallback_values["monthly_rainfall_mm"]
+
+
 def build_value_source_tracker(values: dict) -> dict[str, str]:
     return {
         field: "existing raster/current logic" if values.get(field) is not None else "fallback/default"
@@ -1144,14 +1168,98 @@ def query_raster_environment_values(db: Session, polygon: list[list[float]] | No
     if values.get("soc") is not None and values.get("organic_carbon") is None:
         values["organic_carbon"] = values["soc"]
 
+    monthly_rainfall, monthly_pixel_count = query_monthly_rainfall_values(
+        db,
+        tables=tables,
+        polygon=polygon,
+    )
+    values["monthly_rainfall_mm"] = monthly_rainfall
+    if monthly_pixel_count > 0:
+        counts["monthly_rainfall"] = monthly_pixel_count
+
     sample_count = max(counts.values()) if counts else 0
     if sample_count > 0:
         values["data_source"] = "agrow_db"
         values["data_source_note"] = (
-            "Combined local map layers for rainfall, temperature, soil, elevation, slope, and land cover where available."
+            "Combined local map layers for rainfall, monthly rainfall, temperature, soil, elevation, slope, "
+            "and land cover where available."
         )
 
     return {"sample_count": sample_count, "values": values}
+
+
+def query_monthly_rainfall_values(
+    db: Session,
+    *,
+    tables: set[str],
+    polygon: list[list[float]] | None,
+) -> tuple[dict[str, float], int]:
+    """Return polygon means for available monthly rasters without blocking analysis on failure."""
+    if not polygon:
+        return {}, 0
+
+    available_layers = [
+        (month_name, table)
+        for month_name, table in MONTHLY_RAINFALL_TABLES
+        if table in tables
+    ]
+    if not available_layers:
+        return {}, 0
+
+    monthly_queries = []
+    for month_name, table in available_layers:
+        monthly_queries.append(
+            f"""
+            SELECT
+                '{month_name}' AS month_name,
+                COALESCE(SUM(count), 0)::bigint AS pixel_count,
+                SUM(sum) / NULLIF(SUM(count), 0) AS mean
+            FROM (
+                SELECT (ST_SummaryStats(
+                    ST_Clip(rast, selected_area.geom, true),
+                    1,
+                    true
+                )).*
+                FROM {table}
+                CROSS JOIN selected_area
+                WHERE ST_Intersects(rast, selected_area.geom)
+            ) monthly_stats
+            """
+        )
+
+    try:
+        rows = (
+            db.execute(
+                text(
+                    f"""
+                    WITH selected_area AS (
+                        SELECT ST_SetSRID(ST_GeomFromText(:polygon_wkt), 4326) AS geom
+                    )
+                    {" UNION ALL ".join(monthly_queries)}
+                    """
+                ),
+                {"polygon_wkt": polygon_to_wkt(polygon)},
+            )
+            .mappings()
+            .all()
+        )
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception(
+            "Monthly rainfall raster lookup failed; Gemini planting guidance will be used instead."
+        )
+        return {}, 0
+
+    monthly_rainfall = {
+        str(row["month_name"]): round(mean, 2)
+        for row in rows
+        if (mean := coerce_float(row.get("mean"))) is not None
+    }
+    pixel_count = max(
+        (int(row.get("pixel_count") or 0) for row in rows),
+        default=0,
+    )
+    return monthly_rainfall, pixel_count
 
 
 def finalize_environment_values(values: dict, sample_count: int) -> dict:
@@ -1724,24 +1832,66 @@ def build_explanation(crop: Crop, district: str | None, environment: dict, suita
 
 
 def build_planting_window(values: dict) -> dict:
+    monthly_rainfall = values.get("monthly_rainfall_mm")
+    if isinstance(monthly_rainfall, dict) and monthly_rainfall:
+        month_order = {
+            month_name: index
+            for index, (month_name, _table) in enumerate(MONTHLY_RAINFALL_TABLES)
+        }
+        available_months = [
+            (month_name, rainfall)
+            for month_name, _table in MONTHLY_RAINFALL_TABLES
+            if (rainfall := coerce_float(monthly_rainfall.get(month_name))) is not None
+        ]
+        selected_months = sorted(
+            sorted(
+                available_months,
+                key=lambda item: (-item[1], month_order[item[0]]),
+            )[:4],
+            key=lambda item: month_order[item[0]],
+        )
+        month_summary = ", ".join(
+            f"{month_name} ({rainfall:g} mm)"
+            for month_name, rainfall in selected_months
+        )
+        return {
+            "best_months": [month_name for month_name, _rainfall in selected_months],
+            "reason": (
+                "Selected from the highest monthly PostGIS rainfall averages for this farm area: "
+                f"{month_summary}. This is historical raster guidance, not a weather forecast."
+            ),
+            "source": "postgis_monthly_raster",
+        }
+
+    return {
+        "best_months": [],
+        "reason": "Monthly PostGIS rainfall was unavailable; requesting Gemini seasonal guidance.",
+        "source": "gemini_pending",
+    }
+
+
+def build_annual_rainfall_planting_fallback(values: dict) -> dict:
     rainfall = values.get("rainfall_mm")
     if rainfall is None:
         return {
             "best_months": [],
             "reason": "Planting month guidance needs local rainfall seasonality data.",
+            "source": "unavailable",
         }
     if rainfall >= 2200:
         return {
             "best_months": ["October", "November", "December", "January"],
             "reason": (
-                "Rule-based fallback from annual rainfall; Gemini seasonal guidance was unavailable."
+                "Rule-based fallback from annual rainfall because monthly PostGIS and Gemini guidance were unavailable."
             ),
+            "source": "annual_rainfall_fallback",
         }
     return {
         "best_months": ["March", "April", "September", "October"],
         "reason": (
-            "Rule-based fallback from annual rainfall; Gemini seasonal guidance was unavailable."
+            "Rule-based fallback from annual rainfall because monthly PostGIS and Gemini guidance were unavailable."
         ),
+        "source": "annual_rainfall_fallback",
     }
 
 
