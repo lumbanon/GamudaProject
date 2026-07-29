@@ -211,11 +211,25 @@ RASTER_LAYERS = {
     "land_cover": {"table": "land_cover", "scale": 1.0, "zero_is_nodata": True},
 }
 
+MONTHLY_RAINFALL_TABLES = (
+    ("January", "rainfall_01"),
+    ("February", "rainfall_02"),
+    ("March", "rainfall_03"),
+    ("April", "rainfall_04"),
+    ("May", "rainfall_05"),
+    ("June", "rainfall_06"),
+    ("July", "rainfall_07"),
+    ("August", "rainfall_08"),
+    ("September", "rainfall_09"),
+    ("October", "rainfall_10"),
+    ("November", "rainfall_11"),
+    ("December", "rainfall_12"),
+)
+
 # Future-use raster datasets currently present in PostgreSQL/PostGIS but
 # intentionally excluded from runtime prediction queries:
 #
-# - Monthly climate:
-#   rainfall_01 ... rainfall_12
+# - Monthly temperature:
 #   temperature_01 ... temperature_12
 # - Deeper soil layers:
 #   phh2o_5_15cm, phh2o_15_30cm
@@ -993,6 +1007,9 @@ def fill_missing_environment_values(values: dict, fallback_values: dict) -> None
             f"{note} Missing fields filled from existing raster/current logic: {', '.join(sorted(filled_fields))}."
         ).strip()
 
+    if not values.get("monthly_rainfall_mm") and fallback_values.get("monthly_rainfall_mm"):
+        values["monthly_rainfall_mm"] = fallback_values["monthly_rainfall_mm"]
+
 
 def build_value_source_tracker(values: dict) -> dict[str, str]:
     return {
@@ -1136,11 +1153,30 @@ def query_raster_environment_values(db: Session, polygon: list[list[float]] | No
     if values.get("soc") is not None and values.get("organic_carbon") is None:
         values["organic_carbon"] = values["soc"]
 
+    monthly_rainfall = {}
+    if polygon:
+        for month_name, table in MONTHLY_RAINFALL_TABLES:
+            if table not in tables:
+                continue
+            count, mean = query_raster_mean(
+                db,
+                table=table,
+                polygon=polygon,
+                zero_is_nodata=False,
+            )
+            if mean is None:
+                continue
+            counts[table] = count
+            monthly_rainfall[month_name] = round(mean, 2)
+
+    values["monthly_rainfall_mm"] = monthly_rainfall
+
     sample_count = max(counts.values()) if counts else 0
     if sample_count > 0:
         values["data_source"] = "agrow_db"
         values["data_source_note"] = (
-            "Combined local map layers for rainfall, temperature, soil, elevation, slope, and land cover where available."
+            "Combined local map layers for rainfall, monthly rainfall, temperature, soil, elevation, slope, "
+            "and land cover where available."
         )
 
     return {"sample_count": sample_count, "values": values}
@@ -1716,20 +1752,45 @@ def build_explanation(crop: Crop, district: str | None, environment: dict, suita
 
 
 def build_planting_window(values: dict) -> dict:
-    rainfall = values.get("rainfall_mm")
-    if rainfall is None:
+    monthly_rainfall = values.get("monthly_rainfall_mm")
+    if not isinstance(monthly_rainfall, dict):
+        monthly_rainfall = {}
+
+    month_order = {
+        month_name: index
+        for index, (month_name, _table) in enumerate(MONTHLY_RAINFALL_TABLES)
+    }
+    available_months = [
+        (month_name, coerce_float(monthly_rainfall.get(month_name)))
+        for month_name, _table in MONTHLY_RAINFALL_TABLES
+        if coerce_float(monthly_rainfall.get(month_name)) is not None
+    ]
+    if not available_months:
         return {
             "best_months": [],
-            "reason": "Planting month guidance needs local rainfall seasonality data.",
+            "reason": (
+                "Planting month guidance needs monthly rainfall rasters for the selected farm boundary."
+            ),
         }
-    if rainfall >= 2200:
-        return {
-            "best_months": ["October", "November", "December", "January"],
-            "reason": "High annual rainfall suggests planting should avoid the wettest establishment weeks and prioritize drainage.",
-        }
+
+    selected_months = sorted(
+        sorted(
+            available_months,
+            key=lambda item: (-item[1], month_order[item[0]]),
+        )[:4],
+        key=lambda item: month_order[item[0]],
+    )
+    month_summary = ", ".join(
+        f"{month_name} ({rainfall:g} mm)"
+        for month_name, rainfall in selected_months
+    )
+
     return {
-        "best_months": ["March", "April", "September", "October"],
-        "reason": "Moderate rainfall suggests establishment should be timed around reliable rain or backed by irrigation.",
+        "best_months": [month_name for month_name, _rainfall in selected_months],
+        "reason": (
+            f"Selected from the highest available monthly rainfall raster averages for this farm area: "
+            f"{month_summary}. This is historical raster guidance, not a weather forecast."
+        ),
     }
 
 

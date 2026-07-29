@@ -35,6 +35,7 @@ class EnvironmentValues(BaseModel):
     land_cover_source: str | None = None
     solar_radiation: float | None = None
     root_zone_moisture: float | None = None
+    monthly_rainfall_mm: dict[str, float] = Field(default_factory=dict)
     data_source: str = "agrow_db"
     data_source_note: str | None = None
     missing_fields: list[str] = Field(default_factory=list)
