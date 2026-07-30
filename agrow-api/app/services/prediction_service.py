@@ -839,10 +839,20 @@ def query_environment_values(
     sample_count = existing_environment["sample_count"]
     value_sources = build_value_source_tracker(values)
 
-    prediction_point = resolve_prediction_point(latitude=latitude, longitude=longitude, polygon=polygon)
-    point_match_type = "not_run"
+    # A drawn farm boundary already has polygon-scoped grid aggregates and
+    # clipped raster values. Do not replace those area-derived values with a
+    # single centroid/nearest grid row. Point lookup remains available for
+    # requests that do not include a polygon.
+    prediction_point = None
+    point_match_type = "polygon_aggregate" if polygon else "not_run"
 
-    if columns and prediction_point:
+    if not polygon:
+        prediction_point = resolve_prediction_point(
+            latitude=latitude,
+            longitude=longitude,
+        )
+
+    if not polygon and columns and prediction_point:
         point_environment = query_spatial_grid_point_values(
             db,
             columns,
@@ -853,7 +863,7 @@ def query_environment_values(
         if point_environment["sample_count"] > 0:
             merge_spatial_grid_point_values(values, point_environment["values"], value_sources)
             sample_count = max(sample_count, point_environment["sample_count"])
-    elif not prediction_point:
+    elif not polygon and not prediction_point:
         logger.debug("spatial_grids point lookup skipped because no prediction latitude/longitude was available.")
 
     overridden_fields = apply_user_inputs(values, user_inputs)
