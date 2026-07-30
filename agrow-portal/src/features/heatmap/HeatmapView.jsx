@@ -9,7 +9,7 @@ import 'leaflet/dist/leaflet.css'
 import './heatmap-view.css'
 
 const SABAH_BOUNDS = [[3.8, 114.3], [7.5, 119.5]]
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://agrow-api.onrender.com'
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 const API_BASE_URL = `${BASE_URL}/api/predict`
 
 function MapResizeTrigger() {
