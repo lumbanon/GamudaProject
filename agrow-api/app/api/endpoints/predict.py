@@ -1,7 +1,10 @@
 import os
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from app.database.session import get_db
 
 from app.services.prediction_service import (
     PredictionModelError,
@@ -17,10 +20,9 @@ DB_NAME='agrow_db'
 
 DATABASE_URL=f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-engine = create_engine(DATABASE_URL)
+# engine = create_engine(DATABASE_URL)
 
 router = APIRouter()
-
 class PredictionInput(BaseModel):
     crop_name: str
     latitude: float
@@ -67,30 +69,30 @@ def predict_crop_suitability(data: PredictionInput):
     }
 
 @router.get("/live-matrix")
-def get_live_ecosystem_matrix():
+def get_live_ecosystem_matrix(db: Session = Depends(get_db)):
     try:
-        with engine.connect() as conn:
+        # with engine.connect() as conn:
             # 1. Fetch real environmental data aggregated by district
-            grid_query = text("""
-                SELECT 
-                    district,
-                    AVG(latitude) as lat,
-                    AVG(longitude) as lng,
-                    ROUND(AVG(elevation_meters)::numeric, 1) as elev,
-                    ROUND(AVG(slope_pct)::numeric, 1) as slope,
-                    ROUND(AVG(soil_ph)::numeric, 1) as ph,
-                    ROUND(AVG(soil_depth_cm)::numeric, 0) as depth,
-                    ROUND(AVG(annual_rainfall_mm)::numeric, 1) as rain,
-                    ROUND(AVG(solar_radiation)::numeric, 2) as solar,
-                    ROUND(AVG(root_zone_moisture)::numeric, 2) as moisture
-                FROM spatial_grids
-                GROUP BY district;
-            """)
-            grid_rows = conn.execute(grid_query).fetchall()
+        grid_query = text("""
+            SELECT 
+                district,
+                AVG(latitude) as lat,
+                AVG(longitude) as lng,
+                ROUND(AVG(elevation_meters)::numeric, 1) as elev,
+                ROUND(AVG(slope_pct)::numeric, 1) as slope,
+                ROUND(AVG(soil_ph)::numeric, 1) as ph,
+                ROUND(AVG(soil_depth_cm)::numeric, 0) as depth,
+                ROUND(AVG(annual_rainfall_mm)::numeric, 1) as rain,
+                ROUND(AVG(solar_radiation)::numeric, 2) as solar,
+                ROUND(AVG(root_zone_moisture)::numeric, 2) as moisture
+            FROM spatial_grids
+            GROUP BY district;
+        """)
+        grid_rows = db.execute(grid_query).fetchall()
 
-            # 2. Fetch official crop metrics
-            crop_query = text("SELECT name FROM crops;")
-            crop_rows = conn.execute(crop_query).fetchall()
+        # 2. Fetch official crop metrics
+        crop_query = text("SELECT name FROM crops;")
+        crop_rows = db.execute(crop_query).fetchall()
 
         # Format into a clean structured JSON payload for React
         district_matrix = {
