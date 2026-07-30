@@ -17,7 +17,19 @@ if not DATABASE_URL:
     password_segment = f":{DB_PASSWORD}" if DB_PASSWORD else ""
     DATABASE_URL = f"postgresql://{DB_USER}{password_segment}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+if "neon.tech" in DATABASE_URL:
+    # Remove channel_binding parameter if present (causes driver issues on psycopg2)
+    DATABASE_URL = DATABASE_URL.replace("&channel_binding=require", "").replace("channel_binding=require", "")
+    
+    # Ensure sslmode=require is attached
+    if "sslmode=require" not in DATABASE_URL:
+        delimiter = "&" if "?" in DATABASE_URL else "?"
+        DATABASE_URL += f"{delimiter}sslmode=require"
+
+engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=300)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
