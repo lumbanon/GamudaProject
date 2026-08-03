@@ -8,9 +8,15 @@ from app.models.user import User
 from app.models.analysis_history import AnalysisHistory
 from app.api.endpoints import auth, history, predict, prediction, statistics
 
-Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+@app.on_event('startup')
+def startup_db_client():
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        print(f'database table creation check: {e}')
 
 default_origins = [
     "http://localhost:5173",
