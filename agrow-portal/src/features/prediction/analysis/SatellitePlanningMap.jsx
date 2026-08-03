@@ -13,13 +13,28 @@ import {
   ZoomControl,
 } from "react-leaflet"
 import "leaflet/dist/leaflet.css"
-import { calculatePolygonAreaHectares, formatHectares } from "./predictionUtils"
+import {
+  addPolygonPoint,
+  calculatePolygonAreaHectares,
+  closePolygon,
+  findDistrictForPoint,
+  formatHectares,
+  replacePolygonPoint,
+  validatePolygonGeometry,
+} from "./predictionUtils"
+import {
+  accuracyWarning,
+  coordinateFromPosition,
+  geolocationErrorMessage,
+  requestCurrentPosition,
+} from "./predictionGeolocation"
 
 const SABAH_CENTER = [5.62, 117.1]
 const SABAH_VIEW_BOUNDS = [
   [3.85, 114.95],
   [7.65, 119.65],
 ]
+const MAX_SATELLITE_ZOOM = 19
 
 const draftVertexIcon = L.divIcon({
   className: "polygon-vertex-marker polygon-vertex-marker-draft",
@@ -35,18 +50,33 @@ const finalVertexIcon = L.divIcon({
   iconSize: [38, 38],
 })
 
+const gpsVertexIcon = L.divIcon({
+  className: "polygon-vertex-marker polygon-vertex-marker-gps",
+  html: '<span class="polygon-vertex-dot"></span>',
+  iconAnchor: [19, 19],
+  iconSize: [38, 38],
+})
+
 const SatellitePlanningMap = forwardRef(function SatellitePlanningMap({
   district,
   districtGeoJson = null,
   polygon,
   onPolygonChange,
   clearVersion,
+  fitBoundaryVersion = 0,
   isBlocked = false,
+  isVisible = true,
   reservedForestGeoJson = null,
 }, ref) {
   const [isDrawing, setIsDrawing] = useState(false)
   const [draftPoints, setDraftPoints] = useState([])
+  const [boundaryError, setBoundaryError] = useState("")
+  const [locationFeedback, setLocationFeedback] = useState(null)
+  const [locationLoading, setLocationLoading] = useState(false)
+  const [gpsPoint, setGpsPoint] = useState(null)
+  const [gpsAccuracy, setGpsAccuracy] = useState(null)
   const captureAreaRef = useRef(null)
+  const draftPointsRef = useRef([])
 
   const finalPositions = useMemo(() => geoJsonToLeafletPositions(polygon), [polygon])
   const draftPolygon = useMemo(() => leafletPositionsToGeoJson(draftPoints), [draftPoints])
@@ -74,46 +104,148 @@ const SatellitePlanningMap = forwardRef(function SatellitePlanningMap({
   )
 
   function beginDrawing() {
+    draftPointsRef.current = []
     setDraftPoints([])
     setIsDrawing(true)
+    setBoundaryError("")
+    setLocationFeedback(null)
+    setGpsPoint(null)
+    setGpsAccuracy(null)
     onPolygonChange(null)
   }
 
-  function addPoint(point) {
-    setDraftPoints((current) => [...current, point])
-  }
+  const addPoint = useCallback((point) => {
+    const result = addPolygonPoint(
+      leafletPositionsToOpenGeoJson(draftPointsRef.current),
+      leafletPointToGeoJson(point),
+    )
+    if (result.error) {
+      setBoundaryError(result.error)
+      return false
+    }
 
-  const undoPoint = useCallback(() => {
-    setDraftPoints((current) => current.slice(0, -1))
+    const nextPoints = openGeoJsonToLeafletPositions(result.points)
+    draftPointsRef.current = nextPoints
+    setDraftPoints(nextPoints)
+    setBoundaryError("")
+    return true
   }, [])
 
+  const undoPoint = useCallback(() => {
+    setDraftPoints((current) => {
+      const removedPoint = current[current.length - 1]
+      if (gpsPoint && leafletPointsEqual(removedPoint, gpsPoint)) {
+        setGpsPoint(null)
+        setGpsAccuracy(null)
+        setLocationFeedback(null)
+      }
+      const nextPoints = current.slice(0, -1)
+      draftPointsRef.current = nextPoints
+      return nextPoints
+    })
+    setBoundaryError("")
+  }, [gpsPoint])
+
   const moveDraftPoint = useCallback((index, latlng) => {
-    setDraftPoints((current) =>
-      current.map((point, pointIndex) => (pointIndex === index ? latLngToPoint(latlng) : point)),
-    )
+    setDraftPoints((current) => {
+      const result = replacePolygonPoint(
+        leafletPositionsToOpenGeoJson(current),
+        index,
+        [roundCoordinate(latlng.lng), roundCoordinate(latlng.lat)],
+      )
+      if (result.error) {
+        setBoundaryError(result.error)
+        return current
+      }
+      const nextPoints = openGeoJsonToLeafletPositions(result.points)
+      draftPointsRef.current = nextPoints
+      setBoundaryError("")
+      return nextPoints
+    })
   }, [])
 
   const moveFinalPoint = useCallback(
     (index, latlng) => {
-      const nextPositions = finalPositions.map((point, pointIndex) =>
-        pointIndex === index ? latLngToPoint(latlng) : point,
+      const result = replacePolygonPoint(
+        leafletPositionsToOpenGeoJson(finalPositions),
+        index,
+        [roundCoordinate(latlng.lng), roundCoordinate(latlng.lat)],
       )
-      onPolygonChange(leafletPositionsToGeoJson(nextPositions))
+      if (result.error) {
+        setBoundaryError(result.error)
+        return
+      }
+      setBoundaryError("")
+      onPolygonChange(closePolygon(result.points))
     },
     [finalPositions, onPolygonChange],
   )
 
   function finishDrawing() {
-    if (draftPoints.length < 3) return
-    onPolygonChange(leafletPositionsToGeoJson(draftPoints))
+    const currentDraftPoints = draftPointsRef.current
+    if (currentDraftPoints.length < 3) return
+    const coordinates = leafletPositionsToOpenGeoJson(currentDraftPoints)
+    const validation = validatePolygonGeometry(coordinates)
+    if (!validation.valid) {
+      setBoundaryError(validation.message)
+      return
+    }
+
+    onPolygonChange(closePolygon(coordinates))
+    draftPointsRef.current = []
     setDraftPoints([])
     setIsDrawing(false)
+    setBoundaryError("")
   }
 
   function clearArea() {
+    draftPointsRef.current = []
     setDraftPoints([])
     setIsDrawing(false)
+    setBoundaryError("")
+    setLocationFeedback(null)
+    setGpsPoint(null)
+    setGpsAccuracy(null)
     onPolygonChange(null)
+  }
+
+  async function addCurrentLocationPoint() {
+    if (!isDrawing) beginDrawing()
+
+    setLocationLoading(true)
+    setLocationFeedback(null)
+    setBoundaryError("")
+
+    try {
+      const coordinate = coordinateFromPosition(await requestCurrentPosition())
+      const districtName = findDistrictForPoint(
+        [coordinate.longitude, coordinate.latitude],
+        districtGeoJson?.features || [],
+      )
+      if (!districtName) {
+        setLocationFeedback({
+          tone: "error",
+          message: "Your current location is outside Sabah and was not added.",
+        })
+        return
+      }
+
+      const point = [coordinate.latitude, coordinate.longitude]
+      if (!addPoint(point)) return
+
+      setGpsPoint(point)
+      setGpsAccuracy(coordinate.accuracy)
+      const warning = accuracyWarning(coordinate.accuracy)
+      setLocationFeedback(
+        warning
+          ? { tone: "warning", message: warning }
+          : { tone: "success", message: "Current location added to the boundary." },
+      )
+    } catch (error) {
+      setLocationFeedback({ tone: "error", message: geolocationErrorMessage(error) })
+    } finally {
+      setLocationLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -137,7 +269,7 @@ const SatellitePlanningMap = forwardRef(function SatellitePlanningMap({
         center={SABAH_CENTER}
         zoom={8}
         minZoom={7}
-        maxZoom={16}
+        maxZoom={MAX_SATELLITE_ZOOM}
         maxBounds={SABAH_VIEW_BOUNDS}
         maxBoundsViscosity={1}
         zoomControl={false}
@@ -149,6 +281,8 @@ const SatellitePlanningMap = forwardRef(function SatellitePlanningMap({
           attribution="Source: Esri, Vantor, Earthstar Geographics, and the GIS User Community"
           bounds={SABAH_VIEW_BOUNDS}
           crossOrigin="anonymous"
+          maxNativeZoom={MAX_SATELLITE_ZOOM}
+          maxZoom={MAX_SATELLITE_ZOOM}
           noWrap
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
         />
@@ -167,10 +301,22 @@ const SatellitePlanningMap = forwardRef(function SatellitePlanningMap({
           />
         )}
 
-        <DrawingEvents active={isDrawing} onAddPoint={addPoint} onFinish={finishDrawing} />
+        <DrawingEvents
+          active={isDrawing && !locationLoading}
+          onAddPoint={addPoint}
+          onFinish={finishDrawing}
+        />
         <ZoomControl position="bottomright" />
-        <MapResizeHandler watchKey={`${clearVersion}-${polygon?.length || 0}-${draftPoints.length}`} />
+        <MapResizeHandler
+          watchKey={`${clearVersion}-${polygon?.length || 0}-${draftPoints.length}-${isVisible}`}
+        />
+        <RestoredBoundaryMapController
+          fitVersion={fitBoundaryVersion}
+          isVisible={isVisible}
+          positions={finalPositions}
+        />
         <MapCaptureController polygon={polygon} onCaptureReady={registerCaptureHandler} />
+        {gpsPoint && <CurrentLocationMapController point={gpsPoint} />}
 
         {reservedForestGeoJson && (
           <GeoJSON
@@ -243,7 +389,7 @@ const SatellitePlanningMap = forwardRef(function SatellitePlanningMap({
 
         {draftPoints.map((point, index) => (
           <VertexMarker
-            icon={draftVertexIcon}
+            icon={gpsPoint && leafletPointsEqual(point, gpsPoint) ? gpsVertexIcon : draftVertexIcon}
             index={index}
             key={`draft-${index}`}
             point={point}
@@ -264,10 +410,27 @@ const SatellitePlanningMap = forwardRef(function SatellitePlanningMap({
         <button type="button" onClick={undoPoint} disabled={!draftPoints.length}>
           Undo last point
         </button>
+        <button type="button" onClick={addCurrentLocationPoint} disabled={locationLoading}>
+          {locationLoading ? "Getting location..." : "Add Current Location Point"}
+        </button>
         <button type="button" onClick={clearArea} disabled={!hasWork}>
           Clear Area
         </button>
       </div>
+
+      {(boundaryError || locationFeedback || gpsAccuracy !== null) && (
+        <div className="map-boundary-feedback" aria-live="polite">
+          {boundaryError && <p className="map-boundary-feedback-error">{boundaryError}</p>}
+          {locationFeedback && (
+            <p className={`map-boundary-feedback-${locationFeedback.tone}`}>
+              {locationFeedback.message}
+            </p>
+          )}
+          {gpsAccuracy !== null && (
+            <small>Reported GPS accuracy: ±{Math.round(gpsAccuracy)} m</small>
+          )}
+        </div>
+      )}
 
       <div className="map-area-chip">
         <span className="map-chip-label">Selected area</span>
@@ -374,6 +537,54 @@ function MapResizeHandler({ watchKey }) {
   return null
 }
 
+function CurrentLocationMapController({ point }) {
+  const map = useMap()
+
+  useEffect(() => {
+    map.flyTo(point, Math.max(map.getZoom(), 15), {
+      animate: true,
+      duration: 0.8,
+    })
+  }, [map, point])
+
+  return null
+}
+
+function RestoredBoundaryMapController({
+  fitVersion,
+  isVisible,
+  positions,
+}) {
+  const map = useMap()
+  const lastFitVersionRef = useRef(0)
+
+  useEffect(() => {
+    if (
+      !fitVersion ||
+      !isVisible ||
+      positions.length < 3 ||
+      lastFitVersionRef.current === fitVersion
+    ) {
+      return undefined
+    }
+
+    lastFitVersionRef.current = fitVersion
+
+    const frameId = window.requestAnimationFrame(() => {
+      map.invalidateSize({ animate: false })
+      map.fitBounds(positions, {
+        animate: false,
+        maxZoom: MAX_SATELLITE_ZOOM,
+        padding: [36, 36],
+      })
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [fitVersion, isVisible, map, positions])
+
+  return null
+}
+
 function MapCaptureController({ polygon, onCaptureReady }) {
   const map = useMap()
 
@@ -400,7 +611,11 @@ async function capturePolygonImage(map, polygon) {
 
   try {
     await moveMapAndWait(map, () => {
-      map.fitBounds(bounds, { animate: false, maxZoom: 16, padding: [36, 36] })
+      map.fitBounds(bounds, {
+        animate: false,
+        maxZoom: MAX_SATELLITE_ZOOM,
+        padding: [36, 36],
+      })
     })
     await waitForTileLayers(map)
 
@@ -470,7 +685,9 @@ function cropAndMaskPolygon(fullCanvas, mapContainer, polygonPoints) {
   context.strokeStyle = "#f4c84a"
   context.lineWidth = 3
   context.stroke()
-  return output.toDataURL("image/jpeg", 0.86)
+  // Preserve small roof edges and shadows. JPEG artifacts at the previous quality
+  // setting could erase the few pixels that distinguish a building at map scale.
+  return output.toDataURL("image/png")
 }
 
 function drawPolygonPath(context, points, minX, minY, scaleX, scaleY) {
@@ -552,12 +769,29 @@ function leafletPositionsToGeoJson(points) {
   return coordinates
 }
 
-function roundCoordinate(value) {
-  return Number(Number(value).toFixed(6))
+function leafletPositionsToOpenGeoJson(points) {
+  return points.map(([lat, lon]) => [roundCoordinate(lon), roundCoordinate(lat)])
 }
 
-function latLngToPoint(latlng) {
-  return [roundCoordinate(latlng.lat), roundCoordinate(latlng.lng)]
+function openGeoJsonToLeafletPositions(points) {
+  return points.map(([lon, lat]) => [lat, lon])
+}
+
+function leafletPointToGeoJson([lat, lon]) {
+  return [roundCoordinate(lon), roundCoordinate(lat)]
+}
+
+function leafletPointsEqual(first, second) {
+  return (
+    Array.isArray(first) &&
+    Array.isArray(second) &&
+    Math.abs(first[0] - second[0]) < 1e-9 &&
+    Math.abs(first[1] - second[1]) < 1e-9
+  )
+}
+
+function roundCoordinate(value) {
+  return Number(Number(value).toFixed(6))
 }
 
 function isUndoShortcut(event) {

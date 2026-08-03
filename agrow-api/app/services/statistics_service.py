@@ -9,7 +9,7 @@ from app.models.crop_statistic import CropStatistic
 
 
 ZERO = Decimal("0")
-STATISTICS_CROPS = ("Banana", "Cabbage", "Watermelon", "Durian")
+STATISTICS_CROPS = ("Cabbage", "Watermelon", "Durian")
 STATISTICS_CROP_KEYS = tuple(crop.casefold() for crop in STATISTICS_CROPS)
 
 

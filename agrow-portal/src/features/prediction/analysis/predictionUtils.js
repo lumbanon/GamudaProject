@@ -102,6 +102,116 @@ export function detectDistrictFromPolygon(polygon, districtFeatures = []) {
   return ""
 }
 
+export function findDistrictForPoint(point, districtFeatures = []) {
+  if (!Array.isArray(point) || point.length < 2 || !Array.isArray(districtFeatures)) {
+    return ""
+  }
+
+  const match = districtFeatures.find((feature) => pointInFeature(point, feature))
+  return match ? getDistrictName(match) : ""
+}
+
+export function addPolygonPoint(points, point) {
+  const normalizedPoints = normalizeOpenPolygon(points)
+  const normalizedPoint = normalizeCoordinate(point)
+  if (!normalizedPoint) {
+    return { points: normalizedPoints, error: "The boundary point has invalid coordinates." }
+  }
+
+  const candidate = [...normalizedPoints, normalizedPoint]
+  const validation = validatePolygonGeometry(candidate, { allowIncomplete: true })
+  return validation.valid
+    ? { points: candidate, error: "" }
+    : { points: normalizedPoints, error: validation.message }
+}
+
+export function replacePolygonPoint(points, index, point) {
+  const normalizedPoints = normalizeOpenPolygon(points)
+  const normalizedPoint = normalizeCoordinate(point)
+  if (!normalizedPoint || index < 0 || index >= normalizedPoints.length) {
+    return { points: normalizedPoints, error: "The moved boundary point is invalid." }
+  }
+
+  const candidate = normalizedPoints.map((currentPoint, pointIndex) =>
+    pointIndex === index ? normalizedPoint : currentPoint,
+  )
+  const validation = validatePolygonGeometry(candidate, { allowIncomplete: true })
+  return validation.valid
+    ? { points: candidate, error: "" }
+    : { points: normalizedPoints, error: validation.message }
+}
+
+export function validatePolygonGeometry(polygon, { allowIncomplete = false } = {}) {
+  const points = normalizeOpenPolygon(polygon)
+  if (points.length !== getOpenPolygonPoints(polygon).length) {
+    return {
+      valid: false,
+      code: "invalid_coordinate",
+      message: "Boundary coordinates must be valid longitude and latitude values.",
+    }
+  }
+
+  for (let index = 0; index < points.length; index += 1) {
+    const nextIndex = (index + 1) % points.length
+    if (points.length > 1 && coordinatesEqual(points[index], points[nextIndex])) {
+      return {
+        valid: false,
+        code: "duplicate_point",
+        message: "Boundary points must not overlap.",
+      }
+    }
+  }
+
+  if (points.length < 3) {
+    return allowIncomplete
+      ? { valid: true, code: "incomplete", message: "Add at least three boundary points." }
+      : { valid: false, code: "incomplete", message: "Add at least three boundary points." }
+  }
+
+  if (polygonHasSelfIntersection(points)) {
+    return {
+      valid: false,
+      code: "self_intersection",
+      message: "That point would make the boundary cross itself.",
+    }
+  }
+
+  if (calculatePolygonAreaHectares(points) <= 0) {
+    return {
+      valid: false,
+      code: "zero_area",
+      message: "Boundary points must enclose a measurable area.",
+    }
+  }
+
+  return { valid: true, code: "valid", message: "" }
+}
+
+export function closePolygon(points) {
+  const openPoints = normalizeOpenPolygon(points)
+  if (openPoints.length < 3) return []
+  return [...openPoints, [...openPoints[0]]]
+}
+
+export function polygonHasSelfIntersection(polygon) {
+  const points = normalizeOpenPolygon(polygon)
+  if (points.length < 4) return false
+
+  const edges = points.map((point, index) => [
+    point,
+    points[(index + 1) % points.length],
+  ])
+
+  for (let first = 0; first < edges.length; first += 1) {
+    for (let second = first + 1; second < edges.length; second += 1) {
+      if (edgesAreAdjacent(first, second, edges.length)) continue
+      if (segmentsIntersect(edges[first], edges[second])) return true
+    }
+  }
+
+  return false
+}
+
 export function formatPlaceholderFields(fields = []) {
   if (!Array.isArray(fields) || fields.length === 0) return ""
   return fields.map((field) => toTitleCase(String(field).replaceAll("_", " "))).join(", ")
@@ -210,6 +320,11 @@ function hasTechnicalSourceTerm(text) {
 }
 
 function isClosedPolygon(polygon) {
+  // Three unique vertices plus a repeated starting vertex are required for a
+  // closed polygon. A one-point draft otherwise looks closed and is discarded
+  // when the user adds the next boundary point.
+  if (!Array.isArray(polygon) || polygon.length < 4) return false
+
   const first = polygon[0]
   const last = polygon[polygon.length - 1]
   return Array.isArray(first) && Array.isArray(last) && first[0] === last[0] && first[1] === last[1]
@@ -218,6 +333,77 @@ function isClosedPolygon(polygon) {
 function getOpenPolygonPoints(polygon) {
   if (!Array.isArray(polygon)) return []
   return isClosedPolygon(polygon) ? polygon.slice(0, -1) : polygon
+}
+
+function normalizeOpenPolygon(polygon) {
+  return getOpenPolygonPoints(polygon)
+    .map(normalizeCoordinate)
+    .filter(Boolean)
+}
+
+function normalizeCoordinate(point) {
+  if (!Array.isArray(point) || point.length < 2) return null
+  const longitude = Number(point[0])
+  const latitude = Number(point[1])
+  if (
+    !Number.isFinite(longitude) ||
+    !Number.isFinite(latitude) ||
+    longitude < -180 ||
+    longitude > 180 ||
+    latitude < -90 ||
+    latitude > 90
+  ) {
+    return null
+  }
+  return [longitude, latitude]
+}
+
+function segmentsIntersect([firstStart, firstEnd], [secondStart, secondEnd]) {
+  const firstOrientation = orientation(firstStart, firstEnd, secondStart)
+  const secondOrientation = orientation(firstStart, firstEnd, secondEnd)
+  const thirdOrientation = orientation(secondStart, secondEnd, firstStart)
+  const fourthOrientation = orientation(secondStart, secondEnd, firstEnd)
+
+  if (
+    firstOrientation !== secondOrientation &&
+    thirdOrientation !== fourthOrientation
+  ) {
+    return true
+  }
+
+  if (firstOrientation === 0 && pointOnSegment(firstStart, secondStart, firstEnd)) return true
+  if (secondOrientation === 0 && pointOnSegment(firstStart, secondEnd, firstEnd)) return true
+  if (thirdOrientation === 0 && pointOnSegment(secondStart, firstStart, secondEnd)) return true
+  return fourthOrientation === 0 && pointOnSegment(secondStart, firstEnd, secondEnd)
+}
+
+function orientation(first, second, third) {
+  const value =
+    (second[1] - first[1]) * (third[0] - second[0]) -
+    (second[0] - first[0]) * (third[1] - second[1])
+  if (Math.abs(value) < 1e-12) return 0
+  return value > 0 ? 1 : 2
+}
+
+function pointOnSegment(first, point, second) {
+  return (
+    point[0] <= Math.max(first[0], second[0]) + 1e-12 &&
+    point[0] >= Math.min(first[0], second[0]) - 1e-12 &&
+    point[1] <= Math.max(first[1], second[1]) + 1e-12 &&
+    point[1] >= Math.min(first[1], second[1]) - 1e-12
+  )
+}
+
+function edgesAreAdjacent(first, second, edgeCount) {
+  return (
+    first === second ||
+    Math.abs(first - second) === 1 ||
+    (first === 0 && second === edgeCount - 1)
+  )
+}
+
+function coordinatesEqual(first, second) {
+  return Math.abs(first[0] - second[0]) < 1e-12 && Math.abs(first[1] - second[1]) < 1e-12
 }
 
 function calculatePolygonCentroid(points) {

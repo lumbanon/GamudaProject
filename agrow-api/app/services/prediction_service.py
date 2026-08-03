@@ -34,6 +34,10 @@ class PredictionModelInputError(PredictionNotFoundError):
     pass
 
 
+class PredictionUnsupportedCropError(PredictionModelInputError):
+    pass
+
+
 class PredictionModelError(PredictionDataError):
     pass
 
@@ -199,6 +203,43 @@ RASTER_LAYERS = {
     "land_cover": {"table": "land_cover", "scale": 1.0, "zero_is_nodata": True},
 }
 
+MONTHLY_RAINFALL_TABLES = (
+    ("January", "rainfall_01"),
+    ("February", "rainfall_02"),
+    ("March", "rainfall_03"),
+    ("April", "rainfall_04"),
+    ("May", "rainfall_05"),
+    ("June", "rainfall_06"),
+    ("July", "rainfall_07"),
+    ("August", "rainfall_08"),
+    ("September", "rainfall_09"),
+    ("October", "rainfall_10"),
+    ("November", "rainfall_11"),
+    ("December", "rainfall_12"),
+)
+
+# Future-use raster datasets currently present in PostgreSQL/PostGIS but
+# intentionally excluded from runtime prediction queries:
+#
+# - Monthly temperature:
+#   temperature_01 ... temperature_12
+# - Deeper soil layers:
+#   phh2o_5_15cm, phh2o_15_30cm
+#   nitrogen_5_15cm, nitrogen_15_30cm
+#   soc_5_15cm, soc_15_30cm
+#   clay_5_15cm, clay_15_30cm
+#   sand_5_15cm, sand_15_30cm
+# - Additional soil properties:
+#   bdod_0_5cm, bdod_5_15cm, bdod_15_30cm
+#   cec_0_5cm, cec_5_15cm, cec_15_30cm
+#   silt_0_5cm, silt_5_15cm, silt_15_30cm
+#
+# These tables are retained for possible seasonal, deeper-soil, soil-texture,
+# or future model analysis. Do not add them to RASTER_LAYERS indiscriminately:
+# querying every raster for every polygon would increase database and API
+# latency. Prefer an opt-in detailed-analysis path, precomputed aggregates,
+# caching, and performance testing before enabling any of them.
+
 SPATIAL_GRID_POINT_COLUMNS = (
     "district",
     "elevation_meters",
@@ -278,7 +319,7 @@ def predict_suitability_with_model(crop_name: str, values: dict) -> dict:
     try:
         crop_encoded = encoder.transform([normalized_crop_name])[0]
     except ValueError as exc:
-        raise PredictionModelInputError(
+        raise PredictionUnsupportedCropError(
             f"Crop target '{crop_name}' is not supported by the prediction model."
         ) from exc
 
@@ -397,6 +438,10 @@ def round_model_value(value: float, decimal_places: int) -> float:
 
 
 def get_suitability(db: Session, request) -> dict:
+    crop = get_crop_by_name(db, request.crop)
+    if not crop:
+        raise PredictionNotFoundError(f"Crop '{request.crop}' is not supported for prediction.")
+
     forest_reserve_check = validate_forest_reserve_overlap(db, request.polygon)
     if forest_reserve_check["allowed"] is False:
         return {
@@ -405,10 +450,6 @@ def get_suitability(db: Session, request) -> dict:
             "district": request.district,
             "area_hectares": calculate_polygon_area_hectares(request.polygon) if request.polygon else None,
         }
-
-    crop = get_crop_by_name(db, request.crop)
-    if not crop:
-        raise PredictionNotFoundError(f"Crop '{request.crop}' was not found in the crops table.")
 
     environment = query_environment_values(
         db,
@@ -429,15 +470,22 @@ def get_suitability(db: Session, request) -> dict:
         environment["values"],
         environment["sample_count"],
     )
-    model_prediction = predict_suitability_with_model(
-        crop.name,
-        environment["values"],
-    )
-    suitability = build_model_suitability(
-        threshold_diagnostics,
-        model_prediction,
-        environment["sample_count"],
-    )
+    try:
+        model_prediction = predict_suitability_with_model(
+            crop.name,
+            environment["values"],
+        )
+        suitability = build_model_suitability(
+            threshold_diagnostics,
+            model_prediction,
+            environment["sample_count"],
+        )
+    except PredictionUnsupportedCropError:
+        model_prediction = build_threshold_prediction(threshold_diagnostics)
+        suitability = build_threshold_suitability(
+            threshold_diagnostics,
+            model_prediction,
+        )
     explanation = build_explanation(crop, request.district, environment, suitability)
     estimate = build_return_estimate(db, crop.name, suitability["score"], area_hectares)
     planting_window = build_planting_window(environment["values"])
@@ -462,6 +510,21 @@ def get_suitability(db: Session, request) -> dict:
         district=request.district,
         environment=environment,
     )
+    if planting_window.get("source") != "postgis_monthly_raster":
+        ai_planting_months = genai_insight.get("best_planting_months") or []
+        if ai_planting_months and not genai_insight.get("fallback_used"):
+            planting_window = {
+                "best_months": ai_planting_months,
+                "reason": (
+                    genai_insight.get("planting_window_reason")
+                    or "AI seasonal guidance based on the crop and Sabah climate; not a weather forecast."
+                ),
+                "source": "gemini_seasonal_guidance",
+            }
+        else:
+            planting_window = build_annual_rainfall_planting_fallback(
+                environment["values"]
+            )
     ai_insight = genai_insight.get("crop_suitability_summary") or explanation
 
     return {
@@ -768,10 +831,20 @@ def query_environment_values(
     sample_count = existing_environment["sample_count"]
     value_sources = build_value_source_tracker(values)
 
-    prediction_point = resolve_prediction_point(latitude=latitude, longitude=longitude, polygon=polygon)
-    point_match_type = "not_run"
+    # A drawn farm boundary already has polygon-scoped grid aggregates and
+    # clipped raster values. Do not replace those area-derived values with a
+    # single centroid/nearest grid row. Point lookup remains available for
+    # requests that do not include a polygon.
+    prediction_point = None
+    point_match_type = "polygon_aggregate" if polygon else "not_run"
 
-    if columns and prediction_point:
+    if not polygon:
+        prediction_point = resolve_prediction_point(
+            latitude=latitude,
+            longitude=longitude,
+        )
+
+    if not polygon and columns and prediction_point:
         point_environment = query_spatial_grid_point_values(
             db,
             columns,
@@ -782,7 +855,7 @@ def query_environment_values(
         if point_environment["sample_count"] > 0:
             merge_spatial_grid_point_values(values, point_environment["values"], value_sources)
             sample_count = max(sample_count, point_environment["sample_count"])
-    elif not prediction_point:
+    elif not polygon and not prediction_point:
         logger.debug("spatial_grids point lookup skipped because no prediction latitude/longitude was available.")
 
     overridden_fields = apply_user_inputs(values, user_inputs)
@@ -951,6 +1024,9 @@ def fill_missing_environment_values(values: dict, fallback_values: dict) -> None
             f"{note} Missing fields filled from existing raster/current logic: {', '.join(sorted(filled_fields))}."
         ).strip()
 
+    if not values.get("monthly_rainfall_mm") and fallback_values.get("monthly_rainfall_mm"):
+        values["monthly_rainfall_mm"] = fallback_values["monthly_rainfall_mm"]
+
 
 def build_value_source_tracker(values: dict) -> dict[str, str]:
     return {
@@ -1094,14 +1170,98 @@ def query_raster_environment_values(db: Session, polygon: list[list[float]] | No
     if values.get("soc") is not None and values.get("organic_carbon") is None:
         values["organic_carbon"] = values["soc"]
 
+    monthly_rainfall, monthly_pixel_count = query_monthly_rainfall_values(
+        db,
+        tables=tables,
+        polygon=polygon,
+    )
+    values["monthly_rainfall_mm"] = monthly_rainfall
+    if monthly_pixel_count > 0:
+        counts["monthly_rainfall"] = monthly_pixel_count
+
     sample_count = max(counts.values()) if counts else 0
     if sample_count > 0:
         values["data_source"] = "agrow_db"
         values["data_source_note"] = (
-            "Combined local map layers for rainfall, temperature, soil, elevation, slope, and land cover where available."
+            "Combined local map layers for rainfall, monthly rainfall, temperature, soil, elevation, slope, "
+            "and land cover where available."
         )
 
     return {"sample_count": sample_count, "values": values}
+
+
+def query_monthly_rainfall_values(
+    db: Session,
+    *,
+    tables: set[str],
+    polygon: list[list[float]] | None,
+) -> tuple[dict[str, float], int]:
+    """Return polygon means for available monthly rasters without blocking analysis on failure."""
+    if not polygon:
+        return {}, 0
+
+    available_layers = [
+        (month_name, table)
+        for month_name, table in MONTHLY_RAINFALL_TABLES
+        if table in tables
+    ]
+    if not available_layers:
+        return {}, 0
+
+    monthly_queries = []
+    for month_name, table in available_layers:
+        monthly_queries.append(
+            f"""
+            SELECT
+                '{month_name}' AS month_name,
+                COALESCE(SUM(count), 0)::bigint AS pixel_count,
+                SUM(sum) / NULLIF(SUM(count), 0) AS mean
+            FROM (
+                SELECT (ST_SummaryStats(
+                    ST_Clip(rast, selected_area.geom, true),
+                    1,
+                    true
+                )).*
+                FROM {table}
+                CROSS JOIN selected_area
+                WHERE ST_Intersects(rast, selected_area.geom)
+            ) monthly_stats
+            """
+        )
+
+    try:
+        rows = (
+            db.execute(
+                text(
+                    f"""
+                    WITH selected_area AS (
+                        SELECT ST_SetSRID(ST_GeomFromText(:polygon_wkt), 4326) AS geom
+                    )
+                    {" UNION ALL ".join(monthly_queries)}
+                    """
+                ),
+                {"polygon_wkt": polygon_to_wkt(polygon)},
+            )
+            .mappings()
+            .all()
+        )
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception(
+            "Monthly rainfall raster lookup failed; Gemini planting guidance will be used instead."
+        )
+        return {}, 0
+
+    monthly_rainfall = {
+        str(row["month_name"]): round(mean, 2)
+        for row in rows
+        if (mean := coerce_float(row.get("mean"))) is not None
+    }
+    pixel_count = max(
+        (int(row.get("pixel_count") or 0) for row in rows),
+        default=0,
+    )
+    return monthly_rainfall, pixel_count
 
 
 def finalize_environment_values(values: dict, sample_count: int) -> dict:
@@ -1418,6 +1578,44 @@ def build_model_suitability(
     }
 
 
+def build_threshold_prediction(threshold_diagnostics: dict) -> dict:
+    score = int(threshold_diagnostics.get("score", 0))
+    if score >= MODEL_SCORE_BANDS["S1"][0]:
+        suitability_class = "S1"
+    elif score >= MODEL_SCORE_BANDS["S2"][0]:
+        suitability_class = "S2"
+    elif score >= MODEL_SCORE_BANDS["S3"][0]:
+        suitability_class = "S3"
+    else:
+        suitability_class = "N"
+
+    return {
+        "suitability_class": suitability_class,
+        "confidence_matrix": {
+            class_name: 100.0 if class_name == suitability_class else 0.0
+            for class_name in MODEL_CLASS_ORDER
+        },
+        "model_confidence_pct": None,
+    }
+
+
+def build_threshold_suitability(
+    threshold_diagnostics: dict,
+    threshold_prediction: dict,
+) -> dict:
+    suitability_class = threshold_prediction["suitability_class"]
+    return {
+        **threshold_diagnostics,
+        "classification": suitability_class,
+        "confidence_matrix": threshold_prediction["confidence_matrix"],
+        "model_confidence_pct": None,
+        "confidence": (
+            "Threshold-based confidence using the crop requirements stored "
+            "in the database; a trained model profile was not available."
+        ),
+    }
+
+
 def model_class_to_score(
     suitability_class: str,
     confidence_pct: float,
@@ -1636,20 +1834,66 @@ def build_explanation(crop: Crop, district: str | None, environment: dict, suita
 
 
 def build_planting_window(values: dict) -> dict:
+    monthly_rainfall = values.get("monthly_rainfall_mm")
+    if isinstance(monthly_rainfall, dict) and monthly_rainfall:
+        month_order = {
+            month_name: index
+            for index, (month_name, _table) in enumerate(MONTHLY_RAINFALL_TABLES)
+        }
+        available_months = [
+            (month_name, rainfall)
+            for month_name, _table in MONTHLY_RAINFALL_TABLES
+            if (rainfall := coerce_float(monthly_rainfall.get(month_name))) is not None
+        ]
+        selected_months = sorted(
+            sorted(
+                available_months,
+                key=lambda item: (-item[1], month_order[item[0]]),
+            )[:4],
+            key=lambda item: month_order[item[0]],
+        )
+        month_summary = ", ".join(
+            f"{month_name} ({rainfall:g} mm)"
+            for month_name, rainfall in selected_months
+        )
+        return {
+            "best_months": [month_name for month_name, _rainfall in selected_months],
+            "reason": (
+                "Selected from the highest monthly PostGIS rainfall averages for this farm area: "
+                f"{month_summary}. This is historical raster guidance, not a weather forecast."
+            ),
+            "source": "postgis_monthly_raster",
+        }
+
+    return {
+        "best_months": [],
+        "reason": "Monthly PostGIS rainfall was unavailable; requesting Gemini seasonal guidance.",
+        "source": "gemini_pending",
+    }
+
+
+def build_annual_rainfall_planting_fallback(values: dict) -> dict:
     rainfall = values.get("rainfall_mm")
     if rainfall is None:
         return {
             "best_months": [],
             "reason": "Planting month guidance needs local rainfall seasonality data.",
+            "source": "unavailable",
         }
     if rainfall >= 2200:
         return {
             "best_months": ["October", "November", "December", "January"],
-            "reason": "High annual rainfall suggests planting should avoid the wettest establishment weeks and prioritize drainage.",
+            "reason": (
+                "Rule-based fallback from annual rainfall because monthly PostGIS and Gemini guidance were unavailable."
+            ),
+            "source": "annual_rainfall_fallback",
         }
     return {
         "best_months": ["March", "April", "September", "October"],
-        "reason": "Moderate rainfall suggests establishment should be timed around reliable rain or backed by irrigation.",
+        "reason": (
+            "Rule-based fallback from annual rainfall because monthly PostGIS and Gemini guidance were unavailable."
+        ),
+        "source": "annual_rainfall_fallback",
     }
 
 

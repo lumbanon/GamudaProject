@@ -1,28 +1,13 @@
-import os
-from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 
-load_dotenv()
-
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-
-    DB_USER='postgres'
-    DB_PASSWORD= os.getenv("DATABASE_PASSWORD")
-    DB_HOST='localhost'
-    DB_PORT='5432'
-    DB_NAME='agrow_db'
-
-    DATABASE_URL=f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+from app.database.session import Base, DATABASE_URL, engine
 
 print(f"⏳ Connecting to database on: {DATABASE_URL.split('@')[-1]}")
-engine = create_engine(DATABASE_URL)
-
-from app.database.session import Base
 from app.models.user import User  
 from app.models.crop import Crop
 from app.models.spatial_grid import SpatialGrid
 from app.models.crop_statistic import CropStatistic
+from app.models.analysis_history import AnalysisHistory
 
 def initialize_database():
     try:

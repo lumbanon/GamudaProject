@@ -1,3 +1,23 @@
+.dashboard-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+
+.dashboard-overview-item {
+  min-width: 0;
+}
+
+.dashboard-overview-item > .card {
+  height: 100%;
+}
+
+.dashboard-overview-item .d-flex {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .dropdown-container {
   display: flex;
   flex-direction: column;

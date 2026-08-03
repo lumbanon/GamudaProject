@@ -5,11 +5,14 @@ import requests
 import random
 from pathlib import Path
 from time import sleep
-from app.database.session import SessionLocal, Base
+from urllib.parse import unquote, urlparse
+
+from app.database.session import Base, DATABASE_URL, IS_LOCAL_DATABASE
 from app.models.user import User
 from app.models.crop import Crop
 from app.models.crop_statistic import CropStatistic
 from app.models.spatial_grid import SpatialGrid
+from app.models.analysis_history import AnalysisHistory
 from passlib.context import CryptContext
 from geoalchemy2.elements import WKTElement
 from sqlalchemy.orm import sessionmaker
@@ -17,22 +20,56 @@ from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
 load_dotenv()
-DB_USER='postgres'
-DB_PASSWORD= os.getenv("DATABASE_PASSWORD")
-DB_HOST='localhost'
-DB_PORT='5432'
-DB_NAME='agrow_db'
 
-DATABASE_URL=f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+PARSED_DATABASE_URL = urlparse(DATABASE_URL)
+if PARSED_DATABASE_URL.scheme not in {"postgres", "postgresql"}:
+    raise RuntimeError("DATABASE_URL must be a PostgreSQL connection URL.")
 
 NASA_API_KEY = os.getenv("NASA_API_KEY", "NONE")
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    connect_args={} if IS_LOCAL_DATABASE else {"sslmode": "require"},
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # USER TABLE
 pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 CROPS_CSV_FILENAME = "crops.csv"
+
+
+def print_sanitized_database_target():
+    """Print the target connection identity without exposing its password."""
+    print("Target PostgreSQL database:")
+    print(f"  host: {PARSED_DATABASE_URL.hostname}")
+    print(f"  database: {unquote((PARSED_DATABASE_URL.path or '').lstrip('/'))}")
+    print(f"  user: {unquote(PARSED_DATABASE_URL.username or '')}")
+    print("  password: present (hidden)")
+    print(f"  SSL mode: {'disabled' if IS_LOCAL_DATABASE else 'require'}")
+
+
+def initialize_seed_schema():
+    """Create missing PostGIS-backed model tables before inserting seed data."""
+    with engine.begin() as connection:
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
+
+    Base.metadata.create_all(bind=engine)
+    print("Database schema is ready, including analysis_history.")
+
+
+def ensure_spatial_grid_seed_is_safe():
+    """Stop before seed writes when production grid data already exists."""
+    db = SessionLocal()
+    try:
+        existing_count = db.query(SpatialGrid).count()
+    finally:
+        db.close()
+    if existing_count:
+        raise RuntimeError(
+            "spatial_grids already contains "
+            f"{existing_count} row(s). Refusing to run seed.py against populated data."
+        )
 
 
 # Resolve CSV files from an env var first, then common project locations.
@@ -280,22 +317,17 @@ def fetch_nasa_agro_climate(lat, lng):
 
 def seed_spatial_grids():
     db = SessionLocal()
-    # 1. CLEAN THE TABLE COMPLETELY 
-    print("🧹 Performing deep table truncation and resetting ID counters...")
-    
-    # This replaces db.query(SpatialGrid).delete()
-    # It handles foreign keys (CASCADE) and resets auto-increment IDs to 1
-    db.execute(text("TRUNCATE TABLE spatial_grids RESTART IDENTITY CASCADE;"))
-    db.commit()
-    print("✨ Table spatial_grids is now perfectly empty and reset.")
-
-    # 2. THE NEW COMPREHENSIVE SABAH DATASET
-    print("📡 Initiating Dual-API Harvester (Open-Meteo + NASA POWER)...")
+    existing_count = db.query(SpatialGrid).count()
+    if existing_count:
+        db.close()
+        raise RuntimeError(
+            "spatial_grids already contains "
+            f"{existing_count} row(s). Refusing to replace existing data."
+        )
+    print("spatial_grids is empty; starting the environmental data import.")
     try:
         # Clean target tables to avoid mixing messy proxy data with authentic telemetry
-        print("🧹 Clearing out old spatial grid entries...")
-        db.query(SpatialGrid).delete()
-        db.commit()
+        print("🌱 Spatial grid table is empty; generating seed entries...")
 
         print("📡 Initiating Dual-API Harvester (Open-Meteo + NASA POWER)...")
 
@@ -606,9 +638,11 @@ def seed_doa_statistics():
 
 if __name__ == '__main__':
     print('will start to seed...')
-    # print('Seeding user table...')
-    # seed_user()
-    # print('User table seeded...')
+    print_sanitized_database_target()
+    print('Preparing database schema...')
+    initialize_seed_schema()
+    ensure_spatial_grid_seed_is_safe()
+    print('Skipping the development test user.')
     print('Seeding crop table...')
     seed_crops()
     print('Crop table seeded...')

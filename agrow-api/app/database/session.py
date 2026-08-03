@@ -1,4 +1,6 @@
 import os
+from urllib.parse import urlparse
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -6,7 +8,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_MODE = os.getenv("AGROW_DATABASE_MODE", "local").strip().lower()
+DATABASE_URL = (
+    os.getenv("DATABASE_URL")
+    if DATABASE_MODE in {"hosted", "remote", "production"}
+    else None
+)
 
 if not DATABASE_URL:
     DB_USER = os.getenv("DB_USER", "postgres")
@@ -28,6 +35,12 @@ if "neon.tech" in DATABASE_URL:
     if "sslmode=require" not in DATABASE_URL:
         delimiter = "&" if "?" in DATABASE_URL else "?"
         DATABASE_URL += f"{delimiter}sslmode=require"
+
+IS_LOCAL_DATABASE = urlparse(DATABASE_URL).hostname in {
+    "localhost",
+    "127.0.0.1",
+    "::1",
+}
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=300)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
