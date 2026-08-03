@@ -5,21 +5,21 @@ from app.models.crop import Crop
 from app.models.crop_statistic import CropStatistic
 from app.models.spatial_grid import SpatialGrid
 from app.models.user import User
-from app.api.endpoints import auth, crop_suitability, predict, prediction, statistics
+from app.models.analysis_history import AnalysisHistory
+from app.api.endpoints import auth, history, predict, prediction, statistics
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-origins = [
+default_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "https://agrow-ecosystem.vercel.app"
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=default_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -27,9 +27,9 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["authentication"])
 app.include_router(predict.router, prefix="/api/predict", tags=["ai predictions"])
-app.include_router(crop_suitability.router, prefix="/api/crop-suitability", tags=["crop suitability"])
 app.include_router(prediction.router, prefix="/api/prediction", tags=["prediction"])
 app.include_router(statistics.router, prefix="/api/statistics", tags=["statistics"])
+app.include_router(history.router, prefix="/api/history", tags=["analysis history"])
 
 @app.get("/")
 def read_root():

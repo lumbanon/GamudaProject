@@ -5,12 +5,21 @@ import {
   APP_PREFERENCE_KEYS,
   useAppPreference,
 } from '../../context/appPreferences'
+import {
+  coordinateFromPosition,
+  geolocationErrorMessage,
+  requestCurrentPosition,
+} from '../prediction/analysis/predictionGeolocation'
+import { findDistrictForPoint } from '../prediction/analysis/predictionUtils'
 import 'leaflet/dist/leaflet.css'
 import './heatmap-view.css'
 
 const SABAH_BOUNDS = [[3.8, 114.3], [7.5, 119.5]]
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
-const API_BASE_URL = `${BASE_URL}/api/predict`
+const SUPPORTED_CROPS = ['Durian', 'Watermelon', 'Cabbage']
+const BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+const DATABASE_API_URL = `${BASE_URL}/api/prediction`
+const MODEL_API_URL = `${BASE_URL}/api/predict`
 
 function MapResizeTrigger() {
   const map = useMap()
@@ -44,6 +53,28 @@ export default function HeatmapView() {
     null,
   )
   const [isLoading, setIsLoading] = useState(false)
+  const [evaluationRevision, setEvaluationRevision] = useState(0)
+
+  useEffect(() => {
+    if (
+      selectedCropOverride &&
+      !SUPPORTED_CROPS.includes(selectedCropOverride)
+    ) {
+      setSelectedCropOverride('')
+    }
+
+    if (
+      displayedCropData?.crop &&
+      !SUPPORTED_CROPS.includes(displayedCropData.crop)
+    ) {
+      setDisplayedCropData(null)
+    }
+  }, [
+    displayedCropData,
+    selectedCropOverride,
+    setDisplayedCropData,
+    setSelectedCropOverride,
+  ])
 
   const getDistrictName = (feature) => {
     return feature?.properties?.NAME_2 ||
@@ -64,7 +95,7 @@ export default function HeatmapView() {
   }, [selectedDistrict])
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/live-matrix`)
+    fetch(`${DATABASE_API_URL}/live-matrix`)
       .then(res => res.json())
       .then(data => {
         if (data.status === 'success') {
@@ -73,10 +104,6 @@ export default function HeatmapView() {
       })
       .catch(err => console.error('Error loading ecosystem matrix:', err))
   }, [setDistrictMatrix])
-
-  // useEffect(() => {
-  //   setSelectedCropOverride('')
-  // }, [selectedDistrict])
 
   useEffect(() => {
     if (!selectedDistrict) return
@@ -91,9 +118,13 @@ export default function HeatmapView() {
       return
     }
 
+    let cancelled = false
+
     const runEvaluationPipeline = async () => {
       setIsLoading(true)
-      const targetCrops = selectedCropOverride ? [selectedCropOverride] : ['Durian', 'Watermelon', 'Cabbage']
+      const targetCrops = SUPPORTED_CROPS.includes(selectedCropOverride)
+        ? [selectedCropOverride]
+        : SUPPORTED_CROPS
 
       const predictionPromises = targetCrops.map(crop => {
         const payload = {
@@ -110,7 +141,7 @@ export default function HeatmapView() {
           root_zone_moisture: metrics.moisture
         }
 
-        return fetch(`${API_BASE_URL}/suitability`, {
+        return fetch(`${MODEL_API_URL}/suitability`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -119,6 +150,8 @@ export default function HeatmapView() {
 
       try {
         const results = await Promise.all(predictionPromises)
+        if (cancelled) return
+
         const successfulPredictions = results.filter(r => r.status === 'success')
 
         if (successfulPredictions.length === 0) {
@@ -147,29 +180,66 @@ export default function HeatmapView() {
 
         setDisplayedCropData(bestCropMatch)
       } catch (err) {
-        console.error('Crop recommendation computation failed:', err)
+        if (!cancelled) {
+          console.error('Crop recommendation computation failed:', err)
+        }
       } finally {
-        setIsLoading(false)
+        if (!cancelled) {
+          setIsLoading(false)
+        }
       }
     }
 
     runEvaluationPipeline()
+    return () => {
+      cancelled = true
+    }
   }, [
     districtMatrix,
+    evaluationRevision,
     selectedCropOverride,
     selectedDistrict,
     setDisplayedCropData,
   ])
 
-  const handleUseCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser')
-      return
+  const selectLocationDistrict = useCallback((district) => {
+    const nextDistrict = String(district || '').trim()
+    if (!nextDistrict) return
+
+    setSelectedCropOverride('')
+    setDisplayedCropData(null)
+    setSelectedDistrict(nextDistrict)
+    setEvaluationRevision(revision => revision + 1)
+  }, [
+    setDisplayedCropData,
+    setSelectedCropOverride,
+    setSelectedDistrict,
+  ])
+
+  const handleCropProfileChange = (event) => {
+    setDisplayedCropData(null)
+    setSelectedCropOverride(event.target.value)
+    setEvaluationRevision(revision => revision + 1)
+  }
+
+  const handleUseCurrentLocation = async () => {
+    try {
+      const position = await requestCurrentPosition()
+      const { latitude, longitude } = coordinateFromPosition(position)
+      const district = findDistrictForPoint(
+        [longitude, latitude],
+        sabahGeoJSON?.features || [],
+      )
+
+      if (!district) {
+        alert('Your current location is outside the supported Sabah districts.')
+        return
+      }
+
+      selectLocationDistrict(district)
+    } catch (error) {
+      alert(geolocationErrorMessage(error))
     }
-    navigator.geolocation.getCurrentPosition(
-      () => setSelectedDistrict('Kota Kinabalu'),
-      () => alert('Unable to retrieve your location')
-    )
   }
 
   const heatmapStyle = useCallback((feature) => {
@@ -200,7 +270,7 @@ export default function HeatmapView() {
     if (!name) return
 
     layer.on({
-      click: () => setSelectedDistrict(name),
+      click: () => selectLocationDistrict(name),
       mouseover: (e) => {
         e.target.setStyle({ fillOpacity: 0.8, weight: 2 })
       },
@@ -240,6 +310,9 @@ export default function HeatmapView() {
     return insightsPool[tier] || `Ecosystem analysis complete. Location exhibits strong affinity toward Class ${tier} parameters.`
   }
 
+  const cropProfileValue =
+    selectedCropOverride || displayedCropData?.crop || ''
+
   return (
     <div className='heatmap-dashboard-view'>
       <div className='heatmap-grid-layout'>
@@ -255,10 +328,7 @@ export default function HeatmapView() {
                   <select
                     className='control-dropdown-select'
                     value={selectedDistrict}
-                    onChange={(e) => {
-                      setSelectedDistrict(e.target.value);
-                      setSelectedCropOverride(''); // ✅ Reset target crop immediately during the user event
-                    }}
+                    onChange={(event) => selectLocationDistrict(event.target.value)}
                   >
                     <option value='' disabled>Select a district...</option>
                     {districtList.map(name => (
@@ -274,8 +344,8 @@ export default function HeatmapView() {
                     </span>
                     <select
                       className='control-dropdown-select'
-                      value={selectedCropOverride}
-                      onChange={(e) => setSelectedCropOverride(e.target.value)}
+                      value={cropProfileValue}
+                      onChange={handleCropProfileChange}
                     >
                       <option value=''>AI Optimal Recommendation</option>
                       <option value='Durian'>Durian Profile</option>
@@ -384,7 +454,7 @@ export default function HeatmapView() {
                   <div className='insight-header d-flex align-items-center mb-2' style={{ gap: '6px' }}>
                     <span className='insight-icon'>💡</span>
                     <h6 className='insight-title text-dark fw-bold' style={{ textTransform: 'none', letterSpacing: 'normal' }}>
-                      Agro-Ecosystem Insight
+                      Agrow-Ecosystem Insight
                     </h6>
                   </div>
                   <p className='insight-text text-muted' style={{ fontSize: '0.8rem', fontWeight: '500', lineHeight: '1.5' }}>

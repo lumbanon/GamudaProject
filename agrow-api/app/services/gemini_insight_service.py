@@ -107,6 +107,12 @@ class PredictionInsightOutput(BaseModel):
     recommended_actions: list[str] = Field(
         description="Two to four short farmer-friendly next actions."
     )
+    best_planting_months: list[str] = Field(
+        description="Two to four full English month names recommended for planting in Sabah."
+    )
+    planting_window_reason: str = Field(
+        description="A short explanation based on the crop, location, supplied conditions, and Sabah seasonality."
+    )
     confidence_level: Literal["Low", "Medium", "High"] = Field(
         description="Confidence based on sample count, missing data, and supplied confidence text."
     )
@@ -123,6 +129,16 @@ INSIGHT_FIELD_ALIASES = {
     "key_strengths": ("key_strengths", "keyStrengths", "Key Strengths"),
     "potential_risks": ("potential_risks", "potentialRisks", "Potential Risks"),
     "recommended_actions": ("recommended_actions", "recommendedActions", "Recommended Actions"),
+    "best_planting_months": (
+        "best_planting_months",
+        "bestPlantingMonths",
+        "Best Planting Months",
+    ),
+    "planting_window_reason": (
+        "planting_window_reason",
+        "plantingWindowReason",
+        "Planting Window Reason",
+    ),
     "confidence_level": ("confidence_level", "confidenceLevel", "Confidence Level"),
     "missing_data": ("missing_data", "missingData", "Missing Data"),
 }
@@ -149,6 +165,7 @@ def build_gemini_ai_insight(
             environment=environment,
             suitability=suitability,
             recommendations=recommendations,
+            planting_window=planting_window,
             fallback_summary=fallback,
         ),
         crop=crop,
@@ -264,6 +281,15 @@ def build_gemini_ai_insight(
                 model=model,
                 image_size=image_size or 0,
             )
+            if satellite_analysis.get("buildings_detected") is not True:
+                satellite_analysis = verify_negative_satellite_analysis(
+                    requests_module=requests,
+                    api_key=api_key,
+                    model=model,
+                    image_part=image_part,
+                    image_size=image_size or 0,
+                    primary_analysis=satellite_analysis,
+                )
         insight = normalize_insight_response(
             payload,
             fallback_insight,
@@ -303,6 +329,71 @@ def gemini_http_error_reason(status_code) -> str:
     if status_code == 429:
         return "Gemini quota is exhausted. Try again after the quota resets or increase the API quota."
     return f"Gemini request failed with status {status_code}."
+
+
+def verify_negative_satellite_analysis(
+    *,
+    requests_module,
+    api_key: str,
+    model: str,
+    image_part: dict,
+    image_size: int,
+    primary_analysis: dict,
+) -> dict:
+    """Run a focused second look before accepting that no building is visible."""
+    prompt = (
+        f"{SATELLITE_VISION_INSTRUCTIONS}\n\n"
+        "This is a verification pass because an earlier broad analysis did not detect a building. "
+        "Ignore all agronomy questions and inspect only for buildings and developed surfaces. "
+        "Return only the satellite analysis JSON object."
+    )
+
+    try:
+        response = requests_module.post(
+            GEMINI_ENDPOINT_TEMPLATE.format(model=model),
+            headers={"x-goog-api-key": api_key},
+            json={
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [image_part, {"text": prompt}],
+                    }
+                ],
+                "generationConfig": {
+                    "temperature": 0,
+                    "topP": 0.5,
+                    "maxOutputTokens": 350,
+                    "responseMimeType": "application/json",
+                    "responseSchema": satellite_response_schema(),
+                },
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        response_payload = response.json()
+        validate_gemini_finish_reason(response_payload)
+        verification = normalize_satellite_analysis(
+            parse_insight_json(extract_gemini_text(response_payload)),
+            model=model,
+            image_size=image_size,
+        )
+    except Exception as exc:
+        logger.warning("Focused Gemini building verification failed: %s", exc)
+        return primary_analysis
+
+    # Detection is safety-sensitive for land selection: a positive sighting on
+    # either pass wins. A confident usable verification may also resolve an
+    # inconclusive primary result.
+    if verification.get("buildings_detected") is True:
+        return verification
+    if (
+        primary_analysis.get("buildings_detected") is None
+        and verification.get("buildings_detected") is False
+        and verification.get("image_quality") == "usable"
+        and verification.get("confidence") in {"medium", "high"}
+    ):
+        return verification
+    return primary_analysis
 
 
 def get_gemini_api_key() -> str | None:
@@ -374,6 +465,8 @@ def combined_prediction_response_schema() -> dict:
             "key_strengths": {"type": "ARRAY", "items": {"type": "STRING"}},
             "potential_risks": {"type": "ARRAY", "items": {"type": "STRING"}},
             "recommended_actions": {"type": "ARRAY", "items": {"type": "STRING"}},
+            "best_planting_months": {"type": "ARRAY", "items": {"type": "STRING"}},
+            "planting_window_reason": {"type": "STRING"},
             "confidence_level": {"type": "STRING", "enum": ["Low", "Medium", "High"]},
             "missing_data": {"type": "ARRAY", "items": {"type": "STRING"}},
             "satellite_building_analysis": satellite_response_schema(),
@@ -383,6 +476,8 @@ def combined_prediction_response_schema() -> dict:
             "key_strengths",
             "potential_risks",
             "recommended_actions",
+            "best_planting_months",
+            "planting_window_reason",
             "confidence_level",
             "missing_data",
             "satellite_building_analysis",
@@ -454,7 +549,7 @@ def build_prediction_insight_prompt(
 
     output_keys = (
         "crop_suitability_summary, key_strengths, potential_risks, recommended_actions, "
-        "confidence_level, missing_data"
+        "best_planting_months, planting_window_reason, confidence_level, missing_data"
     )
     satellite_instructions = ""
     if include_satellite_image:
@@ -477,6 +572,10 @@ def build_prediction_insight_prompt(
         f"{output_keys}. "
         "Do not wrap the JSON in markdown. Keep the same keys for every crop. "
         "The summary must be one farmer-friendly sentence. Each list should contain 2 to 4 short farmer-friendly items when possible. "
+        "For best_planting_months, use 2 to 4 full English month names based on the selected crop, district or Sabah location, "
+        "the supplied annual conditions, and your general knowledge of Sabah rainfall seasonality. "
+        "Do not invent monthly rainfall measurements. planting_window_reason must clearly state that the recommendation is "
+        "AI seasonal guidance rather than a weather forecast or measured monthly result. "
         "confidence_level must be exactly Low, Medium, or High based on the supplied sample count, missing data, and confidence text. "
         "If a value is null, unavailable, or uncertain, mention that in missing_data instead of guessing. "
         "Do not treat nitrogen, bdod/bulk density, silt, sand, clay, cec/cation exchange capacity, "
@@ -499,6 +598,7 @@ def build_rule_based_insight(
     environment: dict,
     suitability: dict,
     recommendations: list[str],
+    planting_window: dict,
     fallback_summary: str,
 ) -> dict:
     values = environment.get("values", {})
@@ -527,6 +627,14 @@ def build_rule_based_insight(
             recommendations or suitability.get("recommendations"),
             ["Validate the matched database values with a field inspection before planting."],
         ),
+        "best_planting_months": clean_text_list(
+            planting_window.get("best_months"),
+            [],
+        ),
+        "planting_window_reason": clean_text(
+            planting_window.get("reason"),
+            "Planting month guidance is unavailable.",
+        ),
         "confidence_level": normalize_confidence_label(suitability.get("confidence")),
         "missing_data": format_missing_fields(get_missing_fields_with_land_cover(values)),
         "source": "fallback",
@@ -553,6 +661,14 @@ def normalize_insight_response(payload: dict, fallback_insight: dict, *, source:
         "recommended_actions": clean_text_list(
             get_insight_value(payload, "recommended_actions"),
             fallback_insight["recommended_actions"],
+        ),
+        "best_planting_months": clean_text_list(
+            get_insight_value(payload, "best_planting_months"),
+            fallback_insight["best_planting_months"],
+        ),
+        "planting_window_reason": clean_text(
+            get_insight_value(payload, "planting_window_reason"),
+            fallback_insight["planting_window_reason"],
         ),
         "confidence_level": normalize_confidence_label(
             get_insight_value(payload, "confidence_level"),
@@ -600,10 +716,9 @@ def enforce_land_cover_ai_rules(
         return insight
 
     crop_name = getattr(crop, "name", str(crop))
-    location = district or "the selected location"
     insight["crop_suitability_summary"] = (
         f"The selected location is a built-up/developed area, so {crop_name} is not recommended "
-        f"for crop planting at {location}."
+        "for crop planting in this area."
     )
     insight["potential_risks"] = prepend_unique_text(
         insight.get("potential_risks"),

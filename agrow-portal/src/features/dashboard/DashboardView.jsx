@@ -9,8 +9,16 @@ import {
 } from '../../context/appPreferences'
 
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
-const API_BASE_URL = `${BASE_URL}/api/predict`
+const BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+const DATABASE_API_URL = `${BASE_URL}/api/prediction`
+const MODEL_API_URL = `${BASE_URL}/api/predict`
+const DASHBOARD_CROPS = ['Cabbage', 'Durian', 'Watermelon']
+const EMPTY_PREDICTIONS = {
+  watermelon: null,
+  cabbage: null,
+  durian: null,
+}
 
 export default function DashboardView() {
   const [, setDbCrops] = useState([])
@@ -28,7 +36,7 @@ export default function DashboardView() {
   )
   const [predictions, setPredictions] = useAppPreference(
     APP_PREFERENCE_KEYS.dashboardPredictions,
-    { watermelon: null, cabbage: null, durian: null },
+    EMPTY_PREDICTIONS,
   )
   const [allDistrictsSuitability, setAllDistrictsSuitability] = useAppPreference(
     APP_PREFERENCE_KEYS.dashboardDistrictSuitability,
@@ -46,6 +54,23 @@ export default function DashboardView() {
   useEffect(() => {
     selectedDistrictRef.current = selectedDistrict
   }, [selectedDistrict])
+
+  useEffect(() => {
+    if (activeCrop && !DASHBOARD_CROPS.includes(activeCrop)) {
+      setActiveCrop('')
+      setAllDistrictsSuitability({})
+    }
+  }, [activeCrop, setActiveCrop, setAllDistrictsSuitability])
+
+  useEffect(() => {
+    if (Object.hasOwn(predictions || {}, 'banana')) {
+      setPredictions({
+        watermelon: predictions?.watermelon || null,
+        cabbage: predictions?.cabbage || null,
+        durian: predictions?.durian || null,
+      })
+    }
+  }, [predictions, setPredictions])
 
   const [simulationParams, setSimulationParams] = useAppPreference(
     APP_PREFERENCE_KEYS.dashboardSimulationParameters,
@@ -88,7 +113,7 @@ export default function DashboardView() {
   useEffect(() => {
     const fetchMatrixData = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/live-matrix`)
+        const response = await fetch(`${DATABASE_API_URL}/live-matrix`)
         const data = await response.json()
 
         if (data.status === 'success') {
@@ -109,7 +134,10 @@ export default function DashboardView() {
   // 3. Fetch ALL Districts across active crop layer
   useEffect(() => {
     const fetchAllDistrictSuitability = async () => {
-      if (!activeCrop || Object.keys(districtMatrix).length === 0) return
+      if (
+        !DASHBOARD_CROPS.includes(activeCrop) ||
+        Object.keys(districtMatrix).length === 0
+      ) return
 
       setIsLoading(true)
       setApiError('')
@@ -133,7 +161,7 @@ export default function DashboardView() {
             crop_name: activeCrop
           }
 
-          const res = await axios.post(`${API_BASE_URL}/suitability`, payload)
+          const res = await axios.post(`${MODEL_API_URL}/suitability`, payload)
           return { districtName, suitability: res.data.suitability }
 
         })
@@ -280,7 +308,7 @@ useEffect(() => {
     
     // FIX: Moving these state updates inside the scoped execution flow removes synchronous cascading renders
     if (!metrics) {
-      setPredictions({ watermelon: null, cabbage: null, durian: null });
+      setPredictions(EMPTY_PREDICTIONS);
       setApiError(`No database found for selected district: '${selectedDistrict}'`);
       return;
     }
@@ -312,9 +340,9 @@ useEffect(() => {
 
     try {
       const [watermelonRes, cabbageRes, durianRes] = await Promise.all([
-        axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Watermelon' }),
-        axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Cabbage' }),
-        axios.post(`${API_BASE_URL}/suitability`, { ...basePayload, crop_name: 'Durian' })
+        axios.post(`${MODEL_API_URL}/suitability`, { ...basePayload, crop_name: 'Watermelon' }),
+        axios.post(`${MODEL_API_URL}/suitability`, { ...basePayload, crop_name: 'Cabbage' }),
+        axios.post(`${MODEL_API_URL}/suitability`, { ...basePayload, crop_name: 'Durian' })
       ]);
 
       setPredictions({
@@ -323,7 +351,7 @@ useEffect(() => {
         durian: durianRes.data
       });
     } catch (err) {
-      setPredictions({ watermelon: null, cabbage: null, durian: null });
+      setPredictions(EMPTY_PREDICTIONS);
       setApiError(err.message || 'Network failure while calling ML engine');
     } finally {
       setIsLoading(false);
@@ -346,6 +374,11 @@ useEffect(() => {
   const getSuitabilityDesc = (suitability) => {
     const descMap = { S1: 'Highly Suitable', S2: 'Moderate Suitability', S3: 'Low Suitability', N: 'Not Suitable' }
     return descMap[suitability?.trim()?.toUpperCase()] || 'Unknown Suitability'
+  }
+
+  const getConfidenceText = (prediction) => {
+    const confidence = prediction?.confidence_matrix?.[prediction?.suitability]
+    return `${confidence ?? 0}% ML confidence`
   }
 
   const onEachDistrictPolygon = (feature, layer) => {
@@ -408,13 +441,13 @@ useEffect(() => {
       <div className='row mb-4 justify-content-between'>
         <div className='col-12'>
           <div className='card'>
-            <div className='row align-items-center'>
-              <div className='col-3'>
+            <div className='dashboard-overview-grid'>
+              <div className='dashboard-overview-item'>
                 <h2>District overview:</h2>
                 <h2 className='text-primary'>{selectedDistrict || 'Select a region'}</h2>
               </div>
 
-              <div className='col-3'>
+              <div className='dashboard-overview-item'>
                 <div className='card'>
                   <p>Watermelon Suitability</p>
                   <small><i>Citrullus lanatus.</i></small>
@@ -434,14 +467,14 @@ useEffect(() => {
                         data-tooltip={getSuitabilityDesc(predictions.watermelon.suitability)}
                         style={{ cursor: 'help', position: 'relative' }}
                       >
-                        {predictions.watermelon.confidence_matrix[predictions.watermelon.suitability]}% ML confidence
+                        {getConfidenceText(predictions.watermelon)}
                       </span>
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className='col-3'>
+              <div className='dashboard-overview-item'>
                 <div className='card'>
                   <p>Durian Suitability</p>
                   <small><i>Durio zibethinus.</i></small>
@@ -461,14 +494,14 @@ useEffect(() => {
                         data-tooltip={getSuitabilityDesc(predictions.durian.suitability)}
                         style={{ cursor: 'help', position: 'relative' }}
                       >
-                        {predictions.durian.confidence_matrix[predictions.durian.suitability]}% ML confidence
+                        {getConfidenceText(predictions.durian)}
                       </span>
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className='col-3'>
+              <div className='dashboard-overview-item'>
                 <div className='card'>
                   <p>Cabbage Suitability</p>
                   <small><i>Brassica oleracea var. capitata.</i></small>
@@ -488,7 +521,7 @@ useEffect(() => {
                         data-tooltip={getSuitabilityDesc(predictions.cabbage.suitability)}
                         style={{ cursor: 'help', position: 'relative' }}
                       >
-                        {predictions.cabbage.confidence_matrix[predictions.cabbage.suitability]}% ML confidence
+                        {getConfidenceText(predictions.cabbage)}
                       </span>
                     </div>
                   )}

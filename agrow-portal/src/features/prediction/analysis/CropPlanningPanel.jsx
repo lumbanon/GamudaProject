@@ -1,9 +1,9 @@
-import successIcon from "../../assets/prediction/success.svg?raw"
-import locationIcon from "../../assets/prediction/location.svg?raw"
-import mapBoundaryIcon from "../../assets/prediction/map-boundary.svg?raw"
-import mapPinIcon from "../../assets/prediction/map-pin.svg?raw"
-import refreshIcon from "../../assets/prediction/refresh.svg?raw"
-import sproutIcon from "../../assets/prediction/sprout.svg?raw"
+import successIcon from "../../../assets/prediction/success.svg?raw"
+import locationIcon from "../../../assets/prediction/location.svg?raw"
+import mapBoundaryIcon from "../../../assets/prediction/map-boundary.svg?raw"
+import mapPinIcon from "../../../assets/prediction/map-pin.svg?raw"
+import refreshIcon from "../../../assets/prediction/refresh.svg?raw"
+import sproutIcon from "../../../assets/prediction/sprout.svg?raw"
 import PredictionAssetIcon from "./PredictionAssetIcon"
 import {
   buildClimateFeatureRows,
@@ -160,30 +160,37 @@ export function EnvironmentDataPanel({ isLoading, result }) {
         {isLoading && <div className="planning-loading-state compact-empty-state">Loading environmental layers...</div>}
 
         {features && (
-          <div className="environment-sidebar-stack">
-            <FeatureAccordion
-              labelClassName="environment-card-label"
-              title="Climate data"
-              rows={buildClimateFeatureRows(features)}
-            />
-            <FeatureAccordion
-              labelClassName="environment-card-label"
-              title="Soil data"
-              rows={buildSoilFeatureRows(features)}
-            />
-            <FeatureAccordion
-              labelClassName="environment-card-label"
-              title="Topography data"
-              rows={buildTopoFeatureRows(features)}
-            />
-            {satelliteAnalysis && (
+          <>
+            <div className="environment-sidebar-stack">
               <FeatureAccordion
-                labelClassName="satellite-building-check-label"
-                title="Gemini satellite building check"
-                rows={buildSatelliteAnalysisRows(satelliteAnalysis)}
+                labelClassName="environment-card-label"
+                title="Climate data"
+                rows={buildClimateFeatureRows(features)}
               />
+              <FeatureAccordion
+                labelClassName="environment-card-label"
+                title="Soil data"
+                rows={buildSoilFeatureRows(features)}
+              />
+              <FeatureAccordion
+                labelClassName="environment-card-label"
+                title="Topography data"
+                rows={buildTopoFeatureRows(features)}
+              />
+              {satelliteAnalysis && (
+                <FeatureAccordion
+                  labelClassName="satellite-building-check-label"
+                  title="Gemini satellite building check"
+                  rows={buildSatelliteAnalysisRows(satelliteAnalysis)}
+                />
+              )}
+            </div>
+            {features.data_source_note && (
+              <p className="source-note" role="note">
+                {features.data_source_note}
+              </p>
             )}
-          </div>
+          </>
         )}
       </div>
     </section>
@@ -200,8 +207,24 @@ function buildSatelliteAnalysisRows(analysis) {
 
   const percent = Number(analysis.estimated_built_up_percent)
   return [
-    { label: "Buildings visible", value: analysis.buildings_detected ? "Yes" : "No" },
-    { label: "Site classification", value: analysis.is_built_up ? "Built-up" : "Not built-up" },
+    {
+      label: "Buildings visible",
+      value:
+        analysis.buildings_detected === true
+          ? "Yes"
+          : analysis.buildings_detected === false
+            ? "No"
+            : "Inconclusive",
+    },
+    {
+      label: "Site classification",
+      value:
+        analysis.is_built_up === true
+          ? "Built-up"
+          : analysis.is_built_up === false
+            ? "Not built-up"
+            : "Inconclusive",
+    },
     {
       label: "Estimated developed area",
       value: Number.isFinite(percent) ? `${percent.toLocaleString(undefined, { maximumFractionDigits: 1 })}%` : "N/A",
