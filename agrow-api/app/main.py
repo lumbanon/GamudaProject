@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database.session import engine, Base
@@ -8,8 +9,27 @@ from app.models.user import User
 from app.models.analysis_history import AnalysisHistory
 from app.api.endpoints import auth, history, predict, prediction, statistics
 
-
 app = FastAPI()
+
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://agrow-ecosystem.vercel.app",  
+]
+
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url:
+    cleaned_url = frontend_url.rstrip("/")
+    if cleaned_url not in origins:
+        origins.append(cleaned_url)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event('startup')
 def startup_db_client():
@@ -17,19 +37,6 @@ def startup_db_client():
         Base.metadata.create_all(bind=engine)
     except Exception as e:
         print(f'database table creation check: {e}')
-
-default_origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=default_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["authentication"])
 app.include_router(predict.router, prefix="/api/predict", tags=["ai predictions"])
