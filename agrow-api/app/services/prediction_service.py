@@ -262,6 +262,8 @@ SPATIAL_GRID_POINT_VALUE_MAP = {
 }
 
 SPATIAL_GRID_MERGE_FIELDS = tuple(SPATIAL_GRID_POINT_VALUE_MAP.values()) + ("land_cover",)
+POLYGON_GRID_NEIGHBOR_LIMIT = 4
+POLYGON_GRID_FALLBACK_FIELDS = tuple(SPATIAL_GRID_POINT_VALUE_MAP.values())
 
 LAND_COVER_LABELS = {
     10: "tree cover",
@@ -838,6 +840,33 @@ def query_environment_values(
     prediction_point = None
     point_match_type = "polygon_aggregate" if polygon else "not_run"
 
+    if (
+        polygon
+        and columns
+        and any(values.get(field) is None for field in POLYGON_GRID_FALLBACK_FIELDS)
+    ):
+        nearby_environment = query_polygon_nearby_spatial_grid_values(
+            db,
+            columns,
+            polygon=polygon,
+            district=district,
+        )
+        filled_fields = fill_missing_spatial_grid_values(
+            values,
+            nearby_environment["values"],
+            value_sources,
+        )
+        if filled_fields:
+            sample_count = max(sample_count, nearby_environment["sample_count"])
+            point_match_type = nearby_environment["match_type"]
+            append_spatial_grid_interpolation_note(
+                values,
+                filled_fields=filled_fields,
+                sample_count=nearby_environment["sample_count"],
+                min_distance_m=nearby_environment.get("min_distance_m"),
+                max_distance_m=nearby_environment.get("max_distance_m"),
+            )
+
     if not polygon:
         prediction_point = resolve_prediction_point(
             latitude=latitude,
@@ -975,6 +1004,146 @@ def query_spatial_grid_point_values(
     }
 
 
+def query_polygon_nearby_spatial_grid_values(
+    db: Session,
+    columns: set[str],
+    *,
+    polygon: list[list[float]],
+    district: str | None = None,
+    neighbor_limit: int = POLYGON_GRID_NEIGHBOR_LIMIT,
+    max_distance_m: float | None = None,
+) -> dict:
+    available_columns = [
+        column_name
+        for column_name in SPATIAL_GRID_POINT_VALUE_MAP
+        if column_name in columns
+    ]
+    if not available_columns:
+        return {
+            "sample_count": 0,
+            "values": {},
+            "match_type": "missing_columns",
+        }
+
+    grid_geometry = spatial_grid_geometry_expression(columns, table_alias="sg")
+    select_columns = ", ".join(available_columns)
+    candidate_columns = ", ".join(f"sg.{column_name}" for column_name in available_columns)
+    non_null_filter = " OR ".join(f"sg.{column_name} IS NOT NULL" for column_name in available_columns)
+    where_clauses = [f"{grid_geometry} IS NOT NULL", f"({non_null_filter})"]
+    params: dict[str, object] = {
+        "polygon_wkt": polygon_to_wkt(polygon),
+        "neighbor_limit": max(1, int(neighbor_limit)),
+    }
+    distance_filter = ""
+
+    if max_distance_m is not None:
+        params["max_distance_m"] = max(0.0, float(max_distance_m))
+        distance_filter = """
+                    WHERE ST_DWithin(
+                        grid_geom::geography,
+                        selected_area.geom::geography,
+                        :max_distance_m
+                    )
+        """
+
+    if district and "district" in columns:
+        where_clauses.append("LOWER(TRIM(sg.district)) = LOWER(TRIM(:district))")
+        params["district"] = district
+
+    try:
+        rows = (
+            db.execute(
+                text(
+                    f"""
+                    WITH selected_area AS (
+                        SELECT ST_MakeValid(
+                            ST_SetSRID(ST_GeomFromText(:polygon_wkt), 4326)
+                        ) AS geom
+                    ),
+                    candidate_points AS (
+                        SELECT
+                            {candidate_columns},
+                            {grid_geometry} AS grid_geom
+                        FROM spatial_grids AS sg
+                        WHERE {" AND ".join(where_clauses)}
+                    )
+                    SELECT
+                        {select_columns},
+                        ST_Distance(
+                            grid_geom::geography,
+                            selected_area.geom::geography
+                        ) AS distance_m
+                    FROM candidate_points
+                    CROSS JOIN selected_area
+                    {distance_filter}
+                    ORDER BY distance_m
+                    LIMIT :neighbor_limit
+                    """
+                ),
+                params,
+            )
+            .mappings()
+            .all()
+        )
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise PredictionDataError(
+            "Unable to interpolate polygon environmental data from spatial_grids."
+        ) from exc
+
+    if not rows:
+        return {
+            "sample_count": 0,
+            "values": {},
+            "match_type": "no_match",
+        }
+
+    distances = [
+        distance
+        for row in rows
+        if (distance := coerce_float(row.get("distance_m"))) is not None
+    ]
+    return {
+        "sample_count": len(rows),
+        "values": interpolate_spatial_grid_rows(rows),
+        "match_type": "polygon_nearby_idw",
+        "min_distance_m": min(distances) if distances else None,
+        "max_distance_m": max(distances) if distances else None,
+    }
+
+
+def interpolate_spatial_grid_rows(rows) -> dict:
+    interpolated = {}
+
+    for column_name, field in SPATIAL_GRID_POINT_VALUE_MAP.items():
+        observations = []
+        for row in rows:
+            value = coerce_float(row.get(column_name))
+            distance_m = coerce_float(row.get("distance_m"))
+            if value is not None and distance_m is not None:
+                observations.append((value, max(0.0, distance_m)))
+
+        if not observations:
+            continue
+
+        zero_distance_values = [value for value, distance in observations if distance == 0]
+        if zero_distance_values:
+            interpolated[field] = sum(zero_distance_values) / len(zero_distance_values)
+            continue
+
+        weighted_sum = 0.0
+        total_weight = 0.0
+        for value, distance in observations:
+            weight = 1.0 / (distance**2)
+            weighted_sum += value * weight
+            total_weight += weight
+
+        if total_weight:
+            interpolated[field] = weighted_sum / total_weight
+
+    return interpolated
+
+
 def normalize_spatial_grid_point_row(row) -> dict:
     values = {
         field: coerce_float(row.get(column_name))
@@ -1009,6 +1178,58 @@ def merge_spatial_grid_point_values(values: dict, spatial_values: dict, value_so
             values["dem_m"] = spatial_values[field]
         elif field == "slope_pct":
             values["slope_deg"] = None
+
+
+def fill_missing_spatial_grid_values(
+    values: dict,
+    spatial_values: dict,
+    value_sources: dict[str, str],
+) -> list[str]:
+    filled_fields = []
+    for field in POLYGON_GRID_FALLBACK_FIELDS:
+        if values.get(field) is not None or spatial_values.get(field) is None:
+            continue
+
+        values[field] = spatial_values[field]
+        value_sources[field] = "spatial_grids_nearby_idw"
+        filled_fields.append(field)
+
+        if field == "elevation_m" and values.get("dem_m") is None:
+            values["dem_m"] = spatial_values[field]
+        elif field == "slope_pct":
+            values["slope_deg"] = None
+
+    return filled_fields
+
+
+def append_spatial_grid_interpolation_note(
+    values: dict,
+    *,
+    filled_fields: list[str],
+    sample_count: int,
+    min_distance_m: float | None,
+    max_distance_m: float | None,
+) -> None:
+    field_names = ", ".join(field.replace("_", " ") for field in sorted(filled_fields))
+    distance_note = ""
+    if min_distance_m is not None and max_distance_m is not None:
+        distance_note = (
+            f"; grid distances {format_spatial_distance(min_distance_m)}"
+            f"-{format_spatial_distance(max_distance_m)}"
+        )
+
+    existing_note = (values.get("data_source_note") or "").strip()
+    interpolation_note = (
+        f"Missing fields interpolated from {sample_count} nearest spatial_grids records "
+        f"using inverse-distance weighting{distance_note}: {field_names}."
+    )
+    values["data_source_note"] = f"{existing_note} {interpolation_note}".strip()
+
+
+def format_spatial_distance(distance_m: float) -> str:
+    if distance_m < 1000:
+        return f"{round(distance_m):.0f} m"
+    return f"{distance_m / 1000:.1f} km"
 
 
 def fill_missing_environment_values(values: dict, fallback_values: dict) -> None:
@@ -1472,20 +1693,38 @@ def get_public_table_names(db: Session) -> set[str]:
         return set()
 
 
-def build_polygon_filter(columns: set[str]) -> str:
+def spatial_grid_geometry_expression(
+    columns: set[str],
+    *,
+    table_alias: str | None = None,
+) -> str:
+    prefix = f"{table_alias}." if table_alias else ""
     if "geom" in columns and {"longitude", "latitude"}.issubset(columns):
-        geom_expression = """
+        return f"""
             COALESCE(
-                geom,
-                ST_SetSRID(ST_MakePoint(longitude::double precision, latitude::double precision), 4326)
+                {prefix}geom,
+                ST_SetSRID(
+                    ST_MakePoint(
+                        {prefix}longitude::double precision,
+                        {prefix}latitude::double precision
+                    ),
+                    4326
+                )
             )
         """
-    elif "geom" in columns:
-        geom_expression = "geom"
-    elif {"longitude", "latitude"}.issubset(columns):
-        geom_expression = "ST_SetSRID(ST_MakePoint(longitude::double precision, latitude::double precision), 4326)"
-    else:
-        raise PredictionDataError("spatial_grids needs geom or longitude/latitude columns for polygon filtering.")
+    if "geom" in columns:
+        return f"{prefix}geom"
+    if {"longitude", "latitude"}.issubset(columns):
+        return (
+            "ST_SetSRID(ST_MakePoint("
+            f"{prefix}longitude::double precision, {prefix}latitude::double precision"
+            "), 4326)"
+        )
+    raise PredictionDataError("spatial_grids needs geom or longitude/latitude columns for polygon filtering.")
+
+
+def build_polygon_filter(columns: set[str]) -> str:
+    geom_expression = spatial_grid_geometry_expression(columns)
 
     return f"ST_Intersects({geom_expression}, ST_SetSRID(ST_GeomFromText(:polygon_wkt), 4326))"
 

@@ -160,30 +160,37 @@ export function EnvironmentDataPanel({ isLoading, result }) {
         {isLoading && <div className="planning-loading-state compact-empty-state">Loading environmental layers...</div>}
 
         {features && (
-          <div className="environment-sidebar-stack">
-            <FeatureAccordion
-              labelClassName="environment-card-label"
-              title="Climate data"
-              rows={buildClimateFeatureRows(features)}
-            />
-            <FeatureAccordion
-              labelClassName="environment-card-label"
-              title="Soil data"
-              rows={buildSoilFeatureRows(features)}
-            />
-            <FeatureAccordion
-              labelClassName="environment-card-label"
-              title="Topography data"
-              rows={buildTopoFeatureRows(features)}
-            />
-            {satelliteAnalysis && (
+          <>
+            <div className="environment-sidebar-stack">
               <FeatureAccordion
-                labelClassName="satellite-building-check-label"
-                title="Gemini satellite building check"
-                rows={buildSatelliteAnalysisRows(satelliteAnalysis)}
+                labelClassName="environment-card-label"
+                title="Climate data"
+                rows={buildClimateFeatureRows(features)}
               />
+              <FeatureAccordion
+                labelClassName="environment-card-label"
+                title="Soil data"
+                rows={buildSoilFeatureRows(features)}
+              />
+              <FeatureAccordion
+                labelClassName="environment-card-label"
+                title="Topography data"
+                rows={buildTopoFeatureRows(features)}
+              />
+              {satelliteAnalysis && (
+                <FeatureAccordion
+                  labelClassName="satellite-building-check-label"
+                  title="Gemini satellite building check"
+                  rows={buildSatelliteAnalysisRows(satelliteAnalysis)}
+                />
+              )}
+            </div>
+            {features.data_source_note && (
+              <p className="source-note" role="note">
+                {features.data_source_note}
+              </p>
             )}
-          </div>
+          </>
         )}
       </div>
     </section>
