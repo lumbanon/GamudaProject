@@ -440,7 +440,7 @@ useEffect(() => {
     <div>
       <div className='row mb-4 justify-content-between'>
         <div className='col-12'>
-          <div className='card'>
+          <div className='card dashboard-overview-card'>
             <div className='dashboard-overview-grid'>
               <div className='dashboard-overview-item'>
                 <h2>District overview:</h2>
