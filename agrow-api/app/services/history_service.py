@@ -150,18 +150,44 @@ def history_save_block_reason(payload: HistoryCreate) -> str | None:
 
     land_cover = payload.land_cover_result or {}
     satellite = land_cover.get("satellite_building_analysis") or {}
-    if (
-        satellite.get("buildings_detected") is True
-        or satellite.get("is_built_up") is True
-        or satellite.get("land_cover_override_recommended") is True
-    ):
-        return "Analyses containing a detected building or built-up area cannot be saved."
-
     land_cover_value = str(land_cover.get("land_cover") or "").strip().lower()
-    if land_cover_value and any(term in land_cover_value for term in BUILT_AREA_TERMS):
-        return "Analyses containing a detected building or built-up area cannot be saved."
+    is_materially_built_area = (
+        satellite.get("is_built_up") is True
+        or satellite.get("land_cover_override_recommended") is True
+        or (
+            land_cover_value
+            and any(term in land_cover_value for term in BUILT_AREA_TERMS)
+        )
+    )
+    gemini_insight = payload.gemini_insights or prediction.get("genai_insight")
+    if is_materially_built_area and not has_usable_gemini_insight(gemini_insight):
+        return (
+            "Analyses of materially built-up areas require a generated Gemini insight "
+            "before they can be saved."
+        )
 
     return None
+
+
+def has_usable_gemini_insight(insight: Any) -> bool:
+    if not isinstance(insight, dict) or insight.get("fallback_used") is True:
+        return False
+
+    fields = (
+        insight.get("crop_suitability_summary"),
+        insight.get("key_strengths"),
+        insight.get("potential_risks"),
+        insight.get("recommended_actions"),
+    )
+    return any(has_meaningful_insight_value(value) for value in fields)
+
+
+def has_meaningful_insight_value(value: Any) -> bool:
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, list):
+        return any(has_meaningful_insight_value(item) for item in value)
+    return False
 
 
 def list_history(

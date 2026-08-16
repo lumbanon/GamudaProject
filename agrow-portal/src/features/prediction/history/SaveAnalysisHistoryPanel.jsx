@@ -1,6 +1,7 @@
 import { useRef, useState } from "react"
 import { saveAnalysisHistory } from "./historyApi"
 import { buildHistoryPayload } from "./historyPayload"
+import { getHistorySaveBlockReason } from "./historySavePolicy"
 import "./history-view.css"
 
 export default function SaveAnalysisHistoryPanel({
@@ -98,37 +99,6 @@ export default function SaveAnalysisHistoryPanel({
       )}
     </section>
   )
-}
-
-const BUILT_AREA_TERMS = [
-  "built",
-  "urban",
-  "developed",
-  "settlement",
-  "residential",
-  "commercial",
-  "industrial",
-]
-
-function getHistorySaveBlockReason(result) {
-  if (!result) return ""
-  if (result.allowed === false || result.reserved_forest === true) {
-    return "This analysis cannot be saved because the selected area is inside a forest reserve."
-  }
-
-  const satellite = result.satellite_building_analysis || {}
-  const environment = result.features || result.matched_environment || {}
-  const landCover = String(environment.land_cover || "").trim().toLowerCase()
-  const isBuildingArea =
-    satellite.buildings_detected === true ||
-    satellite.is_built_up === true ||
-    satellite.land_cover_override_recommended === true ||
-    BUILT_AREA_TERMS.some((term) => landCover.includes(term))
-
-  if (isBuildingArea) {
-    return "This analysis cannot be saved because a building or built-up area was detected."
-  }
-  return ""
 }
 
 function createIdempotencyKey() {

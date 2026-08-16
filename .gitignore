@@ -37,3 +37,4 @@ agrow-portal/.env
 agrow-api/.venv/
 agrow-api/uvicorn.err.log
 agrow-api/uvicorn.out.log
+.vercel
