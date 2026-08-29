@@ -1,4 +1,0 @@
--r requirements.txt
-
-# Required by Starlette's TestClient in the currently supported FastAPI stack.
-httpx2>=2.9.1,<3
