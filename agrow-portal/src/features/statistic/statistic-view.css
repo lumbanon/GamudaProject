@@ -369,6 +369,24 @@
   text-align: right;
 }
 
+.statistics-select-option > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.statistics-select-option-meta {
+  min-width: 0;
+  max-width: 60%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.statistics-select-option-meta .statistics-select-option-status {
+  max-width: none;
+}
+
 .statistics-select-option svg {
   flex: 0 0 auto;
   color: var(--statistics-leaf);
@@ -387,6 +405,23 @@
   color: #96322c;
   font-size: 0.8rem;
   font-weight: 550;
+}
+
+.statistics-crop-support-summary {
+  margin: 13px 0 0;
+  padding: 9px 11px;
+  border: 1px solid #cfe2d3;
+  border-radius: 8px;
+  color: #385844;
+  background: #f1f7f1;
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.statistics-crop-support-summary strong {
+  color: var(--statistics-forest);
+  font-weight: 600;
 }
 
 .statistics-primary-button,

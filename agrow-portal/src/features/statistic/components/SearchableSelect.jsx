@@ -9,6 +9,7 @@ export default function SearchableSelect({
   searchPlaceholder,
   clearLabel = "Clear selection",
   maxSelections = Number.POSITIVE_INFINITY,
+  optionStatuses = {},
   disabledOptions = [],
   disabledOptionReason = "Unavailable",
   disabled = false,
@@ -31,6 +32,16 @@ export default function SearchableSelect({
     [disabledOptions],
   )
   const hasReachedLimit = selectedValues.length >= maxSelections
+  const normalizedOptionStatuses = useMemo(
+    () =>
+      new Map(
+        Object.entries(optionStatuses).map(([option, status]) => [
+          normalizeValue(option),
+          String(status || "").trim(),
+        ]),
+      ),
+    [optionStatuses],
+  )
 
   const selectableOptions = useMemo(
     () =>
@@ -45,9 +56,16 @@ export default function SearchableSelect({
           unavailable: isUnavailable,
           limitDisabled: hasReachedLimit && !isSelected,
           disabled: isUnavailable || (hasReachedLimit && !isSelected),
+          status: normalizedOptionStatuses.get(optionKey) || "",
         }
       }),
-    [disabledOptionKeys, hasReachedLimit, options, selectedValueKeys],
+    [
+      disabledOptionKeys,
+      hasReachedLimit,
+      normalizedOptionStatuses,
+      options,
+      selectedValueKeys,
+    ],
   )
   const normalizedQuery = normalizeValue(searchQuery.trim())
   const filteredOptions = useMemo(
@@ -314,10 +332,19 @@ export default function SearchableSelect({
                         ? disabledOptionReason
                         : `Maximum ${maxSelections} selected`}
                     </small>
-                  ) : option.selected ? (
-                    <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true">
-                      <path d="m4.5 10.5 3.25 3.25 7.75-8" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
-                    </svg>
+                  ) : option.status || option.selected ? (
+                    <span className="statistics-select-option-meta">
+                      {option.status && (
+                        <small className="statistics-select-option-status">
+                          {option.status}
+                        </small>
+                      )}
+                      {option.selected && (
+                        <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true">
+                          <path d="m4.5 10.5 3.25 3.25 7.75-8" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+                        </svg>
+                      )}
+                    </span>
                   ) : null}
                 </li>
               ))}

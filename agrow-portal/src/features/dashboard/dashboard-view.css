@@ -2,9 +2,20 @@
   padding: 14px;
 }
 
+.dashboard-inline-error {
+  margin-bottom: 12px;
+  padding: 9px 12px;
+  border: 1px solid #f2c3bd;
+  border-radius: 8px;
+  color: #8f2f27;
+  background: #fff4f2;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
 .dashboard-overview-grid {
   display: grid;
-  grid-template-columns: minmax(160px, 0.72fr) repeat(3, minmax(210px, 1fr));
+  grid-template-columns: minmax(180px, 0.72fr) minmax(0, 3fr);
   gap: 12px;
   align-items: stretch;
 }
@@ -13,21 +24,50 @@
   min-width: 0;
 }
 
-.dashboard-overview-item:first-child {
+.dashboard-district-overview {
   display: flex;
   flex-direction: column;
   justify-content: center;
   padding: 8px 6px;
 }
 
-.dashboard-overview-item:first-child h2 {
+.dashboard-district-overview h2 {
   font-size: 1.2rem;
   line-height: 1.15;
 }
 
-.dashboard-overview-item:first-child h2 + h2 {
+.dashboard-district-overview h2 + h2 {
   margin-top: 4px;
   font-size: 1.45rem;
+}
+
+.dashboard-crop-card-scroll {
+  max-height: 304px;
+  min-width: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.dashboard-crop-card-scroll:focus-visible {
+  outline: 2px solid #2e5226;
+  outline-offset: 3px;
+}
+
+.dashboard-crop-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.dashboard-crop-empty {
+  display: grid;
+  min-height: 132px;
+  place-items: center;
+  padding: 18px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  color: #64748b;
+  text-align: center;
 }
 
 .dashboard-overview-item > .card {
@@ -73,16 +113,20 @@
 
 @media (max-width: 825px) {
   .dashboard-overview-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .dashboard-overview-item:first-child {
-    grid-column: 1 / -1;
+  .dashboard-crop-card-grid {
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   }
 }
 
 @media (max-width: 560px) {
   .dashboard-overview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-crop-card-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }

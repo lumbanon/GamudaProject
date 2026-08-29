@@ -33,6 +33,7 @@ import "./statistic-view.css"
 
 const EMPTY_OPTIONS = {
   cropNames: [],
+  crops: [],
   districts: [],
   years: [],
   districtsByCrop: {},

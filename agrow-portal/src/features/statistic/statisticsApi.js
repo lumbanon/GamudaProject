@@ -1,13 +1,22 @@
 import { normalizeSelection } from "./statisticsFilterUtils"
+import {
+  extractStatisticCropNames,
+  normalizeStatisticCropOptions,
+} from "./statisticsCropOptions"
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000"
 
 export async function fetchStatisticOptions({ signal } = {}) {
   const payload = await apiRequest("/api/statistics/options", { signal })
+  const cropNames = uniqueSortedStrings([
+    ...(Array.isArray(payload?.crop_names) ? payload.crop_names : []),
+    ...extractStatisticCropNames(payload?.crops),
+  ])
 
   return {
-    cropNames: uniqueSortedStrings(payload?.crop_names),
+    cropNames,
+    crops: normalizeStatisticCropOptions(payload?.crops, cropNames),
     districts: uniqueSortedStrings(payload?.districts),
     years: uniqueSortedYears(payload?.years),
     districtsByCrop: normalizeDistrictsByCrop(payload?.districts_by_crop),
@@ -77,7 +86,8 @@ function normalizeDistrictsByCrop(value) {
 }
 
 async function apiRequest(path, options = {}) {
-  const token = localStorage.getItem("token")
+  const token =
+    sessionStorage.getItem("token") || localStorage.getItem("token")
   let response
 
   try {

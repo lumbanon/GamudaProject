@@ -47,6 +47,14 @@ class CropDistrictComparison(StatisticMetrics):
     district: str | None = None
 
 
+class StatisticsCropOption(BaseModel):
+    name: str
+    ml_supported: bool
+    prediction_crop_name: str | None = None
+    ml_status: str
+    exclusion_reasons: list[str] = Field(default_factory=list)
+
+
 class CropStatisticsResponse(BaseModel):
     record_count: int
     records: list[CropStatisticRecord] = Field(default_factory=list)
@@ -65,6 +73,7 @@ class CropStatisticsResponse(BaseModel):
 
 class StatisticsOptionsResponse(BaseModel):
     crop_names: list[str] = Field(default_factory=list)
+    crops: list[StatisticsCropOption] = Field(default_factory=list)
     districts: list[str] = Field(default_factory=list)
     years: list[int] = Field(default_factory=list)
     districts_by_crop: dict[str, list[str]] = Field(default_factory=dict)

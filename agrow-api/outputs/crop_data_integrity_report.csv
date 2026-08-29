@@ -1,0 +1,65 @@
+crop_name,scientific_name,statistics_crop_name,statistics_available,historical_records,positive_production_records,positive_production_years,productive_districts,matched_productive_grid_districts,suitability_data_available,complete_environment_samples,environment_data_available,generated_training_samples,class_distribution,ml_supported,exclusion_reasons
+Angled Loofah,Luffa acutangula,Angled Loofah,True,252,146,9,21,19,True,390,True,390,"{""S1"": 212, ""S2"": 177, ""S3"": 1, ""N"": 0}",True,
+Asparagus,Asparagus officinalis,Asparagus,True,252,16,9,2,2,True,390,True,0,{},False,Positive production matches only 2 environmental-grid district(s); at least 5 are required.
+Bamboo Shoots,Dendrocalamus asper,Bamboo Shoots,True,28,0,0,0,0,True,390,True,0,{},False,Only 0 positive-production historical record(s); at least 5 are required. | Positive production covers only 0 year(s); at least 3 are required. | Positive production matches only 0 environmental-grid district(s); at least 5 are required.
+Banana,Musa sp.,Banana,True,252,242,9,27,23,True,390,True,390,"{""S1"": 229, ""S2"": 139, ""S3"": 0, ""N"": 22}",True,
+Bitter Gourd,Momordica charantia,Bitter Gourd,True,252,154,9,22,20,True,390,True,390,"{""S1"": 98, ""S2"": 268, ""S3"": 24, ""N"": 0}",True,
+Bottle Gourd,Lagenaria siceraria,Bottle Gourd,True,252,76,9,13,11,True,390,True,390,"{""S1"": 258, ""S2"": 132, ""S3"": 0, ""N"": 0}",True,
+Brinjal,Solanum melongena,Brinjal,True,252,191,9,26,24,True,390,True,390,"{""S1"": 222, ""S2"": 145, ""S3"": 1, ""N"": 22}",True,
+Broccoli,Brassica oleracea var. italica,Broccoli,True,252,10,9,2,2,True,390,True,0,{},False,Positive production matches only 2 environmental-grid district(s); at least 5 are required.
+Cabbage,Brassica oleracea var. capitata,Cabbage,True,252,48,9,7,7,True,390,True,390,"{""S1"": 136, ""S2"": 200, ""S3"": 54, ""N"": 0}",True,
+Carrot,Daucus carota,Carrot,True,252,17,9,2,2,True,390,True,0,{},False,Positive production matches only 2 environmental-grid district(s); at least 5 are required.
+Cauliflower,Brassica oleracea var. botrytis,Cauliflower,True,252,16,9,6,5,True,390,True,390,"{""S1"": 26, ""S2"": 103, ""S3"": 261, ""N"": 0}",True,
+Celery,Apium graveolens,Celery,True,252,25,8,4,4,True,390,True,0,{},False,Positive production matches only 4 environmental-grid district(s); at least 5 are required.
+Cempedak,Artocarpus integer,Cempedak,True,252,200,9,26,23,True,390,True,390,"{""S1"": 96, ""S2"": 247, ""S3"": 25, ""N"": 22}",True,
+Chilli,Capsicum annuum,Chilli,True,252,144,9,24,22,True,390,True,390,"{""S1"": 222, ""S2"": 145, ""S3"": 1, ""N"": 22}",True,
+Chinese Cabbage,Brassica chinensis,Chinese Cabbage,True,252,22,9,5,5,True,390,True,390,"{""S1"": 101, ""S2"": 244, ""S3"": 45, ""N"": 0}",True,
+Chinese Celery,Apium graveolens,Chinese Celery,True,28,1,1,1,1,True,390,True,0,{},False,Only 1 positive-production historical record(s); at least 5 are required. | Positive production covers only 1 year(s); at least 3 are required. | Positive production matches only 1 environmental-grid district(s); at least 5 are required.
+Chinese Chives,Allium tuberosum,Chinese Chives,True,252,10,9,2,2,True,390,True,0,{},False,Positive production matches only 2 environmental-grid district(s); at least 5 are required.
+Chinese Kale,Brassica oleracea var. acephala,Chinese Kale,True,252,85,9,12,11,True,390,True,390,"{""S1"": 118, ""S2"": 262, ""S3"": 10, ""N"": 0}",True,
+Chinese Parsley,Coriandrum sativum,Chinese Parsley,True,252,8,8,1,1,True,390,True,0,{},False,Positive production matches only 1 environmental-grid district(s); at least 5 are required.
+Ciku,Manilkara zapota,Ciku,True,252,57,9,8,8,True,390,True,390,"{""S1"": 159, ""S2"": 189, ""S3"": 42, ""N"": 0}",True,
+Cucumber,Cucumis sativus,Cucumber,True,252,181,9,24,22,True,390,True,390,"{""S1"": 148, ""S2"": 225, ""S3"": 17, ""N"": 0}",True,
+Dokong,Lansium domesticum,Dokong,True,252,52,9,8,7,True,390,True,390,"{""S1"": 112, ""S2"": 245, ""S3"": 11, ""N"": 22}",True,
+Dragon Fruit,Hylocereus undatus,Dragon Fruit,True,252,89,9,14,13,True,390,True,390,"{""S1"": 154, ""S2"": 148, ""S3"": 66, ""N"": 22}",True,
+Duku,Lansium domesticum,Duku,True,252,84,9,15,14,True,390,True,390,"{""S1"": 87, ""S2"": 231, ""S3"": 50, ""N"": 22}",True,
+Durian,Durio zibethinus,Durian,True,252,233,9,27,24,True,390,True,390,"{""S1"": 180, ""S2"": 183, ""S3"": 5, ""N"": 22}",True,
+Four-angled Bean,Psophocarpus tetragonolobus,Four-angled Bean,True,252,32,9,6,6,True,390,True,390,"{""S1"": 209, ""S2"": 181, ""S3"": 0, ""N"": 0}",True,
+French Bean,Phaseolus vulgaris,French Bean,True,252,78,9,10,9,True,390,True,390,"{""S1"": 295, ""S2"": 95, ""S3"": 0, ""N"": 0}",True,
+Green Cabbage,Brassica oleracea var. capitata,Green Cabbage,True,28,0,0,0,0,True,390,True,0,{},False,Only 0 positive-production historical record(s); at least 5 are required. | Positive production covers only 0 year(s); at least 3 are required. | Positive production matches only 0 environmental-grid district(s); at least 5 are required.
+Guava,Psidium guajava,Guava,True,252,124,9,17,15,True,390,True,390,"{""S1"": 229, ""S2"": 160, ""S3"": 1, ""N"": 0}",True,
+Hot Chilli,Capsicum frutescens,Hot Chilli,True,252,156,9,24,22,True,390,True,390,"{""S1"": 237, ""S2"": 152, ""S3"": 1, ""N"": 0}",True,
+Jackfruit,Artocarpus heterophyllus,Jackfruit,True,252,167,9,23,20,True,390,True,390,"{""S1"": 231, ""S2"": 158, ""S3"": 1, ""N"": 0}",True,
+Lady's Finger,Abelmoschus esculentus,Lady's Finger,True,252,134,9,20,18,True,390,True,390,"{""S1"": 207, ""S2"": 182, ""S3"": 1, ""N"": 0}",True,
+Langsat,Lansium domesticum,Langsat,True,252,183,9,26,23,True,390,True,390,"{""S1"": 95, ""S2"": 253, ""S3"": 20, ""N"": 22}",True,
+Leaf Mustard,Brassica juncea,Leaf Mustard,True,252,191,9,24,22,True,390,True,390,"{""S1"": 187, ""S2"": 195, ""S3"": 8, ""N"": 0}",True,
+Lettuce,Lactuca sativa var. capitata,Lettuce,True,252,39,9,7,7,True,390,True,390,"{""S1"": 112, ""S2"": 208, ""S3"": 70, ""N"": 0}",True,
+Long Bean,Vigna unguiculata ssp. sesquipedalis,Long Bean,True,252,191,9,24,22,True,390,True,390,"{""S1"": 211, ""S2"": 178, ""S3"": 1, ""N"": 0}",True,
+Mango,Mangifera indica,Mango,True,252,226,9,26,23,True,390,True,390,"{""S1"": 222, ""S2"": 145, ""S3"": 1, ""N"": 22}",True,
+Mangosteen,Garcinia mangostana,Mangosteen,True,252,118,9,18,16,True,390,True,390,"{""S1"": 0, ""S2"": 0, ""S3"": 0, ""N"": 390}",False,Outer-training labels contain only 1 suitability class; at least 2 are required.
+Papaya,Carica papaya,Papaya,True,252,131,9,17,16,True,390,True,390,"{""S1"": 200, ""S2"": 167, ""S3"": 1, ""N"": 22}",True,
+Pineapple,Ananas comosus,Pineapple,True,252,214,9,25,22,True,390,True,390,"{""S1"": 230, ""S2"": 160, ""S3"": 0, ""N"": 0}",True,
+Pomelo,Citrus grandis,Pomelo,True,252,122,9,15,13,True,390,True,390,"{""S1"": 291, ""S2"": 77, ""S3"": 0, ""N"": 22}",True,
+Pucuk Paku,Diplazium esculentum,Pucuk Paku,True,140,5,5,1,1,True,390,True,0,{},False,Positive production matches only 1 environmental-grid district(s); at least 5 are required.
+Pulasan,Nephelium mutabile,Pulasan,True,252,0,0,0,0,True,390,True,0,{},False,Only 0 positive-production historical record(s); at least 5 are required. | Positive production covers only 0 year(s); at least 3 are required. | Positive production matches only 0 environmental-grid district(s); at least 5 are required.
+Pumpkin,Cucurbita moschata,Pumpkin,True,252,101,9,18,16,True,390,True,390,"{""S1"": 164, ""S2"": 225, ""S3"": 1, ""N"": 0}",True,
+Radish,Raphanus sativus var. radicula,Radish,True,252,42,9,7,7,True,390,True,390,"{""S1"": 152, ""S2"": 188, ""S3"": 50, ""N"": 0}",True,
+Rambutan,Nephelium lappaceum,Rambutan,True,252,208,9,27,24,True,390,True,390,"{""S1"": 180, ""S2"": 183, ""S3"": 5, ""N"": 22}",True,
+Saderi Cina,Apium graveolens,Saderi Cina,True,28,1,1,1,1,True,390,True,0,{},False,Only 1 positive-production historical record(s); at least 5 are required. | Positive production covers only 1 year(s); at least 3 are required. | Positive production matches only 1 environmental-grid district(s); at least 5 are required.
+Saderi Cina (),Apium graveolens,Saderi Cina (),True,140,7,5,3,3,True,390,True,0,{},False,Positive production matches only 3 environmental-grid district(s); at least 5 are required.
+Salak,Salacca zalacca,Salak,True,252,45,9,5,5,True,390,True,390,"{""S1"": 37, ""S2"": 315, ""S3"": 38, ""N"": 0}",True,
+Snake Gourd,Trichosanthes cucumerina,Snake Gourd,True,252,30,9,5,5,True,390,True,390,"{""S1"": 31, ""S2"": 287, ""S3"": 72, ""N"": 0}",True,
+Snow Pea,Pisum sativum,Snow Pea,True,252,9,9,1,1,True,390,True,0,{},False,Positive production matches only 1 environmental-grid district(s); at least 5 are required.
+Spinach(Bayam),Amaranthus tricolor,Spinach(Bayam),True,252,163,9,22,20,True,390,True,390,"{""S1"": 239, ""S2"": 150, ""S3"": 1, ""N"": 0}",True,
+Spinach(Poh Choy),Spinacia oleracea,Spinach(Poh Choy),True,252,21,9,5,5,True,390,True,390,"{""S1"": 104, ""S2"": 235, ""S3"": 51, ""N"": 0}",True,
+Spring Onion,Allium fistulosum,Spring Onion,True,252,36,9,7,7,True,390,True,390,"{""S1"": 24, ""S2"": 196, ""S3"": 170, ""N"": 0}",True,
+Starfruit,Averrhoa carambola,Starfruit,True,252,98,9,12,11,True,390,True,390,"{""S1"": 196, ""S2"": 168, ""S3"": 4, ""N"": 22}",True,
+Sweet Leek,Allium ampeloprasum,Sweet Leek,True,28,1,1,1,1,True,390,True,0,{},False,Only 1 positive-production historical record(s); at least 5 are required. | Positive production covers only 1 year(s); at least 3 are required. | Positive production matches only 1 environmental-grid district(s); at least 5 are required.
+Sweet Orange,Citrus sinensis,Sweet Orange,True,252,99,9,16,14,True,390,True,390,"{""S1"": 95, ""S2"": 221, ""S3"": 52, ""N"": 22}",True,
+Sweet Pepper,Capsicum annuum,Sweet Pepper,True,252,15,7,4,4,True,390,True,0,{},False,Positive production matches only 4 environmental-grid district(s); at least 5 are required.
+Sweet Shoot,Sauropus androgynus,Sweet Shoot,True,252,155,9,21,19,True,390,True,390,"{""S1"": 147, ""S2"": 227, ""S3"": 16, ""N"": 0}",True,
+Tomato,Lycopersicon esculentum,Tomato,True,252,65,9,9,8,True,390,True,390,"{""S1"": 295, ""S2"": 95, ""S3"": 0, ""N"": 0}",True,
+Water Spinach,Ipomoea aquatica var. reptans,Water Spinach,True,252,192,9,24,22,True,390,True,390,"{""S1"": 241, ""S2"": 149, ""S3"": 0, ""N"": 0}",True,
+Watercress,Nasturtium officinale,Water-Cress,True,252,21,9,4,4,True,390,True,0,{},False,Positive production matches only 4 environmental-grid district(s); at least 5 are required.
+Watermelon,Citrullus lanatus,Watermelon,True,252,157,9,23,20,True,390,True,390,"{""S1"": 137, ""S2"": 215, ""S3"": 16, ""N"": 22}",True,
+Wax Gourd,Benincasa hispida,Wax Gourd,True,252,79,9,11,9,True,390,True,390,"{""S1"": 110, ""S2"": 179, ""S3"": 101, ""N"": 0}",True,

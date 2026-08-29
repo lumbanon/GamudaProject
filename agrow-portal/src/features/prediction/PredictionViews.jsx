@@ -36,6 +36,7 @@ import "./prediction-view.css";
 export default function PredictionViews() {
   const appPreferences = useAppPreferences();
   const satelliteMapRef = useRef(null);
+  const analysisRequestIdRef = useRef(0);
   const [activeTab, setActiveTab] = useState(DEFAULT_PREDICTION_TAB);
   const [selectedHistoryId, setSelectedHistoryId] = useState(null);
   const [restoredFitVersion, setRestoredFitVersion] = useState(0);
@@ -52,6 +53,7 @@ export default function PredictionViews() {
     "",
   );
   const [cropOptions, setCropOptions] = useState([]);
+  const [cropCatalogStatus, setCropCatalogStatus] = useState("loading");
   const [districtOptions, setDistrictOptions] = useState([]);
   const [analysisResult, setAnalysisResult] = useAppPreference(
     APP_PREFERENCE_KEYS.predictionAnalysis,
@@ -69,23 +71,19 @@ export default function PredictionViews() {
     0,
   );
 
-  useEffect(() => {
-    const selectedCropName = String(selectedCrop || "").trim().toLowerCase();
-    const resultCropName = String(analysisResult?.crop || "").trim().toLowerCase();
-
-    if (selectedCropName === "banana") {
-      setSelectedCrop("");
-    }
-    if (selectedCropName === "banana" || resultCropName === "banana") {
-      setAnalysisResult(null);
-    }
-  }, [analysisResult, selectedCrop, setAnalysisResult, setSelectedCrop]);
-
   const areaHectares = useMemo(
     () => calculatePolygonAreaHectares(polygon),
     [polygon],
   );
   const hasLocation = Boolean(polygon?.length || selectedDistrict);
+  const cropNames = useMemo(
+    () => cropOptions.map((crop) => crop.name),
+    [cropOptions],
+  );
+  const canonicalSelectedCrop = useMemo(
+    () => findCropName(cropNames, selectedCrop),
+    [cropNames, selectedCrop],
+  );
   const districtChoices = useMemo(() => {
     const choices = new Set(districtOptions);
     if (selectedDistrict) choices.add(selectedDistrict);
@@ -97,7 +95,8 @@ export default function PredictionViews() {
       reserveStatus?.blocked_reason === "reserved_forest",
   );
   const canAnalyze = Boolean(
-    selectedCrop &&
+    cropCatalogStatus === "ready" &&
+      canonicalSelectedCrop &&
       hasLocation &&
       !isLoading &&
       !isLoadingOptions,
@@ -123,14 +122,12 @@ export default function PredictionViews() {
         ]);
         if (!isMounted) return;
 
-        setCropOptions(
-          (Array.isArray(crops) ? crops : []).filter(
-            (crop) => String(crop?.name || "").trim().toLowerCase() !== "banana",
-          ),
-        );
+        setCropOptions(Array.isArray(crops) ? crops : []);
         setDistrictOptions(environment?.available_districts || []);
+        setCropCatalogStatus("ready");
       } catch (err) {
         if (isMounted) {
+          setCropCatalogStatus("error");
           setError(
             formatFarmerFacingText(err.message) || "Unable to load prediction data right now.",
           );
@@ -146,6 +143,36 @@ export default function PredictionViews() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (cropCatalogStatus !== "ready") return;
+
+    if (selectedCrop && !canonicalSelectedCrop) {
+      setSelectedCrop("");
+      setAnalysisResult(null);
+      return;
+    }
+
+    if (canonicalSelectedCrop && canonicalSelectedCrop !== selectedCrop) {
+      setSelectedCrop(canonicalSelectedCrop);
+    }
+
+    const resultCrop = analysisResult?.crop;
+    if (
+      resultCrop &&
+      normalizeCropName(resultCrop) !== normalizeCropName(canonicalSelectedCrop)
+    ) {
+      setAnalysisResult(null);
+    }
+  }, [
+    analysisResult,
+    canonicalSelectedCrop,
+    cropCatalogStatus,
+    cropNames,
+    selectedCrop,
+    setAnalysisResult,
+    setSelectedCrop,
+  ]);
 
   useEffect(() => {
     if (!polygon?.length) return undefined;
@@ -171,6 +198,7 @@ export default function PredictionViews() {
   }, [polygon, setForestReserveResult]);
 
   function handlePolygonChange(nextPolygon) {
+    invalidatePendingAnalysis();
     const detectedDistrict = detectDistrictFromPolygon(
       nextPolygon,
       sabahDistricts.features,
@@ -183,18 +211,21 @@ export default function PredictionViews() {
   }
 
   function handleCropChange(nextCrop) {
+    invalidatePendingAnalysis();
     setSelectedCrop(nextCrop);
     setAnalysisResult(null);
     setError("");
   }
 
   function handleDistrictChange(nextDistrict) {
+    invalidatePendingAnalysis();
     setSelectedDistrict(nextDistrict);
     setAnalysisResult(null);
     setError("");
   }
 
   function handleClearArea() {
+    invalidatePendingAnalysis();
     setPolygon(null);
     setSelectedDistrict("");
     setAnalysisResult(null);
@@ -207,6 +238,8 @@ export default function PredictionViews() {
   async function handleAnalyze() {
     if (!canAnalyze) return;
 
+    const requestId = analysisRequestIdRef.current + 1;
+    analysisRequestIdRef.current = requestId;
     setIsLoading(true);
     setError("");
     setAnalysisResult(null);
@@ -217,22 +250,30 @@ export default function PredictionViews() {
         try {
           satelliteImageDataUrl =
             (await satelliteMapRef.current?.captureSelectedArea?.()) || null;
+          if (analysisRequestIdRef.current !== requestId) return;
         } catch (captureError) {
           console.warn("Satellite crop could not be prepared for Gemini vision.", captureError);
         }
       }
+      if (analysisRequestIdRef.current !== requestId) return;
 
       const result = await analyzeCropArea({
-        crop: selectedCrop,
+        crop: canonicalSelectedCrop,
         district: selectedDistrict,
         polygon,
         satelliteImageDataUrl,
       });
-      setAnalysisResult(result);
+      if (analysisRequestIdRef.current === requestId) {
+        setAnalysisResult(result);
+      }
     } catch (err) {
-      setError(formatFarmerFacingText(err.message) || "Unable to analyze this farm area right now.");
+      if (analysisRequestIdRef.current === requestId) {
+        setError(formatFarmerFacingText(err.message) || "Unable to analyze this farm area right now.");
+      }
     } finally {
-      setIsLoading(false);
+      if (analysisRequestIdRef.current === requestId) {
+        setIsLoading(false);
+      }
     }
   }
 
@@ -247,11 +288,17 @@ export default function PredictionViews() {
   }
 
   function handleRestoreHistory(restoration) {
+    invalidatePendingAnalysis();
     restoreHistoryIntoPrediction(appPreferences, restoration);
     setError("");
     setSelectedHistoryId(null);
     setRestoredFitVersion((version) => version + 1);
     setActiveTab("new");
+  }
+
+  function invalidatePendingAnalysis() {
+    analysisRequestIdRef.current += 1;
+    setIsLoading(false);
   }
 
   return (
@@ -402,4 +449,17 @@ function normalizeReservedForestOverlay(overlay) {
   if (overlay.type === "FeatureCollection") return overlay;
 
   return null;
+}
+
+function findCropName(cropNames, cropName) {
+  const normalizedName = normalizeCropName(cropName);
+  if (!normalizedName) return "";
+
+  return (
+    cropNames.find((name) => normalizeCropName(name) === normalizedName) || ""
+  );
+}
+
+function normalizeCropName(value) {
+  return String(value || "").trim().toLocaleLowerCase("en-MY");
 }

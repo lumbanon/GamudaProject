@@ -6,11 +6,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.models.crop_statistic import CropStatistic
+from app.services.crop_registry import get_statistics_crop_support
 
 
 ZERO = Decimal("0")
-STATISTICS_CROPS = ("Cabbage", "Watermelon", "Durian")
-STATISTICS_CROP_KEYS = tuple(crop.casefold() for crop in STATISTICS_CROPS)
 
 
 class StatisticsDataError(Exception):
@@ -116,11 +115,6 @@ def get_statistics_options(db: Session) -> dict:
                 CropStatistic.production_tonnes,
                 CropStatistic.economic_value_myr,
             )
-            .filter(
-                func.lower(func.trim(CropStatistic.crop_name)).in_(
-                    STATISTICS_CROP_KEYS
-                )
-            )
             .all()
         )
     except SQLAlchemyError as exc:
@@ -166,6 +160,7 @@ def get_statistics_options(db: Session) -> dict:
 
     return {
         "crop_names": sorted_crop_names,
+        "crops": get_statistics_crop_support(sorted_crop_names),
         "districts": sorted(
             district_label_map.values(),
             key=lambda value: (value.casefold(), value),
@@ -222,12 +217,6 @@ def _normalize_filter_group(
 
 
 def _apply_filters(query, filters: StatisticsFilters):
-    query = query.filter(
-        func.lower(func.trim(CropStatistic.crop_name)).in_(
-            STATISTICS_CROP_KEYS
-        )
-    )
-
     if filters.crop_names:
         query = query.filter(
             func.lower(func.trim(CropStatistic.crop_name)).in_(

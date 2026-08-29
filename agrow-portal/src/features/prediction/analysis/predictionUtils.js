@@ -38,8 +38,9 @@ export function formatNumber(value, digits = 1) {
 }
 
 export function formatCurrency(value) {
+  if (value === null || value === undefined || value === "") return "Unavailable"
   const number = Number(value)
-  if (!Number.isFinite(number)) return "MYR 0"
+  if (!Number.isFinite(number)) return "Unavailable"
   return `MYR ${number.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 }
 
@@ -49,19 +50,6 @@ export function getSuitabilityTone(status) {
   if (normalized.includes("low")) return "low"
   if (normalized.includes("moderate")) return "moderate"
   return "suitable"
-}
-
-export function buildFeatureRows(features = {}) {
-  return [
-    { label: "Rainfall", value: formatFeatureValue(features.rainfall_mm, "mm") },
-    { label: "Solar radiation", value: formatFeatureValue(features.solar_radiation) },
-    { label: "Root zone moisture", value: formatFeatureValue(features.root_zone_moisture) },
-    { label: "Soil pH", value: formatFeatureValue(features.soil_ph) },
-    { label: "Soil depth", value: formatFeatureValue(features.soil_depth_cm, "cm") },
-    { label: "Elevation", value: formatFeatureValue(features.elevation_m, "m") },
-    { label: "Slope", value: formatFeatureValue(features.slope_pct, "%") },
-    { label: "Land cover", value: toTitleCase(features.land_cover || "N/A") },
-  ]
 }
 
 export function buildClimateFeatureRows(features = {}) {
@@ -210,11 +198,6 @@ export function polygonHasSelfIntersection(polygon) {
   }
 
   return false
-}
-
-export function formatPlaceholderFields(fields = []) {
-  if (!Array.isArray(fields) || fields.length === 0) return ""
-  return fields.map((field) => toTitleCase(String(field).replaceAll("_", " "))).join(", ")
 }
 
 const DEFAULT_FARMER_DATA_MESSAGE = "Based on available crop and environmental data."

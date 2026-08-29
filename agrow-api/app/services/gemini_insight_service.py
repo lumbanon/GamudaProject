@@ -169,7 +169,6 @@ def build_gemini_ai_insight(
             fallback_summary=fallback,
         ),
         crop=crop,
-        district=district,
         environment=environment,
     )
     image_part = None
@@ -223,7 +222,6 @@ def build_gemini_ai_insight(
             insight = enforce_land_cover_ai_rules(
                 insight,
                 crop=crop,
-                district=district,
                 environment=environment,
             )
             return insight, satellite_analysis
@@ -319,7 +317,6 @@ def build_gemini_ai_insight(
     insight = enforce_land_cover_ai_rules(
         insight,
         crop=crop,
-        district=district,
         environment=environment,
     )
     return insight, satellite_analysis
@@ -704,7 +701,6 @@ def enforce_land_cover_ai_rules(
     insight: dict,
     *,
     crop,
-    district: str | None,
     environment: dict,
 ) -> dict:
     values = environment.get("values", {}) if isinstance(environment, dict) else {}

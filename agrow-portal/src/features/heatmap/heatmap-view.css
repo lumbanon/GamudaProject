@@ -71,6 +71,23 @@
   box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.25);
 }
 
+.control-dropdown-select:disabled {
+  cursor: not-allowed;
+  color: #8794a5;
+  background-color: #f1f5f9;
+}
+
+.heatmap-inline-error {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #991b1b;
+  background: #fef2f2;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
 .heatmap-map-wrapper {
   width: 100%;
   height: 580px;

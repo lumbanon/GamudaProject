@@ -14,6 +14,7 @@ class CropOption(BaseModel):
     ideal_ph_min: float | None = None
     ideal_ph_max: float | None = None
     max_slope_pct: float | None = None
+    ml_supported: bool = True
 
 
 class EnvironmentValues(BaseModel):

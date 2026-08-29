@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 from geoalchemy2.elements import WKTElement
-from sqlalchemy import func, or_, text
+from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -48,7 +48,6 @@ BUILT_AREA_TERMS = (
     "commercial",
     "industrial",
 )
-REMOVED_CROP_KEYS = {"banana"}
 
 
 def create_history(
@@ -134,10 +133,6 @@ def create_history(
 
 
 def history_save_block_reason(payload: HistoryCreate) -> str | None:
-    selected_crop = str(payload.selected_crop or "").strip().casefold()
-    if selected_crop in REMOVED_CROP_KEYS:
-        return "The selected crop is no longer supported for prediction."
-
     forest = payload.forest_reserve_result or {}
     prediction = payload.prediction_result or {}
     if (
@@ -152,18 +147,21 @@ def history_save_block_reason(payload: HistoryCreate) -> str | None:
     satellite = land_cover.get("satellite_building_analysis") or {}
     land_cover_value = str(land_cover.get("land_cover") or "").strip().lower()
     is_materially_built_area = (
-        satellite.get("is_built_up") is True
+        satellite.get("buildings_detected") is True
+        or satellite.get("is_built_up") is True
         or satellite.get("land_cover_override_recommended") is True
         or (
             land_cover_value
             and any(term in land_cover_value for term in BUILT_AREA_TERMS)
         )
     )
-    gemini_insight = payload.gemini_insights or prediction.get("genai_insight")
+    gemini_insight = getattr(payload, "gemini_insights", None) or prediction.get(
+        "genai_insight"
+    )
     if is_materially_built_area and not has_usable_gemini_insight(gemini_insight):
         return (
-            "Analyses of materially built-up areas require a generated Gemini insight "
-            "before they can be saved."
+            "Analyses with a detected building or materially built-up area require "
+            "a generated Gemini insight before they can be saved."
         )
 
     return None
@@ -206,13 +204,7 @@ def list_history(
     sort_by: str,
     sort_order: str,
 ) -> dict[str, Any]:
-    query = db.query(AnalysisHistory).filter(
-        AnalysisHistory.user_id == user_id,
-        or_(
-            AnalysisHistory.selected_crop.is_(None),
-            func.lower(func.trim(AnalysisHistory.selected_crop)).notin_(REMOVED_CROP_KEYS),
-        ),
-    )
+    query = db.query(AnalysisHistory).filter(AnalysisHistory.user_id == user_id)
     if search:
         query = query.filter(AnalysisHistory.name.ilike(f"%{search.strip()}%"))
     if crop:
@@ -279,10 +271,6 @@ def get_history(
             .filter(
                 AnalysisHistory.id == history_id,
                 AnalysisHistory.user_id == user_id,
-                or_(
-                    AnalysisHistory.selected_crop.is_(None),
-                    func.lower(func.trim(AnalysisHistory.selected_crop)).notin_(REMOVED_CROP_KEYS),
-                ),
             )
             .first()
         )

@@ -34,6 +34,26 @@ export default function StatisticsFilters({
     selectedCropNames.length === 1
       ? `No data for ${selectedCropNames[0]}`
       : "No data for any selected crop"
+  const cropSupportMetadata = Array.isArray(options.crops)
+    ? options.crops
+    : []
+  const hasCropSupportMetadata = cropSupportMetadata.some(
+    (crop) => typeof crop?.mlSupported === "boolean",
+  )
+  const mlSupportedCount = cropSupportMetadata.filter(
+    (crop) => crop?.mlSupported === true,
+  ).length
+  const statisticsOnlyCount = cropSupportMetadata.filter(
+    (crop) => crop?.mlSupported === false,
+  ).length
+  const cropOptionStatuses = hasCropSupportMetadata
+    ? Object.fromEntries(
+        cropSupportMetadata.map((crop) => [
+          crop.name,
+          crop.mlSupported ? "ML prediction supported" : "Statistics only",
+        ]),
+      )
+    : {}
 
   return (
     <section className="statistics-card statistics-filter-card" aria-labelledby="statistics-filter-title">
@@ -65,6 +85,7 @@ export default function StatisticsFilters({
           searchPlaceholder="Search crops..."
           clearLabel="Clear all crops"
           maxSelections={MAX_CROP_SELECTIONS}
+          optionStatuses={cropOptionStatuses}
           onChange={(values) => onChange("cropNames", values)}
           disabled={isLoadingOptions}
         />
@@ -143,6 +164,15 @@ export default function StatisticsFilters({
           </>
         )}
       </div>
+
+      {hasCropSupportMetadata && (
+        <p className="statistics-crop-support-summary" role="status">
+          <strong>Prediction coverage:</strong> {mlSupportedCount} of{" "}
+          {options.cropNames.length} crops support ML prediction;{" "}
+          {statisticsOnlyCount} are statistics-only. All{" "}
+          {options.cropNames.length} remain selectable for statistics.
+        </p>
+      )}
 
       {validationError && (
         <p className="statistics-filter-error" role="alert">

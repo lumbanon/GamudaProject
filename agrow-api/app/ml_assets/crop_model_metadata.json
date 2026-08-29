@@ -1,0 +1,2464 @@
+{
+  "schema_version": 1,
+  "trained_at": "2026-08-18T13:30:34.406601+00:00",
+  "model_type": "RandomForestClassifier",
+  "model_parameters": {
+    "bootstrap": true,
+    "ccp_alpha": 0.0,
+    "class_weight": "balanced_subsample",
+    "criterion": "gini",
+    "max_depth": null,
+    "max_features": "sqrt",
+    "max_leaf_nodes": null,
+    "max_samples": null,
+    "min_impurity_decrease": 0.0,
+    "min_samples_leaf": 1,
+    "min_samples_split": 2,
+    "min_weight_fraction_leaf": 0.0,
+    "monotonic_cst": null,
+    "n_estimators": 120,
+    "n_jobs": -1,
+    "oob_score": false,
+    "random_state": 42,
+    "verbose": 0,
+    "warm_start": false
+  },
+  "model_selection": {
+    "method": "3-fold GroupKFold on outer-training districts with fold-local productive-range and label regeneration",
+    "scoring": "macro F1",
+    "best_cross_validation_score": 0.7094533214918112,
+    "best_parameters": {
+      "max_depth": null,
+      "max_features": "sqrt",
+      "n_estimators": 120
+    },
+    "n_splits": 3,
+    "candidate_count": 8,
+    "evaluated_model_fits": 24,
+    "cross_validation_fold_ranges_refit": true,
+    "cross_validation_labels_regenerated_per_candidate_fold": true,
+    "selection_tie_breaker": "Highest mean validation macro F1; earliest declared candidate wins exact ties.",
+    "folds": [
+      {
+        "fold": 1,
+        "fit_districts": [
+          "beluran",
+          "kalabakan",
+          "kinabatangan",
+          "kota belud",
+          "kota marudu",
+          "kunak",
+          "papar",
+          "penampang",
+          "sandakan",
+          "semporna",
+          "tambunan",
+          "tawau",
+          "tenom"
+        ],
+        "validation_districts": [
+          "keningau",
+          "kota kinabalu",
+          "nabawan",
+          "pitas",
+          "sipitang",
+          "telupid",
+          "tuaran"
+        ],
+        "fit_grid_samples": 195,
+        "validation_grid_samples": 105,
+        "fit_generated_samples": 8970,
+        "validation_generated_samples": 4830,
+        "fit_class_distribution": {
+          "S1": 3267,
+          "S2": 4434,
+          "S3": 1061,
+          "N": 208
+        },
+        "validation_class_distribution": {
+          "S1": 2474,
+          "S2": 1961,
+          "S3": 331,
+          "N": 64
+        },
+        "district_group_overlap": 0,
+        "grid_id_overlap": 0,
+        "productive_environment_ranges_fit_on_fold_fit_districts_only": true
+      },
+      {
+        "fold": 2,
+        "fit_districts": [
+          "kalabakan",
+          "keningau",
+          "kota belud",
+          "kota kinabalu",
+          "kunak",
+          "nabawan",
+          "penampang",
+          "pitas",
+          "semporna",
+          "sipitang",
+          "tawau",
+          "telupid",
+          "tuaran"
+        ],
+        "validation_districts": [
+          "beluran",
+          "kinabatangan",
+          "kota marudu",
+          "papar",
+          "sandakan",
+          "tambunan",
+          "tenom"
+        ],
+        "fit_grid_samples": 195,
+        "validation_grid_samples": 105,
+        "fit_generated_samples": 8970,
+        "validation_generated_samples": 4830,
+        "fit_class_distribution": {
+          "S1": 3406,
+          "S2": 4084,
+          "S3": 1288,
+          "N": 192
+        },
+        "validation_class_distribution": {
+          "S1": 1099,
+          "S2": 3080,
+          "S3": 571,
+          "N": 80
+        },
+        "district_group_overlap": 0,
+        "grid_id_overlap": 0,
+        "productive_environment_ranges_fit_on_fold_fit_districts_only": true
+      },
+      {
+        "fold": 3,
+        "fit_districts": [
+          "beluran",
+          "keningau",
+          "kinabatangan",
+          "kota kinabalu",
+          "kota marudu",
+          "nabawan",
+          "papar",
+          "pitas",
+          "sandakan",
+          "sipitang",
+          "tambunan",
+          "telupid",
+          "tenom",
+          "tuaran"
+        ],
+        "validation_districts": [
+          "kalabakan",
+          "kota belud",
+          "kunak",
+          "penampang",
+          "semporna",
+          "tawau"
+        ],
+        "fit_grid_samples": 210,
+        "validation_grid_samples": 90,
+        "fit_generated_samples": 9660,
+        "validation_generated_samples": 4140,
+        "fit_class_distribution": {
+          "S1": 4507,
+          "S2": 4288,
+          "S3": 721,
+          "N": 144
+        },
+        "validation_class_distribution": {
+          "S1": 344,
+          "S2": 2007,
+          "S3": 1661,
+          "N": 128
+        },
+        "district_group_overlap": 0,
+        "grid_id_overlap": 0,
+        "productive_environment_ranges_fit_on_fold_fit_districts_only": true
+      }
+    ],
+    "candidates": [
+      {
+        "candidate_order": 1,
+        "parameters": {
+          "max_depth": 18,
+          "max_features": "sqrt",
+          "n_estimators": 120
+        },
+        "fold_validation_scores": [
+          0.703666277459959,
+          0.670332508842487,
+          0.419341516168814
+        ],
+        "mean_validation_score": 0.5977801008237534,
+        "standard_deviation": 0.12690687242437335
+      },
+      {
+        "candidate_order": 2,
+        "parameters": {
+          "max_depth": 18,
+          "max_features": "sqrt",
+          "n_estimators": 180
+        },
+        "fold_validation_scores": [
+          0.7021478268375837,
+          0.6762894745820057,
+          0.4175211052015804
+        ],
+        "mean_validation_score": 0.5986528022070566,
+        "standard_deviation": 0.128513766682552
+      },
+      {
+        "candidate_order": 3,
+        "parameters": {
+          "max_depth": 18,
+          "max_features": 0.5,
+          "n_estimators": 120
+        },
+        "fold_validation_scores": [
+          0.6710689341447985,
+          0.6768660457845733,
+          0.349075791442183
+        ],
+        "mean_validation_score": 0.5656702571238515,
+        "standard_deviation": 0.15317369998096203
+      },
+      {
+        "candidate_order": 4,
+        "parameters": {
+          "max_depth": 18,
+          "max_features": 0.5,
+          "n_estimators": 180
+        },
+        "fold_validation_scores": [
+          0.6697532774994863,
+          0.6677778273496783,
+          0.3475059208260898
+        ],
+        "mean_validation_score": 0.5616790085584181,
+        "standard_deviation": 0.15144539000890345
+      },
+      {
+        "candidate_order": 5,
+        "parameters": {
+          "max_depth": null,
+          "max_features": "sqrt",
+          "n_estimators": 120
+        },
+        "fold_validation_scores": [
+          0.8203439448025864,
+          0.7999282773537816,
+          0.5080877423190653
+        ],
+        "mean_validation_score": 0.7094533214918112,
+        "standard_deviation": 0.14263069381220525
+      },
+      {
+        "candidate_order": 6,
+        "parameters": {
+          "max_depth": null,
+          "max_features": "sqrt",
+          "n_estimators": 180
+        },
+        "fold_validation_scores": [
+          0.8194413483034371,
+          0.8009540695710908,
+          0.49523384288435224
+        ],
+        "mean_validation_score": 0.7052097535862933,
+        "standard_deviation": 0.14866709381492607
+      },
+      {
+        "candidate_order": 7,
+        "parameters": {
+          "max_depth": null,
+          "max_features": 0.5,
+          "n_estimators": 120
+        },
+        "fold_validation_scores": [
+          0.8072409221373519,
+          0.8083795553449593,
+          0.462793554144299
+        ],
+        "mean_validation_score": 0.6928046772088701,
+        "standard_deviation": 0.16264308914811865
+      },
+      {
+        "candidate_order": 8,
+        "parameters": {
+          "max_depth": null,
+          "max_features": 0.5,
+          "n_estimators": 180
+        },
+        "fold_validation_scores": [
+          0.8036336422146453,
+          0.8079899383771625,
+          0.4586564185749959
+        ],
+        "mean_validation_score": 0.6900933330556013,
+        "standard_deviation": 0.16366027489343316
+      }
+    ]
+  },
+  "feature_fields": [
+    "crop_name_Angled Loofah",
+    "crop_name_Banana",
+    "crop_name_Bitter Gourd",
+    "crop_name_Bottle Gourd",
+    "crop_name_Brinjal",
+    "crop_name_Cabbage",
+    "crop_name_Cauliflower",
+    "crop_name_Cempedak",
+    "crop_name_Chilli",
+    "crop_name_Chinese Cabbage",
+    "crop_name_Chinese Kale",
+    "crop_name_Ciku",
+    "crop_name_Cucumber",
+    "crop_name_Dokong",
+    "crop_name_Dragon Fruit",
+    "crop_name_Duku",
+    "crop_name_Durian",
+    "crop_name_Four-angled Bean",
+    "crop_name_French Bean",
+    "crop_name_Guava",
+    "crop_name_Hot Chilli",
+    "crop_name_Jackfruit",
+    "crop_name_Lady's Finger",
+    "crop_name_Langsat",
+    "crop_name_Leaf Mustard",
+    "crop_name_Lettuce",
+    "crop_name_Long Bean",
+    "crop_name_Mango",
+    "crop_name_Papaya",
+    "crop_name_Pineapple",
+    "crop_name_Pomelo",
+    "crop_name_Pumpkin",
+    "crop_name_Radish",
+    "crop_name_Rambutan",
+    "crop_name_Salak",
+    "crop_name_Snake Gourd",
+    "crop_name_Spinach(Bayam)",
+    "crop_name_Spinach(Poh Choy)",
+    "crop_name_Spring Onion",
+    "crop_name_Starfruit",
+    "crop_name_Sweet Orange",
+    "crop_name_Sweet Shoot",
+    "crop_name_Tomato",
+    "crop_name_Water Spinach",
+    "crop_name_Watermelon",
+    "crop_name_Wax Gourd",
+    "elevation_meters",
+    "slope_pct",
+    "soil_ph",
+    "soil_depth_cm",
+    "annual_rainfall_mm",
+    "solar_radiation",
+    "root_zone_moisture"
+  ],
+  "crop_encoding": "one_hot",
+  "target_field": "suitability_class",
+  "trained_crop_names": [
+    "Angled Loofah",
+    "Banana",
+    "Bitter Gourd",
+    "Bottle Gourd",
+    "Brinjal",
+    "Cabbage",
+    "Cauliflower",
+    "Cempedak",
+    "Chilli",
+    "Chinese Cabbage",
+    "Chinese Kale",
+    "Ciku",
+    "Cucumber",
+    "Dokong",
+    "Dragon Fruit",
+    "Duku",
+    "Durian",
+    "Four-angled Bean",
+    "French Bean",
+    "Guava",
+    "Hot Chilli",
+    "Jackfruit",
+    "Lady's Finger",
+    "Langsat",
+    "Leaf Mustard",
+    "Lettuce",
+    "Long Bean",
+    "Mango",
+    "Papaya",
+    "Pineapple",
+    "Pomelo",
+    "Pumpkin",
+    "Radish",
+    "Rambutan",
+    "Salak",
+    "Snake Gourd",
+    "Spinach(Bayam)",
+    "Spinach(Poh Choy)",
+    "Spring Onion",
+    "Starfruit",
+    "Sweet Orange",
+    "Sweet Shoot",
+    "Tomato",
+    "Water Spinach",
+    "Watermelon",
+    "Wax Gourd"
+  ],
+  "total_crops": 46,
+  "registry_crop_count": 64,
+  "statistics_crop_count": 64,
+  "total_training_samples": 17940,
+  "samples_per_crop": {
+    "Angled Loofah": 390,
+    "Banana": 390,
+    "Bitter Gourd": 390,
+    "Bottle Gourd": 390,
+    "Brinjal": 390,
+    "Cabbage": 390,
+    "Cauliflower": 390,
+    "Cempedak": 390,
+    "Chilli": 390,
+    "Chinese Cabbage": 390,
+    "Chinese Kale": 390,
+    "Ciku": 390,
+    "Cucumber": 390,
+    "Dokong": 390,
+    "Dragon Fruit": 390,
+    "Duku": 390,
+    "Durian": 390,
+    "Four-angled Bean": 390,
+    "French Bean": 390,
+    "Guava": 390,
+    "Hot Chilli": 390,
+    "Jackfruit": 390,
+    "Lady's Finger": 390,
+    "Langsat": 390,
+    "Leaf Mustard": 390,
+    "Lettuce": 390,
+    "Long Bean": 390,
+    "Mango": 390,
+    "Papaya": 390,
+    "Pineapple": 390,
+    "Pomelo": 390,
+    "Pumpkin": 390,
+    "Radish": 390,
+    "Rambutan": 390,
+    "Salak": 390,
+    "Snake Gourd": 390,
+    "Spinach(Bayam)": 390,
+    "Spinach(Poh Choy)": 390,
+    "Spring Onion": 390,
+    "Starfruit": 390,
+    "Sweet Orange": 390,
+    "Sweet Shoot": 390,
+    "Tomato": 390,
+    "Water Spinach": 390,
+    "Watermelon": 390,
+    "Wax Gourd": 390
+  },
+  "class_distribution": {
+    "S1": 7666,
+    "S2": 8627,
+    "S3": 1295,
+    "N": 352
+  },
+  "class_imbalance": {
+    "majority_class": "S2",
+    "minority_class": "N",
+    "majority_to_minority_ratio": 24.508522727272727,
+    "mitigation": "RandomForest class_weight='balanced_subsample'."
+  },
+  "split": {
+    "method": "grouped 80/20 split by district before label generation",
+    "train_samples": 13800,
+    "test_samples": 4140,
+    "train_district_groups": 20,
+    "test_district_groups": 6,
+    "train_districts": [
+      "beluran",
+      "kalabakan",
+      "keningau",
+      "kinabatangan",
+      "kota belud",
+      "kota kinabalu",
+      "kota marudu",
+      "kunak",
+      "nabawan",
+      "papar",
+      "penampang",
+      "pitas",
+      "sandakan",
+      "semporna",
+      "sipitang",
+      "tambunan",
+      "tawau",
+      "telupid",
+      "tenom",
+      "tuaran"
+    ],
+    "test_districts": [
+      "beaufort",
+      "kuala penyu",
+      "kudat",
+      "lahad datu",
+      "ranau",
+      "tongod"
+    ],
+    "train_grid_samples": 300,
+    "test_grid_samples": 90
+  },
+  "eligibility_policy": {
+    "minimum_positive_production_records": 5,
+    "minimum_positive_production_years": 3,
+    "minimum_productive_grid_districts": 5,
+    "minimum_complete_environment_samples": 30,
+    "minimum_distinct_suitability_classes": 2,
+    "required_suitability_fields": [
+      "min_temp_limit",
+      "ideal_temp_min",
+      "ideal_temp_max",
+      "max_temp_limit",
+      "min_annual_rainfall",
+      "min_soil_depth_cm",
+      "ideal_ph_min",
+      "ideal_ph_max",
+      "max_slope_pct"
+    ],
+    "required_environment_fields": [
+      "elevation_meters",
+      "slope_pct",
+      "soil_ph",
+      "soil_depth_cm",
+      "annual_rainfall_mm",
+      "solar_radiation",
+      "root_zone_moisture"
+    ]
+  },
+  "label_generation_policy": {
+    "veto_requirements": [
+      "maximum crop slope",
+      "minimum crop soil depth",
+      "minimum crop annual rainfall"
+    ],
+    "preference_matches": [
+      "crop ideal soil-pH range",
+      "training-district productive elevation range",
+      "training-district productive rainfall range",
+      "training-district productive solar-radiation range",
+      "training-district productive root-zone-moisture range"
+    ],
+    "S1_minimum_match_ratio": 1.0,
+    "S2_minimum_match_ratio": 0.6,
+    "historical_production_as_model_feature": false,
+    "temperature_requirements_validated_for_completeness": true,
+    "temperature_used_in_ml_labels": false,
+    "temperature_used_as_ml_feature": false,
+    "temperature_exclusion_reason": "The spatial_grids training source has no temperature field; runtime temperature_annual raster values are used only by the separate rule-based suitability score.",
+    "note": "Historical production determines crop eligibility and productive environment ranges, but is not scored directly because it is an outcome proxy unavailable for a new-site environmental prediction."
+  },
+  "leakage_checks": {
+    "target_in_feature_fields": false,
+    "district_group_overlap": 0,
+    "grid_id_overlap": 0,
+    "empirical_ranges_fit_on_training_districts_only": true,
+    "cross_validation_fold_ranges_refit": true,
+    "cross_validation_labels_regenerated_per_candidate_fold": true,
+    "note": "Labels are generated from generic crop requirements, productive-district history, and environmental inputs. The target is not a feature; outer empirical ranges are fitted only on outer-training districts; every cross-validation fold refits ranges and labels from its fit districts; and no district or spatial grid id appears in both outer train and test sets."
+  },
+  "metrics": {
+    "overall_accuracy": 0.8094202898550724,
+    "precision_recall_f1": {
+      "S1": {
+        "precision": 0.7808817110432126,
+        "recall": 0.9274235355106273,
+        "f1-score": 0.8478672985781991,
+        "support": 1929.0
+      },
+      "S2": {
+        "precision": 0.8374772589448151,
+        "recall": 0.7268421052631578,
+        "f1-score": 0.778247393632009,
+        "support": 1900.0
+      },
+      "S3": {
+        "precision": 0.8416666666666667,
+        "recall": 0.43722943722943725,
+        "f1-score": 0.5754985754985755,
+        "support": 231.0
+      },
+      "N": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 80.0
+      },
+      "accuracy": 0.8094202898550724,
+      "macro avg": {
+        "precision": 0.8650064091636736,
+        "recall": 0.7728737695008057,
+        "f1-score": 0.8004033169271959,
+        "support": 4140.0
+      },
+      "weighted avg": {
+        "precision": 0.814481307390702,
+        "recall": 0.8094202898550724,
+        "f1-score": 0.8036585115454913,
+        "support": 4140.0
+      }
+    },
+    "confusion_matrix_labels": [
+      "S1",
+      "S2",
+      "S3",
+      "N"
+    ],
+    "confusion_matrix": [
+      [
+        1789,
+        140,
+        0,
+        0
+      ],
+      [
+        500,
+        1381,
+        19,
+        0
+      ],
+      [
+        2,
+        128,
+        101,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        80
+      ]
+    ],
+    "test_class_distribution": {
+      "S1": 1929,
+      "S2": 1900,
+      "S3": 231,
+      "N": 80
+    },
+    "train_samples": 13800,
+    "test_samples": 4140,
+    "train_district_groups": 20,
+    "test_district_groups": 6,
+    "district_group_overlap": 0,
+    "test_imbalance_ratio": 24.1125
+  },
+  "per_crop_metrics": [
+    {
+      "crop_name": "Angled Loofah",
+      "test_samples": 90,
+      "accuracy": 0.8111111111111111,
+      "macro_precision": 0.444078947368421,
+      "macro_recall": 0.3629032258064516,
+      "macro_f1": 0.3740740740740741
+    },
+    {
+      "crop_name": "Banana",
+      "test_samples": 90,
+      "accuracy": 0.8555555555555555,
+      "macro_precision": 0.704225352112676,
+      "macro_recall": 0.6296296296296297,
+      "macro_f1": 0.6455379088674608
+    },
+    {
+      "crop_name": "Bitter Gourd",
+      "test_samples": 90,
+      "accuracy": 0.7444444444444445,
+      "macro_precision": 0.35321969696969696,
+      "macro_recall": 0.35734552332912983,
+      "macro_f1": 0.3547244094488189
+    },
+    {
+      "crop_name": "Bottle Gourd",
+      "test_samples": 90,
+      "accuracy": 0.9666666666666667,
+      "macro_precision": 0.4902597402597403,
+      "macro_recall": 0.453125,
+      "macro_f1": 0.46917104361726425
+    },
+    {
+      "crop_name": "Brinjal",
+      "test_samples": 90,
+      "accuracy": 0.8333333333333334,
+      "macro_precision": 0.6971830985915493,
+      "macro_recall": 0.6206896551724138,
+      "macro_f1": 0.6332631386193005
+    },
+    {
+      "crop_name": "Cabbage",
+      "test_samples": 90,
+      "accuracy": 0.7222222222222222,
+      "macro_precision": 0.3849206349206349,
+      "macro_recall": 0.38680069930069927,
+      "macro_f1": 0.3734069668649108
+    },
+    {
+      "crop_name": "Cauliflower",
+      "test_samples": 90,
+      "accuracy": 0.8222222222222222,
+      "macro_precision": 0.36430481283422456,
+      "macro_recall": 0.3819444444444444,
+      "macro_f1": 0.37142857142857144
+    },
+    {
+      "crop_name": "Cempedak",
+      "test_samples": 90,
+      "accuracy": 0.8444444444444444,
+      "macro_precision": 0.6649106002554278,
+      "macro_recall": 0.6732804232804233,
+      "macro_f1": 0.66875
+    },
+    {
+      "crop_name": "Chilli",
+      "test_samples": 90,
+      "accuracy": 0.8333333333333334,
+      "macro_precision": 0.6971830985915493,
+      "macro_recall": 0.6206896551724138,
+      "macro_f1": 0.6332631386193005
+    },
+    {
+      "crop_name": "Chinese Cabbage",
+      "test_samples": 90,
+      "accuracy": 0.8333333333333334,
+      "macro_precision": 0.4193121693121693,
+      "macro_recall": 0.4621428571428572,
+      "macro_f1": 0.43964124111182934
+    },
+    {
+      "crop_name": "Chinese Kale",
+      "test_samples": 90,
+      "accuracy": 0.8444444444444444,
+      "macro_precision": 0.4083333333333333,
+      "macro_recall": 0.4141705069124424,
+      "macro_f1": 0.4109666478236291
+    },
+    {
+      "crop_name": "Ciku",
+      "test_samples": 90,
+      "accuracy": 0.9111111111111111,
+      "macro_precision": 0.453125,
+      "macro_recall": 0.4930555555555556,
+      "macro_f1": 0.4717273954116059
+    },
+    {
+      "crop_name": "Cucumber",
+      "test_samples": 90,
+      "accuracy": 0.8111111111111111,
+      "macro_precision": 0.40555555555555556,
+      "macro_recall": 0.422275641025641,
+      "macro_f1": 0.41263440860215056
+    },
+    {
+      "crop_name": "Dokong",
+      "test_samples": 90,
+      "accuracy": 0.8666666666666667,
+      "macro_precision": 0.6729312354312355,
+      "macro_recall": 0.6997354497354498,
+      "macro_f1": 0.6848128673059078
+    },
+    {
+      "crop_name": "Dragon Fruit",
+      "test_samples": 90,
+      "accuracy": 0.7222222222222222,
+      "macro_precision": 0.8444117647058824,
+      "macro_recall": 0.6694475867269984,
+      "macro_f1": 0.6686743674367437
+    },
+    {
+      "crop_name": "Duku",
+      "test_samples": 90,
+      "accuracy": 0.6888888888888889,
+      "macro_precision": 0.5657445355191257,
+      "macro_recall": 0.591304347826087,
+      "macro_f1": 0.5779530447542186
+    },
+    {
+      "crop_name": "Durian",
+      "test_samples": 90,
+      "accuracy": 0.7666666666666667,
+      "macro_precision": 0.6516479663394109,
+      "macro_recall": 0.6201388888888889,
+      "macro_f1": 0.617601246105919
+    },
+    {
+      "crop_name": "Four-angled Bean",
+      "test_samples": 90,
+      "accuracy": 0.9222222222222223,
+      "macro_precision": 0.4565390749601276,
+      "macro_recall": 0.45932112068965514,
+      "macro_f1": 0.45785953177257527
+    },
+    {
+      "crop_name": "French Bean",
+      "test_samples": 90,
+      "accuracy": 0.9333333333333333,
+      "macro_precision": 0.48125,
+      "macro_recall": 0.40625,
+      "macro_f1": 0.4325674325674326
+    },
+    {
+      "crop_name": "Guava",
+      "test_samples": 90,
+      "accuracy": 0.8111111111111111,
+      "macro_precision": 0.444078947368421,
+      "macro_recall": 0.3629032258064516,
+      "macro_f1": 0.3740740740740741
+    },
+    {
+      "crop_name": "Hot Chilli",
+      "test_samples": 90,
+      "accuracy": 0.8111111111111111,
+      "macro_precision": 0.444078947368421,
+      "macro_recall": 0.3629032258064516,
+      "macro_f1": 0.3740740740740741
+    },
+    {
+      "crop_name": "Jackfruit",
+      "test_samples": 90,
+      "accuracy": 0.7444444444444445,
+      "macro_precision": 0.36428571428571427,
+      "macro_recall": 0.3374794969928923,
+      "macro_f1": 0.3426812585499316
+    },
+    {
+      "crop_name": "Lady's Finger",
+      "test_samples": 90,
+      "accuracy": 0.8,
+      "macro_precision": 0.42666666666666664,
+      "macro_recall": 0.3586659376708584,
+      "macro_f1": 0.3685918234912394
+    },
+    {
+      "crop_name": "Langsat",
+      "test_samples": 90,
+      "accuracy": 0.8,
+      "macro_precision": 0.6256265664160401,
+      "macro_recall": 0.6532792925571113,
+      "macro_f1": 0.6376774847870182
+    },
+    {
+      "crop_name": "Leaf Mustard",
+      "test_samples": 90,
+      "accuracy": 0.7111111111111111,
+      "macro_precision": 0.37560096153846156,
+      "macro_recall": 0.3532608695652174,
+      "macro_f1": 0.34805194805194806
+    },
+    {
+      "crop_name": "Lettuce",
+      "test_samples": 90,
+      "accuracy": 0.7,
+      "macro_precision": 0.34523809523809523,
+      "macro_recall": 0.4224137931034483,
+      "macro_f1": 0.3656023222060958
+    },
+    {
+      "crop_name": "Long Bean",
+      "test_samples": 90,
+      "accuracy": 0.8111111111111111,
+      "macro_precision": 0.444078947368421,
+      "macro_recall": 0.3629032258064516,
+      "macro_f1": 0.3740740740740741
+    },
+    {
+      "crop_name": "Mango",
+      "test_samples": 90,
+      "accuracy": 0.8333333333333334,
+      "macro_precision": 0.6971830985915493,
+      "macro_recall": 0.6206896551724138,
+      "macro_f1": 0.6332631386193005
+    },
+    {
+      "crop_name": "Papaya",
+      "test_samples": 90,
+      "accuracy": 0.8333333333333334,
+      "macro_precision": 0.6971830985915493,
+      "macro_recall": 0.6206896551724138,
+      "macro_f1": 0.6332631386193005
+    },
+    {
+      "crop_name": "Pineapple",
+      "test_samples": 90,
+      "accuracy": 0.8333333333333334,
+      "macro_precision": 0.45065789473684215,
+      "macro_recall": 0.3706896551724138,
+      "macro_f1": 0.385418434900696
+    },
+    {
+      "crop_name": "Pomelo",
+      "test_samples": 90,
+      "accuracy": 0.8666666666666667,
+      "macro_precision": 0.712962962962963,
+      "macro_recall": 0.5625,
+      "macro_f1": 0.5800000000000001
+    },
+    {
+      "crop_name": "Pumpkin",
+      "test_samples": 90,
+      "accuracy": 0.6444444444444445,
+      "macro_precision": 0.3010175240248728,
+      "macro_recall": 0.2993439037725533,
+      "macro_f1": 0.3
+    },
+    {
+      "crop_name": "Radish",
+      "test_samples": 90,
+      "accuracy": 0.8333333333333334,
+      "macro_precision": 0.4166666666666667,
+      "macro_recall": 0.4534883720930233,
+      "macro_f1": 0.4331550802139037
+    },
+    {
+      "crop_name": "Rambutan",
+      "test_samples": 90,
+      "accuracy": 0.7555555555555555,
+      "macro_precision": 0.6352672750977836,
+      "macro_recall": 0.6152777777777778,
+      "macro_f1": 0.6137820512820513
+    },
+    {
+      "crop_name": "Salak",
+      "test_samples": 90,
+      "accuracy": 0.8444444444444444,
+      "macro_precision": 0.2111111111111111,
+      "macro_recall": 0.25,
+      "macro_f1": 0.2289156626506024
+    },
+    {
+      "crop_name": "Snake Gourd",
+      "test_samples": 90,
+      "accuracy": 0.8555555555555555,
+      "macro_precision": 0.6305220883534136,
+      "macro_recall": 0.4088654401154401,
+      "macro_f1": 0.4623655913978495
+    },
+    {
+      "crop_name": "Spinach(Bayam)",
+      "test_samples": 90,
+      "accuracy": 0.8111111111111111,
+      "macro_precision": 0.444078947368421,
+      "macro_recall": 0.3629032258064516,
+      "macro_f1": 0.3740740740740741
+    },
+    {
+      "crop_name": "Spinach(Poh Choy)",
+      "test_samples": 90,
+      "accuracy": 0.7888888888888889,
+      "macro_precision": 0.3900862068965517,
+      "macro_recall": 0.4536363636363636,
+      "macro_f1": 0.41849091755938517
+    },
+    {
+      "crop_name": "Spring Onion",
+      "test_samples": 90,
+      "accuracy": 0.8111111111111111,
+      "macro_precision": 0.6521963824289405,
+      "macro_recall": 0.5837542087542088,
+      "macro_f1": 0.6044391281233387
+    },
+    {
+      "crop_name": "Starfruit",
+      "test_samples": 90,
+      "accuracy": 0.8444444444444444,
+      "macro_precision": 0.6977611940298507,
+      "macro_recall": 0.640625,
+      "macro_f1": 0.6508333333333334
+    },
+    {
+      "crop_name": "Sweet Orange",
+      "test_samples": 90,
+      "accuracy": 0.7555555555555555,
+      "macro_precision": 0.6019088669950738,
+      "macro_recall": 0.6607758620689655,
+      "macro_f1": 0.6252237737200144
+    },
+    {
+      "crop_name": "Sweet Shoot",
+      "test_samples": 90,
+      "accuracy": 0.7555555555555555,
+      "macro_precision": 0.3782894736842105,
+      "macro_recall": 0.3890224358974359,
+      "macro_f1": 0.3833116883116883
+    },
+    {
+      "crop_name": "Tomato",
+      "test_samples": 90,
+      "accuracy": 0.9333333333333333,
+      "macro_precision": 0.48125,
+      "macro_recall": 0.40625,
+      "macro_f1": 0.4325674325674326
+    },
+    {
+      "crop_name": "Water Spinach",
+      "test_samples": 90,
+      "accuracy": 0.8333333333333334,
+      "macro_precision": 0.45065789473684215,
+      "macro_recall": 0.3706896551724138,
+      "macro_f1": 0.385418434900696
+    },
+    {
+      "crop_name": "Watermelon",
+      "test_samples": 90,
+      "accuracy": 0.7888888888888889,
+      "macro_precision": 0.6383219954648526,
+      "macro_recall": 0.6509661835748792,
+      "macro_f1": 0.6444444444444445
+    },
+    {
+      "crop_name": "Wax Gourd",
+      "test_samples": 90,
+      "accuracy": 0.6888888888888889,
+      "macro_precision": 0.5461538461538462,
+      "macro_recall": 0.4992997198879552,
+      "macro_f1": 0.42924893534649633
+    }
+  ],
+  "crop_registry": [
+    {
+      "crop_name": "Angled Loofah",
+      "scientific_name": "Luffa acutangula",
+      "statistics_crop_name": "Angled Loofah",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 146,
+      "positive_production_years": 9,
+      "productive_districts": 21,
+      "matched_productive_grid_districts": 19,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 212,
+        "S2": 177,
+        "S3": 1,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Asparagus",
+      "scientific_name": "Asparagus officinalis",
+      "statistics_crop_name": "Asparagus",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 16,
+      "positive_production_years": 9,
+      "productive_districts": 2,
+      "matched_productive_grid_districts": 2,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 0,
+      "class_distribution": {},
+      "ml_supported": false,
+      "exclusion_reasons": [
+        "Positive production matches only 2 environmental-grid district(s); at least 5 are required."
+      ]
+    },
+    {
+      "crop_name": "Bamboo Shoots",
+      "scientific_name": "Dendrocalamus asper",
+      "statistics_crop_name": "Bamboo Shoots",
+      "statistics_available": true,
+      "historical_records": 28,
+      "positive_production_records": 0,
+      "positive_production_years": 0,
+      "productive_districts": 0,
+      "matched_productive_grid_districts": 0,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 0,
+      "class_distribution": {},
+      "ml_supported": false,
+      "exclusion_reasons": [
+        "Only 0 positive-production historical record(s); at least 5 are required.",
+        "Positive production covers only 0 year(s); at least 3 are required.",
+        "Positive production matches only 0 environmental-grid district(s); at least 5 are required."
+      ]
+    },
+    {
+      "crop_name": "Banana",
+      "scientific_name": "Musa sp.",
+      "statistics_crop_name": "Banana",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 242,
+      "positive_production_years": 9,
+      "productive_districts": 27,
+      "matched_productive_grid_districts": 23,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 229,
+        "S2": 139,
+        "S3": 0,
+        "N": 22
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Bitter Gourd",
+      "scientific_name": "Momordica charantia",
+      "statistics_crop_name": "Bitter Gourd",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 154,
+      "positive_production_years": 9,
+      "productive_districts": 22,
+      "matched_productive_grid_districts": 20,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 98,
+        "S2": 268,
+        "S3": 24,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Bottle Gourd",
+      "scientific_name": "Lagenaria siceraria",
+      "statistics_crop_name": "Bottle Gourd",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 76,
+      "positive_production_years": 9,
+      "productive_districts": 13,
+      "matched_productive_grid_districts": 11,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 258,
+        "S2": 132,
+        "S3": 0,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Brinjal",
+      "scientific_name": "Solanum melongena",
+      "statistics_crop_name": "Brinjal",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 191,
+      "positive_production_years": 9,
+      "productive_districts": 26,
+      "matched_productive_grid_districts": 24,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 222,
+        "S2": 145,
+        "S3": 1,
+        "N": 22
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Broccoli",
+      "scientific_name": "Brassica oleracea var. italica",
+      "statistics_crop_name": "Broccoli",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 10,
+      "positive_production_years": 9,
+      "productive_districts": 2,
+      "matched_productive_grid_districts": 2,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 0,
+      "class_distribution": {},
+      "ml_supported": false,
+      "exclusion_reasons": [
+        "Positive production matches only 2 environmental-grid district(s); at least 5 are required."
+      ]
+    },
+    {
+      "crop_name": "Cabbage",
+      "scientific_name": "Brassica oleracea var. capitata",
+      "statistics_crop_name": "Cabbage",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 48,
+      "positive_production_years": 9,
+      "productive_districts": 7,
+      "matched_productive_grid_districts": 7,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 136,
+        "S2": 200,
+        "S3": 54,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Carrot",
+      "scientific_name": "Daucus carota",
+      "statistics_crop_name": "Carrot",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 17,
+      "positive_production_years": 9,
+      "productive_districts": 2,
+      "matched_productive_grid_districts": 2,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 0,
+      "class_distribution": {},
+      "ml_supported": false,
+      "exclusion_reasons": [
+        "Positive production matches only 2 environmental-grid district(s); at least 5 are required."
+      ]
+    },
+    {
+      "crop_name": "Cauliflower",
+      "scientific_name": "Brassica oleracea var. botrytis",
+      "statistics_crop_name": "Cauliflower",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 16,
+      "positive_production_years": 9,
+      "productive_districts": 6,
+      "matched_productive_grid_districts": 5,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 26,
+        "S2": 103,
+        "S3": 261,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Celery",
+      "scientific_name": "Apium graveolens",
+      "statistics_crop_name": "Celery",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 25,
+      "positive_production_years": 8,
+      "productive_districts": 4,
+      "matched_productive_grid_districts": 4,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 0,
+      "class_distribution": {},
+      "ml_supported": false,
+      "exclusion_reasons": [
+        "Positive production matches only 4 environmental-grid district(s); at least 5 are required."
+      ]
+    },
+    {
+      "crop_name": "Cempedak",
+      "scientific_name": "Artocarpus integer",
+      "statistics_crop_name": "Cempedak",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 200,
+      "positive_production_years": 9,
+      "productive_districts": 26,
+      "matched_productive_grid_districts": 23,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 96,
+        "S2": 247,
+        "S3": 25,
+        "N": 22
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Chilli",
+      "scientific_name": "Capsicum annuum",
+      "statistics_crop_name": "Chilli",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 144,
+      "positive_production_years": 9,
+      "productive_districts": 24,
+      "matched_productive_grid_districts": 22,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 222,
+        "S2": 145,
+        "S3": 1,
+        "N": 22
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Chinese Cabbage",
+      "scientific_name": "Brassica chinensis",
+      "statistics_crop_name": "Chinese Cabbage",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 22,
+      "positive_production_years": 9,
+      "productive_districts": 5,
+      "matched_productive_grid_districts": 5,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 101,
+        "S2": 244,
+        "S3": 45,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Chinese Celery",
+      "scientific_name": "Apium graveolens",
+      "statistics_crop_name": "Chinese Celery",
+      "statistics_available": true,
+      "historical_records": 28,
+      "positive_production_records": 1,
+      "positive_production_years": 1,
+      "productive_districts": 1,
+      "matched_productive_grid_districts": 1,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 0,
+      "class_distribution": {},
+      "ml_supported": false,
+      "exclusion_reasons": [
+        "Only 1 positive-production historical record(s); at least 5 are required.",
+        "Positive production covers only 1 year(s); at least 3 are required.",
+        "Positive production matches only 1 environmental-grid district(s); at least 5 are required."
+      ]
+    },
+    {
+      "crop_name": "Chinese Chives",
+      "scientific_name": "Allium tuberosum",
+      "statistics_crop_name": "Chinese Chives",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 10,
+      "positive_production_years": 9,
+      "productive_districts": 2,
+      "matched_productive_grid_districts": 2,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 0,
+      "class_distribution": {},
+      "ml_supported": false,
+      "exclusion_reasons": [
+        "Positive production matches only 2 environmental-grid district(s); at least 5 are required."
+      ]
+    },
+    {
+      "crop_name": "Chinese Kale",
+      "scientific_name": "Brassica oleracea var. acephala",
+      "statistics_crop_name": "Chinese Kale",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 85,
+      "positive_production_years": 9,
+      "productive_districts": 12,
+      "matched_productive_grid_districts": 11,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 118,
+        "S2": 262,
+        "S3": 10,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Chinese Parsley",
+      "scientific_name": "Coriandrum sativum",
+      "statistics_crop_name": "Chinese Parsley",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 8,
+      "positive_production_years": 8,
+      "productive_districts": 1,
+      "matched_productive_grid_districts": 1,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 0,
+      "class_distribution": {},
+      "ml_supported": false,
+      "exclusion_reasons": [
+        "Positive production matches only 1 environmental-grid district(s); at least 5 are required."
+      ]
+    },
+    {
+      "crop_name": "Ciku",
+      "scientific_name": "Manilkara zapota",
+      "statistics_crop_name": "Ciku",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 57,
+      "positive_production_years": 9,
+      "productive_districts": 8,
+      "matched_productive_grid_districts": 8,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 159,
+        "S2": 189,
+        "S3": 42,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Cucumber",
+      "scientific_name": "Cucumis sativus",
+      "statistics_crop_name": "Cucumber",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 181,
+      "positive_production_years": 9,
+      "productive_districts": 24,
+      "matched_productive_grid_districts": 22,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 148,
+        "S2": 225,
+        "S3": 17,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Dokong",
+      "scientific_name": "Lansium domesticum",
+      "statistics_crop_name": "Dokong",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 52,
+      "positive_production_years": 9,
+      "productive_districts": 8,
+      "matched_productive_grid_districts": 7,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 112,
+        "S2": 245,
+        "S3": 11,
+        "N": 22
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Dragon Fruit",
+      "scientific_name": "Hylocereus undatus",
+      "statistics_crop_name": "Dragon Fruit",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 89,
+      "positive_production_years": 9,
+      "productive_districts": 14,
+      "matched_productive_grid_districts": 13,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 154,
+        "S2": 148,
+        "S3": 66,
+        "N": 22
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Duku",
+      "scientific_name": "Lansium domesticum",
+      "statistics_crop_name": "Duku",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 84,
+      "positive_production_years": 9,
+      "productive_districts": 15,
+      "matched_productive_grid_districts": 14,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 87,
+        "S2": 231,
+        "S3": 50,
+        "N": 22
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Durian",
+      "scientific_name": "Durio zibethinus",
+      "statistics_crop_name": "Durian",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 233,
+      "positive_production_years": 9,
+      "productive_districts": 27,
+      "matched_productive_grid_districts": 24,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 180,
+        "S2": 183,
+        "S3": 5,
+        "N": 22
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Four-angled Bean",
+      "scientific_name": "Psophocarpus tetragonolobus",
+      "statistics_crop_name": "Four-angled Bean",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 32,
+      "positive_production_years": 9,
+      "productive_districts": 6,
+      "matched_productive_grid_districts": 6,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 209,
+        "S2": 181,
+        "S3": 0,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "French Bean",
+      "scientific_name": "Phaseolus vulgaris",
+      "statistics_crop_name": "French Bean",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 78,
+      "positive_production_years": 9,
+      "productive_districts": 10,
+      "matched_productive_grid_districts": 9,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 295,
+        "S2": 95,
+        "S3": 0,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Green Cabbage",
+      "scientific_name": "Brassica oleracea var. capitata",
+      "statistics_crop_name": "Green Cabbage",
+      "statistics_available": true,
+      "historical_records": 28,
+      "positive_production_records": 0,
+      "positive_production_years": 0,
+      "productive_districts": 0,
+      "matched_productive_grid_districts": 0,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 0,
+      "class_distribution": {},
+      "ml_supported": false,
+      "exclusion_reasons": [
+        "Only 0 positive-production historical record(s); at least 5 are required.",
+        "Positive production covers only 0 year(s); at least 3 are required.",
+        "Positive production matches only 0 environmental-grid district(s); at least 5 are required."
+      ]
+    },
+    {
+      "crop_name": "Guava",
+      "scientific_name": "Psidium guajava",
+      "statistics_crop_name": "Guava",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 124,
+      "positive_production_years": 9,
+      "productive_districts": 17,
+      "matched_productive_grid_districts": 15,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 229,
+        "S2": 160,
+        "S3": 1,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Hot Chilli",
+      "scientific_name": "Capsicum frutescens",
+      "statistics_crop_name": "Hot Chilli",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 156,
+      "positive_production_years": 9,
+      "productive_districts": 24,
+      "matched_productive_grid_districts": 22,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 237,
+        "S2": 152,
+        "S3": 1,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Jackfruit",
+      "scientific_name": "Artocarpus heterophyllus",
+      "statistics_crop_name": "Jackfruit",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 167,
+      "positive_production_years": 9,
+      "productive_districts": 23,
+      "matched_productive_grid_districts": 20,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 231,
+        "S2": 158,
+        "S3": 1,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Lady's Finger",
+      "scientific_name": "Abelmoschus esculentus",
+      "statistics_crop_name": "Lady's Finger",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 134,
+      "positive_production_years": 9,
+      "productive_districts": 20,
+      "matched_productive_grid_districts": 18,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 207,
+        "S2": 182,
+        "S3": 1,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Langsat",
+      "scientific_name": "Lansium domesticum",
+      "statistics_crop_name": "Langsat",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 183,
+      "positive_production_years": 9,
+      "productive_districts": 26,
+      "matched_productive_grid_districts": 23,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 95,
+        "S2": 253,
+        "S3": 20,
+        "N": 22
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Leaf Mustard",
+      "scientific_name": "Brassica juncea",
+      "statistics_crop_name": "Leaf Mustard",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 191,
+      "positive_production_years": 9,
+      "productive_districts": 24,
+      "matched_productive_grid_districts": 22,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 187,
+        "S2": 195,
+        "S3": 8,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Lettuce",
+      "scientific_name": "Lactuca sativa var. capitata",
+      "statistics_crop_name": "Lettuce",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 39,
+      "positive_production_years": 9,
+      "productive_districts": 7,
+      "matched_productive_grid_districts": 7,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 112,
+        "S2": 208,
+        "S3": 70,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Long Bean",
+      "scientific_name": "Vigna unguiculata ssp. sesquipedalis",
+      "statistics_crop_name": "Long Bean",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 191,
+      "positive_production_years": 9,
+      "productive_districts": 24,
+      "matched_productive_grid_districts": 22,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 211,
+        "S2": 178,
+        "S3": 1,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Mango",
+      "scientific_name": "Mangifera indica",
+      "statistics_crop_name": "Mango",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 226,
+      "positive_production_years": 9,
+      "productive_districts": 26,
+      "matched_productive_grid_districts": 23,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 222,
+        "S2": 145,
+        "S3": 1,
+        "N": 22
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Mangosteen",
+      "scientific_name": "Garcinia mangostana",
+      "statistics_crop_name": "Mangosteen",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 118,
+      "positive_production_years": 9,
+      "productive_districts": 18,
+      "matched_productive_grid_districts": 16,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 0,
+        "S2": 0,
+        "S3": 0,
+        "N": 390
+      },
+      "ml_supported": false,
+      "exclusion_reasons": [
+        "Outer-training labels contain only 1 suitability class; at least 2 are required."
+      ]
+    },
+    {
+      "crop_name": "Papaya",
+      "scientific_name": "Carica papaya",
+      "statistics_crop_name": "Papaya",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 131,
+      "positive_production_years": 9,
+      "productive_districts": 17,
+      "matched_productive_grid_districts": 16,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 200,
+        "S2": 167,
+        "S3": 1,
+        "N": 22
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Pineapple",
+      "scientific_name": "Ananas comosus",
+      "statistics_crop_name": "Pineapple",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 214,
+      "positive_production_years": 9,
+      "productive_districts": 25,
+      "matched_productive_grid_districts": 22,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 230,
+        "S2": 160,
+        "S3": 0,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Pomelo",
+      "scientific_name": "Citrus grandis",
+      "statistics_crop_name": "Pomelo",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 122,
+      "positive_production_years": 9,
+      "productive_districts": 15,
+      "matched_productive_grid_districts": 13,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 291,
+        "S2": 77,
+        "S3": 0,
+        "N": 22
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Pucuk Paku",
+      "scientific_name": "Diplazium esculentum",
+      "statistics_crop_name": "Pucuk Paku",
+      "statistics_available": true,
+      "historical_records": 140,
+      "positive_production_records": 5,
+      "positive_production_years": 5,
+      "productive_districts": 1,
+      "matched_productive_grid_districts": 1,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 0,
+      "class_distribution": {},
+      "ml_supported": false,
+      "exclusion_reasons": [
+        "Positive production matches only 1 environmental-grid district(s); at least 5 are required."
+      ]
+    },
+    {
+      "crop_name": "Pulasan",
+      "scientific_name": "Nephelium mutabile",
+      "statistics_crop_name": "Pulasan",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 0,
+      "positive_production_years": 0,
+      "productive_districts": 0,
+      "matched_productive_grid_districts": 0,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 0,
+      "class_distribution": {},
+      "ml_supported": false,
+      "exclusion_reasons": [
+        "Only 0 positive-production historical record(s); at least 5 are required.",
+        "Positive production covers only 0 year(s); at least 3 are required.",
+        "Positive production matches only 0 environmental-grid district(s); at least 5 are required."
+      ]
+    },
+    {
+      "crop_name": "Pumpkin",
+      "scientific_name": "Cucurbita moschata",
+      "statistics_crop_name": "Pumpkin",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 101,
+      "positive_production_years": 9,
+      "productive_districts": 18,
+      "matched_productive_grid_districts": 16,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 164,
+        "S2": 225,
+        "S3": 1,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Radish",
+      "scientific_name": "Raphanus sativus var. radicula",
+      "statistics_crop_name": "Radish",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 42,
+      "positive_production_years": 9,
+      "productive_districts": 7,
+      "matched_productive_grid_districts": 7,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 152,
+        "S2": 188,
+        "S3": 50,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Rambutan",
+      "scientific_name": "Nephelium lappaceum",
+      "statistics_crop_name": "Rambutan",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 208,
+      "positive_production_years": 9,
+      "productive_districts": 27,
+      "matched_productive_grid_districts": 24,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 180,
+        "S2": 183,
+        "S3": 5,
+        "N": 22
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Saderi Cina",
+      "scientific_name": "Apium graveolens",
+      "statistics_crop_name": "Saderi Cina",
+      "statistics_available": true,
+      "historical_records": 28,
+      "positive_production_records": 1,
+      "positive_production_years": 1,
+      "productive_districts": 1,
+      "matched_productive_grid_districts": 1,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 0,
+      "class_distribution": {},
+      "ml_supported": false,
+      "exclusion_reasons": [
+        "Only 1 positive-production historical record(s); at least 5 are required.",
+        "Positive production covers only 1 year(s); at least 3 are required.",
+        "Positive production matches only 1 environmental-grid district(s); at least 5 are required."
+      ]
+    },
+    {
+      "crop_name": "Saderi Cina ()",
+      "scientific_name": "Apium graveolens",
+      "statistics_crop_name": "Saderi Cina ()",
+      "statistics_available": true,
+      "historical_records": 140,
+      "positive_production_records": 7,
+      "positive_production_years": 5,
+      "productive_districts": 3,
+      "matched_productive_grid_districts": 3,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 0,
+      "class_distribution": {},
+      "ml_supported": false,
+      "exclusion_reasons": [
+        "Positive production matches only 3 environmental-grid district(s); at least 5 are required."
+      ]
+    },
+    {
+      "crop_name": "Salak",
+      "scientific_name": "Salacca zalacca",
+      "statistics_crop_name": "Salak",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 45,
+      "positive_production_years": 9,
+      "productive_districts": 5,
+      "matched_productive_grid_districts": 5,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 37,
+        "S2": 315,
+        "S3": 38,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Snake Gourd",
+      "scientific_name": "Trichosanthes cucumerina",
+      "statistics_crop_name": "Snake Gourd",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 30,
+      "positive_production_years": 9,
+      "productive_districts": 5,
+      "matched_productive_grid_districts": 5,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 31,
+        "S2": 287,
+        "S3": 72,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Snow Pea",
+      "scientific_name": "Pisum sativum",
+      "statistics_crop_name": "Snow Pea",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 9,
+      "positive_production_years": 9,
+      "productive_districts": 1,
+      "matched_productive_grid_districts": 1,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 0,
+      "class_distribution": {},
+      "ml_supported": false,
+      "exclusion_reasons": [
+        "Positive production matches only 1 environmental-grid district(s); at least 5 are required."
+      ]
+    },
+    {
+      "crop_name": "Spinach(Bayam)",
+      "scientific_name": "Amaranthus tricolor",
+      "statistics_crop_name": "Spinach(Bayam)",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 163,
+      "positive_production_years": 9,
+      "productive_districts": 22,
+      "matched_productive_grid_districts": 20,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 239,
+        "S2": 150,
+        "S3": 1,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Spinach(Poh Choy)",
+      "scientific_name": "Spinacia oleracea",
+      "statistics_crop_name": "Spinach(Poh Choy)",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 21,
+      "positive_production_years": 9,
+      "productive_districts": 5,
+      "matched_productive_grid_districts": 5,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 104,
+        "S2": 235,
+        "S3": 51,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Spring Onion",
+      "scientific_name": "Allium fistulosum",
+      "statistics_crop_name": "Spring Onion",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 36,
+      "positive_production_years": 9,
+      "productive_districts": 7,
+      "matched_productive_grid_districts": 7,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 24,
+        "S2": 196,
+        "S3": 170,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Starfruit",
+      "scientific_name": "Averrhoa carambola",
+      "statistics_crop_name": "Starfruit",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 98,
+      "positive_production_years": 9,
+      "productive_districts": 12,
+      "matched_productive_grid_districts": 11,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 196,
+        "S2": 168,
+        "S3": 4,
+        "N": 22
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Sweet Leek",
+      "scientific_name": "Allium ampeloprasum",
+      "statistics_crop_name": "Sweet Leek",
+      "statistics_available": true,
+      "historical_records": 28,
+      "positive_production_records": 1,
+      "positive_production_years": 1,
+      "productive_districts": 1,
+      "matched_productive_grid_districts": 1,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 0,
+      "class_distribution": {},
+      "ml_supported": false,
+      "exclusion_reasons": [
+        "Only 1 positive-production historical record(s); at least 5 are required.",
+        "Positive production covers only 1 year(s); at least 3 are required.",
+        "Positive production matches only 1 environmental-grid district(s); at least 5 are required."
+      ]
+    },
+    {
+      "crop_name": "Sweet Orange",
+      "scientific_name": "Citrus sinensis",
+      "statistics_crop_name": "Sweet Orange",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 99,
+      "positive_production_years": 9,
+      "productive_districts": 16,
+      "matched_productive_grid_districts": 14,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 95,
+        "S2": 221,
+        "S3": 52,
+        "N": 22
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Sweet Pepper",
+      "scientific_name": "Capsicum annuum",
+      "statistics_crop_name": "Sweet Pepper",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 15,
+      "positive_production_years": 7,
+      "productive_districts": 4,
+      "matched_productive_grid_districts": 4,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 0,
+      "class_distribution": {},
+      "ml_supported": false,
+      "exclusion_reasons": [
+        "Positive production matches only 4 environmental-grid district(s); at least 5 are required."
+      ]
+    },
+    {
+      "crop_name": "Sweet Shoot",
+      "scientific_name": "Sauropus androgynus",
+      "statistics_crop_name": "Sweet Shoot",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 155,
+      "positive_production_years": 9,
+      "productive_districts": 21,
+      "matched_productive_grid_districts": 19,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 147,
+        "S2": 227,
+        "S3": 16,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Tomato",
+      "scientific_name": "Lycopersicon esculentum",
+      "statistics_crop_name": "Tomato",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 65,
+      "positive_production_years": 9,
+      "productive_districts": 9,
+      "matched_productive_grid_districts": 8,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 295,
+        "S2": 95,
+        "S3": 0,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Water Spinach",
+      "scientific_name": "Ipomoea aquatica var. reptans",
+      "statistics_crop_name": "Water Spinach",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 192,
+      "positive_production_years": 9,
+      "productive_districts": 24,
+      "matched_productive_grid_districts": 22,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 241,
+        "S2": 149,
+        "S3": 0,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Watercress",
+      "scientific_name": "Nasturtium officinale",
+      "statistics_crop_name": "Water-Cress",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 21,
+      "positive_production_years": 9,
+      "productive_districts": 4,
+      "matched_productive_grid_districts": 4,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 0,
+      "class_distribution": {},
+      "ml_supported": false,
+      "exclusion_reasons": [
+        "Positive production matches only 4 environmental-grid district(s); at least 5 are required."
+      ]
+    },
+    {
+      "crop_name": "Watermelon",
+      "scientific_name": "Citrullus lanatus",
+      "statistics_crop_name": "Watermelon",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 157,
+      "positive_production_years": 9,
+      "productive_districts": 23,
+      "matched_productive_grid_districts": 20,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 137,
+        "S2": 215,
+        "S3": 16,
+        "N": 22
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    },
+    {
+      "crop_name": "Wax Gourd",
+      "scientific_name": "Benincasa hispida",
+      "statistics_crop_name": "Wax Gourd",
+      "statistics_available": true,
+      "historical_records": 252,
+      "positive_production_records": 79,
+      "positive_production_years": 9,
+      "productive_districts": 11,
+      "matched_productive_grid_districts": 9,
+      "suitability_data_available": true,
+      "complete_environment_samples": 390,
+      "environment_data_available": true,
+      "generated_training_samples": 390,
+      "class_distribution": {
+        "S1": 110,
+        "S2": 179,
+        "S3": 101,
+        "N": 0
+      },
+      "ml_supported": true,
+      "exclusion_reasons": []
+    }
+  ],
+  "data_provenance_warning": "The current spatial_grids seed process uses API-derived elevation/climate but randomly generated soil pH, slope, soil depth, and point jitter. Metrics therefore validate reproducibility of this prototype dataset, not field-level agronomic accuracy."
+}

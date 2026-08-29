@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -7,12 +7,27 @@ from app.services.prediction_service import (
     PredictionModelError,
     PredictionModelInputError,
     get_live_ecosystem_matrix,
+    predict_suitability_batch_with_model,
     predict_suitability_with_model,
 )
 
 router = APIRouter()
 class PredictionInput(BaseModel):
     crop_name: str
+    latitude: float
+    longitude: float
+    district: str | None = None
+    elevation_meters: float
+    slope_pct: float
+    soil_ph: float
+    soil_depth_cm: int
+    annual_rainfall_mm: float
+    solar_radiation: float
+    root_zone_moisture: float
+
+
+class BatchPredictionInput(BaseModel):
+    crop_names: list[str] | None = Field(default=None, min_length=1, max_length=200)
     latitude: float
     longitude: float
     district: str | None = None
@@ -56,6 +71,38 @@ def predict_crop_suitability(data: PredictionInput):
         'confidence_matrix': model_result['confidence_matrix'],
         'prediction_basis': 'model',
         'adjustment_reasons': [],
+    }
+
+
+@router.post('/suitability/batch')
+def predict_crop_suitability_batch(data: BatchPredictionInput):
+    try:
+        predictions, errors = predict_suitability_batch_with_model(
+            data.crop_names,
+            {
+                'elevation_meters': data.elevation_meters,
+                'slope_pct': data.slope_pct,
+                'soil_ph': data.soil_ph,
+                'soil_depth_cm': data.soil_depth_cm,
+                'annual_rainfall_mm': data.annual_rainfall_mm,
+                'solar_radiation': data.solar_radiation,
+                'root_zone_moisture': data.root_zone_moisture,
+            },
+        )
+    except PredictionModelInputError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PredictionModelError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return {
+        'status': 'success' if predictions else 'error',
+        'location': {
+            'latitude': data.latitude,
+            'longitude': data.longitude,
+            'district': data.district,
+        },
+        'predictions': predictions,
+        'errors': errors,
     }
 
 @router.get("/live-matrix")

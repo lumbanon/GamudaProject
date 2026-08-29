@@ -13,6 +13,11 @@ from sqlalchemy.orm import Session
 
 from app.models.crop import Crop
 from app.models.crop_statistic import CropStatistic
+from app.services.crop_registry import (
+    canonical_trained_crop_name,
+    get_crop_registry_entry,
+    get_trained_crop_names,
+)
 from app.services.forest_reserve_service import validate_forest_reserve_overlap
 from app.services.gemini_insight_service import (
     build_gemini_ai_insight,
@@ -57,37 +62,6 @@ class CropThreshold:
     ideal_ph_max: float
     max_slope_pct: float
 
-
-FALLBACK_SCIENTIFIC_NAMES = {
-    "Cabbage": "Brassica oleracea var. capitata",
-    "Durian": "Durio zibethinus",
-    "Watermelon": "Citrullus lanatus",
-}
-
-CROP_REQUIREMENTS = {
-    "Cabbage": {
-        "rainfall": (1000, 1800, 700, 2500),
-        "temperature": (15, 21, 10, 28),
-        "ph": (6.0, 7.5, 5.2, 8.0),
-        "slope": (0, 8, 0, 15),
-        "min_soil_depth_cm": 45,
-    },
-    "Durian": {
-        "rainfall": (1500, 3000, 1200, 3800),
-        "temperature": (24, 30, 22, 35),
-        "ph": (5.5, 6.5, 5.0, 7.5),
-        "slope": (0, 15, 0, 25),
-        "min_soil_depth_cm": 100,
-    },
-    "Watermelon": {
-        "rainfall": (800, 1500, 500, 2200),
-        "temperature": (25, 35, 18, 38),
-        "ph": (6.0, 7.0, 5.2, 7.8),
-        "slope": (0, 3, 0, 5),
-        "min_soil_depth_cm": 50,
-    },
-}
-SUPPORTED_PREDICTION_CROPS = tuple(CROP_REQUIREMENTS)
 
 MODEL_ASSETS_DIR = Path(__file__).resolve().parents[1] / "ml_assets"
 MODEL_PATH = MODEL_ASSETS_DIR / "crop_classifier.joblib"
@@ -281,10 +255,19 @@ LAND_COVER_LABELS = {
 
 
 def get_available_crops(db: Session) -> list[dict]:
+    trained_crop_names = get_trained_crop_names()
+    if not trained_crop_names:
+        raise PredictionDataError(
+            "No trained crop registry is available. Run the model training pipeline first."
+        )
     try:
         crops = (
             db.query(Crop)
-            .filter(func.lower(Crop.name).in_([name.lower() for name in SUPPORTED_PREDICTION_CROPS]))
+            .filter(
+                func.lower(Crop.name).in_(
+                    [name.lower() for name in trained_crop_names]
+                )
+            )
             .order_by(func.lower(Crop.name))
             .all()
         )
@@ -293,13 +276,26 @@ def get_available_crops(db: Session) -> list[dict]:
         crops = []
 
     if crops:
+        found_crop_keys = {str(crop.name).strip().casefold() for crop in crops}
+        missing_crop_names = [
+            name
+            for name in trained_crop_names
+            if name.casefold() not in found_crop_keys
+        ]
+        if missing_crop_names:
+            raise PredictionDataError(
+                "The crop-requirements database is out of sync with the trained "
+                "model. Missing: " + ", ".join(missing_crop_names)
+            )
         return [crop_to_dict(crop) for crop in crops]
 
     legacy_crops = get_legacy_crop_options(db)
     if legacy_crops:
         return legacy_crops
 
-    return [crop_to_dict(build_fallback_crop_threshold(name)) for name in CROP_REQUIREMENTS]
+    raise PredictionDataError(
+        "The trained crops are missing from the crop-requirements database."
+    )
 
 
 def get_environment(db: Session, district: str | None = None) -> dict:
@@ -313,17 +309,12 @@ def get_environment(db: Session, district: str | None = None) -> dict:
 
 
 def predict_suitability_with_model(crop_name: str, values: dict) -> dict:
-    classifier, encoder = load_prediction_model()
     normalized_crop_name = canonical_prediction_crop_name(crop_name)
     if not normalized_crop_name:
-        raise PredictionModelInputError("A supported crop is required for prediction.")
-
-    try:
-        crop_encoded = encoder.transform([normalized_crop_name])[0]
-    except ValueError as exc:
         raise PredictionUnsupportedCropError(
-            f"Crop target '{crop_name}' is not supported by the prediction model."
-        ) from exc
+            f"Crop target '{crop_name}' is not supported by the current prediction model."
+        )
+    classifier, encoder = load_prediction_model()
 
     model_values = build_model_feature_values(values)
     missing_fields = [
@@ -339,13 +330,10 @@ def predict_suitability_with_model(crop_name: str, values: dict) -> dict:
             f"Prediction requires values for: {readable_fields}."
         )
 
-    input_frame = pd.DataFrame(
-        [
-            {
-                "crop_encoded": crop_encoded,
-                **model_values,
-            }
-        ]
+    input_frame = build_model_input_frame(
+        [normalized_crop_name],
+        model_values,
+        encoder,
     )
 
     try:
@@ -373,6 +361,147 @@ def predict_suitability_with_model(crop_name: str, values: dict) -> dict:
         "confidence_matrix": confidence_matrix,
         "model_confidence_pct": confidence_matrix.get(prediction, 0.0),
     }
+
+
+def predict_suitability_batch_with_model(
+    crop_names: list[str] | tuple[str, ...] | None,
+    values: dict,
+) -> tuple[list[dict], list[dict]]:
+    """Predict multiple crops in one classifier call.
+
+    Invalid requested crops are returned as per-item errors so one stale client
+    selection does not discard otherwise valid results.
+    """
+
+    if crop_names is not None and not crop_names:
+        raise PredictionModelInputError(
+            "At least one crop is required for batch prediction."
+        )
+
+    requested_names = list(
+        get_trained_crop_names() if crop_names is None else crop_names
+    )
+    if not requested_names:
+        raise PredictionModelError(
+            "No trained crop registry is available. Run the model training pipeline first."
+        )
+    canonical_names = []
+    errors = []
+    seen_names = set()
+    for requested_name in requested_names:
+        canonical_name = canonical_prediction_crop_name(requested_name)
+        if not canonical_name:
+            errors.append(
+                {
+                    "crop": str(requested_name),
+                    "detail": (
+                        f"Crop target '{requested_name}' is not supported by the "
+                        "current prediction model."
+                    ),
+                }
+            )
+            continue
+        crop_key = canonical_name.casefold()
+        if crop_key not in seen_names:
+            seen_names.add(crop_key)
+            canonical_names.append(canonical_name)
+
+    if not canonical_names:
+        return [], errors
+
+    model_values = build_model_feature_values(values)
+    missing_fields = [
+        field_name
+        for field_name in MODEL_FEATURE_FIELDS
+        if model_values[field_name] is None
+    ]
+    if missing_fields:
+        readable_fields = ", ".join(
+            field_name.replace("_", " ") for field_name in missing_fields
+        )
+        raise PredictionModelInputError(
+            f"Prediction requires values for: {readable_fields}."
+        )
+
+    classifier, encoder = load_prediction_model()
+    input_frame = build_model_input_frame(
+        canonical_names,
+        model_values,
+        encoder,
+    )
+    try:
+        predictions = classifier.predict(input_frame)
+        probability_rows = classifier.predict_proba(input_frame)
+    except Exception as exc:
+        raise PredictionModelError(
+            "The crop suitability model could not complete the batch prediction."
+        ) from exc
+
+    results = []
+    for crop_name, prediction, probabilities in zip(
+        canonical_names,
+        predictions,
+        probability_rows,
+    ):
+        prediction = str(prediction)
+        raw_probabilities = {
+            str(class_name): round(float(probability) * 100, 2)
+            for class_name, probability in zip(
+                classifier.classes_,
+                probabilities,
+            )
+        }
+        confidence_matrix = {
+            class_name: raw_probabilities.get(class_name, 0.0)
+            for class_name in MODEL_CLASS_ORDER
+        }
+        results.append(
+            {
+                "crop": crop_name,
+                "suitability": prediction,
+                "confidence_matrix": confidence_matrix,
+                "model_confidence_pct": confidence_matrix.get(prediction, 0.0),
+                "prediction_basis": "model",
+            }
+        )
+    return results, errors
+
+
+def build_model_input_frame(
+    crop_names: list[str],
+    model_values: dict[str, float],
+    encoder,
+) -> pd.DataFrame:
+    """Build features for the current one-hot model or a legacy label encoder."""
+
+    try:
+        if getattr(encoder, "categories_", None) is not None and hasattr(
+            encoder,
+            "get_feature_names_out",
+        ):
+            crop_frame = pd.DataFrame({"crop_name": crop_names})
+            encoded_values = encoder.transform(crop_frame)
+            if hasattr(encoded_values, "toarray"):
+                encoded_values = encoded_values.toarray()
+            input_frame = pd.DataFrame(
+                encoded_values,
+                columns=encoder.get_feature_names_out(["crop_name"]),
+            )
+            for field_name in MODEL_FEATURE_FIELDS:
+                input_frame[field_name] = model_values[field_name]
+            return input_frame
+
+        encoded_names = encoder.transform(crop_names)
+        return pd.DataFrame(
+            [
+                {"crop_encoded": int(encoded_name), **model_values}
+                for encoded_name in encoded_names
+            ]
+        )
+    except (IndexError, TypeError, ValueError) as exc:
+        raise PredictionModelError(
+            "The crop registry and deployed model encoder are out of sync."
+        ) from exc
 
 
 @lru_cache(maxsize=1)
@@ -442,7 +571,17 @@ def round_model_value(value: float, decimal_places: int) -> float:
 def get_suitability(db: Session, request) -> dict:
     crop = get_crop_by_name(db, request.crop)
     if not crop:
-        raise PredictionNotFoundError(f"Crop '{request.crop}' is not supported for prediction.")
+        registry_entry = get_crop_registry_entry(request.crop)
+        if registry_entry and registry_entry.get("statistics_available"):
+            reasons = registry_entry.get("exclusion_reasons") or []
+            reason_text = f" Reason: {' '.join(str(reason) for reason in reasons)}" if reasons else ""
+            raise PredictionNotFoundError(
+                f"Crop '{request.crop}' has historical statistics but is not supported "
+                f"by the current ML model.{reason_text}"
+            )
+        raise PredictionNotFoundError(
+            f"Crop '{request.crop}' is not supported by the current ML model."
+        )
 
     forest_reserve_check = validate_forest_reserve_overlap(db, request.polygon)
     if forest_reserve_check["allowed"] is False:
@@ -472,22 +611,15 @@ def get_suitability(db: Session, request) -> dict:
         environment["values"],
         environment["sample_count"],
     )
-    try:
-        model_prediction = predict_suitability_with_model(
-            crop.name,
-            environment["values"],
-        )
-        suitability = build_model_suitability(
-            threshold_diagnostics,
-            model_prediction,
-            environment["sample_count"],
-        )
-    except PredictionUnsupportedCropError:
-        model_prediction = build_threshold_prediction(threshold_diagnostics)
-        suitability = build_threshold_suitability(
-            threshold_diagnostics,
-            model_prediction,
-        )
+    model_prediction = predict_suitability_with_model(
+        crop.name,
+        environment["values"],
+    )
+    suitability = build_model_suitability(
+        threshold_diagnostics,
+        model_prediction,
+        environment["sample_count"],
+    )
     explanation = build_explanation(crop, request.district, environment, suitability)
     estimate = build_return_estimate(db, crop.name, suitability["score"], area_hectares)
     planting_window = build_planting_window(environment["values"])
@@ -509,7 +641,6 @@ def get_suitability(db: Session, request) -> dict:
     genai_insight = enforce_land_cover_ai_rules(
         genai_insight,
         crop=crop,
-        district=request.district,
         environment=environment,
     )
     if planting_window.get("source") != "postgis_monthly_raster":
@@ -589,15 +720,11 @@ def get_crop_by_name(db: Session, crop_name: str) -> Crop | CropThreshold | None
     if legacy_crop:
         return legacy_crop
 
-    return build_fallback_crop_threshold(normalized)
+    return None
 
 
 def canonical_prediction_crop_name(crop_name: str | None) -> str | None:
-    normalized = str(crop_name or "").strip().lower()
-    for supported_crop in SUPPORTED_PREDICTION_CROPS:
-        if supported_crop.lower() == normalized:
-            return supported_crop
-    return None
+    return canonical_trained_crop_name(crop_name)
 
 
 def get_legacy_crop_options(db: Session) -> list[dict]:
@@ -625,10 +752,14 @@ def get_legacy_crop_options(db: Session) -> list[dict]:
         db.rollback()
         return []
 
+    trained_crop_names = get_trained_crop_names()
     return [
         crop_to_dict(legacy_crop_row_to_threshold(row))
         for row in rows
-        if canonical_prediction_crop_name(row.get("name"))
+        if any(
+            str(row.get("name") or "").strip().casefold() == name.casefold()
+            for name in trained_crop_names
+        )
     ]
 
 
@@ -702,30 +833,8 @@ def crop_to_dict(crop) -> dict:
         "ideal_ph_min": coerce_float(crop.ideal_ph_min),
         "ideal_ph_max": coerce_float(crop.ideal_ph_max),
         "max_slope_pct": coerce_float(crop.max_slope_pct),
+        "ml_supported": True,
     }
-
-
-def build_fallback_crop_threshold(crop_name: str) -> CropThreshold:
-    requirements = CROP_REQUIREMENTS[crop_name]
-    ideal_rain_min, _ideal_rain_max, absolute_rain_min, _absolute_rain_max = requirements["rainfall"]
-    ideal_temp_min, ideal_temp_max, absolute_temp_min, absolute_temp_max = requirements["temperature"]
-    ideal_ph_min, ideal_ph_max, _absolute_ph_min, _absolute_ph_max = requirements["ph"]
-    _ideal_slope_min, ideal_slope_max, _absolute_slope_min, absolute_slope_max = requirements["slope"]
-
-    return CropThreshold(
-        id=None,
-        name=crop_name,
-        scientific_name=FALLBACK_SCIENTIFIC_NAMES.get(crop_name),
-        min_temp_limit=absolute_temp_min,
-        ideal_temp_min=ideal_temp_min,
-        ideal_temp_max=ideal_temp_max,
-        max_temp_limit=absolute_temp_max,
-        min_annual_rainfall=absolute_rain_min or ideal_rain_min,
-        min_soil_depth_cm=requirements.get("min_soil_depth_cm", 60),
-        ideal_ph_min=ideal_ph_min,
-        ideal_ph_max=ideal_ph_max,
-        max_slope_pct=slope_degrees_to_pct(absolute_slope_max or ideal_slope_max),
-    )
 
 
 def get_available_districts(db: Session) -> list[str]:
@@ -807,7 +916,7 @@ def get_live_ecosystem_matrix(db: Session) -> dict:
         canonical_name
         for (name,) in crop_rows
         if (canonical_name := canonical_prediction_crop_name(name))
-    ] or list(SUPPORTED_PREDICTION_CROPS)
+    ] or list(get_trained_crop_names())
 
     if not district_matrix:
         return {"status": "empty", "message": "Database tables are empty. Run seed.py first."}
@@ -1817,44 +1926,6 @@ def build_model_suitability(
     }
 
 
-def build_threshold_prediction(threshold_diagnostics: dict) -> dict:
-    score = int(threshold_diagnostics.get("score", 0))
-    if score >= MODEL_SCORE_BANDS["S1"][0]:
-        suitability_class = "S1"
-    elif score >= MODEL_SCORE_BANDS["S2"][0]:
-        suitability_class = "S2"
-    elif score >= MODEL_SCORE_BANDS["S3"][0]:
-        suitability_class = "S3"
-    else:
-        suitability_class = "N"
-
-    return {
-        "suitability_class": suitability_class,
-        "confidence_matrix": {
-            class_name: 100.0 if class_name == suitability_class else 0.0
-            for class_name in MODEL_CLASS_ORDER
-        },
-        "model_confidence_pct": None,
-    }
-
-
-def build_threshold_suitability(
-    threshold_diagnostics: dict,
-    threshold_prediction: dict,
-) -> dict:
-    suitability_class = threshold_prediction["suitability_class"]
-    return {
-        **threshold_diagnostics,
-        "classification": suitability_class,
-        "confidence_matrix": threshold_prediction["confidence_matrix"],
-        "model_confidence_pct": None,
-        "confidence": (
-            "Threshold-based confidence using the crop requirements stored "
-            "in the database; a trained model profile was not available."
-        ),
-    }
-
-
 def model_class_to_score(
     suitability_class: str,
     confidence_pct: float,
@@ -2057,7 +2128,6 @@ def build_recommendations(crop_name: str, values: dict, limitations: list[str], 
 def build_explanation(crop: Crop, district: str | None, environment: dict, suitability: dict) -> str:
     location = district or "the selected map area"
     values = environment["values"]
-    sample_count = environment["sample_count"]
     source_note = values.get("data_source_note") or ""
     source = "local environmental map layers" if "map layer" in source_note.lower() else "local environmental grid data"
     rainfall = format_value(values.get("rainfall_mm"), "mm rainfall")

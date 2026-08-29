@@ -1,8 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import './dashboard-view.css'
-import axios from 'axios'
 import InteractiveMap from './InteractiveMap'
 import AdvancedSimulator from './AdvancedSimulator'
+import {
+  fetchPredictionCrops,
+  predictCropSuitabilityBatch,
+} from '../prediction/analysis/predictionApi'
 import {
   APP_PREFERENCE_KEYS,
   useAppPreference,
@@ -12,16 +15,11 @@ import {
 const BASE_URL =
   import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 const DATABASE_API_URL = `${BASE_URL}/api/prediction`
-const MODEL_API_URL = `${BASE_URL}/api/predict`
-const DASHBOARD_CROPS = ['Cabbage', 'Durian', 'Watermelon']
-const EMPTY_PREDICTIONS = {
-  watermelon: null,
-  cabbage: null,
-  durian: null,
-}
+const EMPTY_PREDICTIONS = {}
 
 export default function DashboardView() {
-  const [, setDbCrops] = useState([])
+  const [cropOptions, setCropOptions] = useState([])
+  const [cropCatalogStatus, setCropCatalogStatus] = useState('loading')
   const [activeCrop, setActiveCrop] = useAppPreference(
     APP_PREFERENCE_KEYS.dashboardActiveCrop,
     '',
@@ -42,35 +40,71 @@ export default function DashboardView() {
     APP_PREFERENCE_KEYS.dashboardDistrictSuitability,
     {},
   )
-  const [isLoading, setIsLoading] = useState(false)
-  const [, setApiError] = useState('')
+  const [isLoadingPredictions, setIsLoadingPredictions] = useState(false)
+  const [loadedPredictionKey, setLoadedPredictionKey] = useState('')
+  const [loadedLayerCrop, setLoadedLayerCrop] = useState('')
+  const [apiError, setApiError] = useState('')
+  const [layerError, setLayerError] = useState('')
   const [showModeling, setShowModeling] = useAppPreference(
     APP_PREFERENCE_KEYS.dashboardShowModeling,
     false,
   )
   const districtMatrixRef = useRef(districtMatrix)
   const selectedDistrictRef = useRef(selectedDistrict)
+  const cropNames = useMemo(
+    () => cropOptions.map((crop) => crop.name),
+    [cropOptions],
+  )
+  const isCropCatalogLoaded = cropCatalogStatus === 'ready'
+  const hasVerifiedActiveCrop = Boolean(
+    isCropCatalogLoaded &&
+      activeCrop &&
+      findCropName(cropNames, activeCrop) === activeCrop,
+  )
 
   useEffect(() => {
     selectedDistrictRef.current = selectedDistrict
   }, [selectedDistrict])
 
   useEffect(() => {
-    if (activeCrop && !DASHBOARD_CROPS.includes(activeCrop)) {
-      setActiveCrop('')
-      setAllDistrictsSuitability({})
+    let isActive = true
+
+    fetchPredictionCrops()
+      .then((crops) => {
+        if (!isActive) return
+        setCropOptions(crops)
+        setCropCatalogStatus('ready')
+      })
+      .catch((error) => {
+        if (!isActive) return
+        setCropOptions([])
+        setCropCatalogStatus('error')
+        setApiError(error.message || 'Unable to load the supported crop catalog')
+      })
+
+    return () => {
+      isActive = false
     }
-  }, [activeCrop, setActiveCrop, setAllDistrictsSuitability])
+  }, [])
 
   useEffect(() => {
-    if (Object.hasOwn(predictions || {}, 'banana')) {
-      setPredictions({
-        watermelon: predictions?.watermelon || null,
-        cabbage: predictions?.cabbage || null,
-        durian: predictions?.durian || null,
-      })
+    if (!isCropCatalogLoaded || !activeCrop) return
+
+    const canonicalCrop = findCropName(cropNames, activeCrop)
+    if (!canonicalCrop) {
+      setActiveCrop('')
+      setAllDistrictsSuitability({})
+      return
     }
-  }, [predictions, setPredictions])
+
+    if (canonicalCrop !== activeCrop) setActiveCrop(canonicalCrop)
+  }, [
+    activeCrop,
+    cropNames,
+    isCropCatalogLoaded,
+    setActiveCrop,
+    setAllDistrictsSuitability,
+  ])
 
   const [simulationParams, setSimulationParams] = useAppPreference(
     APP_PREFERENCE_KEYS.dashboardSimulationParameters,
@@ -114,11 +148,13 @@ export default function DashboardView() {
     const fetchMatrixData = async () => {
       try {
         const response = await fetch(`${DATABASE_API_URL}/live-matrix`)
+        if (!response.ok) {
+          throw new Error('Unable to load the Dashboard ecosystem matrix')
+        }
         const data = await response.json()
 
         if (data.status === 'success') {
           setDistrictMatrix(data.districts)
-          setDbCrops(data.crops)
 
         } else if (data.status === 'empty') {
           setApiError(data.message)
@@ -133,14 +169,24 @@ export default function DashboardView() {
 
   // 3. Fetch ALL Districts across active crop layer
   useEffect(() => {
-    const fetchAllDistrictSuitability = async () => {
-      if (
-        !DASHBOARD_CROPS.includes(activeCrop) ||
-        Object.keys(districtMatrix).length === 0
-      ) return
+    let cancelled = false
 
-      setIsLoading(true)
-      setApiError('')
+    const fetchAllDistrictSuitability = async () => {
+      const canonicalCrop = findCropName(cropNames, activeCrop)
+      if (
+        !canonicalCrop ||
+        canonicalCrop !== activeCrop ||
+        Object.keys(districtMatrix).length === 0
+      ) {
+        setAllDistrictsSuitability({})
+        setLoadedLayerCrop('')
+        setLayerError('')
+        return
+      }
+
+      setAllDistrictsSuitability({})
+      setLoadedLayerCrop('')
+      setLayerError('')
 
       try {
         const districtKeys = Object.keys(districtMatrix)
@@ -158,30 +204,54 @@ export default function DashboardView() {
             annual_rainfall_mm: metrics.rain,
             solar_radiation: metrics.solar,
             root_zone_moisture: metrics.moisture,
-            crop_name: activeCrop
           }
 
-          const res = await axios.post(`${MODEL_API_URL}/suitability`, payload)
-          return { districtName, suitability: res.data.suitability }
+          const batch = await predictCropSuitabilityBatch({
+            ...payload,
+            cropNames: [activeCrop],
+          })
+          const prediction = findBatchPrediction(batch, activeCrop)
+          if (!prediction) {
+            throw new Error(`No ${activeCrop} prediction was returned for ${districtName}`)
+          }
+          return { districtName, suitability: prediction.suitability }
 
         })
 
-        const results = await Promise.all(predictionPromises)
+        const settledResults = await Promise.allSettled(predictionPromises)
+        if (cancelled) return
 
         const suitabilityLookup = {}
-        results.forEach(({ districtName, suitability }) => {
+        settledResults.forEach((result) => {
+          if (result.status !== 'fulfilled') return
+          const { districtName, suitability } = result.value
           suitabilityLookup[districtName.toLowerCase().trim()] = suitability
         })
         setAllDistrictsSuitability(suitabilityLookup)
+        setLoadedLayerCrop(activeCrop)
+        const rejectedCount = settledResults.filter(
+          (result) => result.status === 'rejected',
+        ).length
+        if (rejectedCount === settledResults.length) {
+          setLayerError('District suitability values could not be generated')
+        } else if (rejectedCount) {
+          setLayerError(
+            `${rejectedCount} district suitability value${rejectedCount === 1 ? '' : 's'} could not be generated`,
+          )
+        }
       } catch (err) {
-        setApiError('Failed to generate full crop suitability layers from ML Engine')
-        console.error(err)
-      } finally {
-        setIsLoading(false)
+        if (!cancelled) {
+          setLayerError('Failed to generate full crop suitability layers from ML Engine')
+          console.error(err)
+        }
       }
     }
     fetchAllDistrictSuitability()
-  }, [activeCrop, districtMatrix, setAllDistrictsSuitability])
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeCrop, cropNames, districtMatrix, setAllDistrictsSuitability])
 
   // 4. Robust Case-Insensitive District Lookup Styler Function
   const getMatrixDataForDistrict = useCallback((geoJsonName) => {
@@ -222,7 +292,7 @@ export default function DashboardView() {
     const normalizedName = districtName.toLowerCase().trim()
     const isSelected = normalizedName === selectedDistrict.toLowerCase().trim()
 
-    if (!activeCrop) {
+    if (!hasVerifiedActiveCrop) {
     return {
       fillColor: '#f1f5f9', 
       weight: isSelected ? 3 : 1.5,
@@ -235,13 +305,10 @@ export default function DashboardView() {
     let suitability = null
 
     if (isSelected && activeCrop) {
-      const cropKey = activeCrop.toLowerCase().trim()
-      if (predictions[cropKey]) {
-        suitability = predictions[cropKey].suitability
-      }
+      suitability = findPredictionByCrop(predictions, activeCrop)?.suitability || null
     }
 
-    if (!suitability) {
+    if (!suitability && loadedLayerCrop === activeCrop) {
       suitability = allDistrictsSuitability[normalizedName]
     }
 
@@ -268,7 +335,15 @@ export default function DashboardView() {
       color: isSelected ? '#2e5226' : '#94a3b8',
       fillOpacity: isSelected ? 0.95 : 0.75
     }
-  }, [getMatrixDataForDistrict, activeCrop, selectedDistrict, predictions, allDistrictsSuitability])
+  }, [
+    activeCrop,
+    allDistrictsSuitability,
+    getMatrixDataForDistrict,
+    hasVerifiedActiveCrop,
+    loadedLayerCrop,
+    predictions,
+    selectedDistrict,
+  ])
 
   const latestStyleRef = useRef(getDistrictStyle)
   const geoJsonRef = useRef(null)
@@ -298,73 +373,117 @@ export default function DashboardView() {
   }, [getDistrictStyle, predictions])
 
   const m = getMatrixDataForDistrict(selectedDistrict)
+  const predictionRequestKey = selectedDistrict && isCropCatalogLoaded
+    ? JSON.stringify({
+        cropNames,
+        district: selectedDistrict,
+        environment: showModeling
+          ? simulationParams
+          : {
+              elev: m?.elev,
+              slope: m?.slope,
+              ph: m?.ph,
+              depth: m?.depth,
+              rain: m?.rain,
+              solar: m?.solar,
+              moisture: m?.moisture,
+            },
+        showModeling,
+      })
+    : ''
 
-useEffect(() => {
-  if (!selectedDistrict) return;
+  useEffect(() => {
+    if (!selectedDistrict || !isCropCatalogLoaded) return undefined
 
-  // Move the metrics evaluation inside the asynchronous cycle block
-  const getSuitabilityPrediction = async () => {
-    const metrics = getMatrixDataForDistrict(selectedDistrict);
-    
-    // FIX: Moving these state updates inside the scoped execution flow removes synchronous cascading renders
-    if (!metrics) {
-      setPredictions(EMPTY_PREDICTIONS);
-      setApiError(`No database found for selected district: '${selectedDistrict}'`);
-      return;
+    if (!cropNames.length) {
+      setPredictions(EMPTY_PREDICTIONS)
+      return undefined
     }
 
-    setIsLoading(true);
-    setApiError('');
+    let cancelled = false
 
-    const payloadSource = showModeling ? simulationParams : {
-      elev: metrics.elev,
-      slope: metrics.slope,
-      ph: metrics.ph,
-      depth: metrics.depth,
-      rain: metrics.rain,
-      solar: metrics.solar
-    };
+    const getSuitabilityPrediction = async () => {
+      const metrics = getMatrixDataForDistrict(selectedDistrict)
 
-    const basePayload = {
-      latitude: metrics.lat,
-      longitude: metrics.lng,
-      district: selectedDistrict,
-      elevation_meters: payloadSource.elev,
-      slope_pct: payloadSource.slope,
-      soil_ph: payloadSource.ph,
-      soil_depth_cm: payloadSource.depth,
-      annual_rainfall_mm: payloadSource.rain,
-      solar_radiation: payloadSource.solar,
-      root_zone_moisture: metrics.moisture,
-    };
+      if (!metrics) {
+        setPredictions(EMPTY_PREDICTIONS)
+        setLoadedPredictionKey(predictionRequestKey)
+        setApiError(`No database found for selected district: '${selectedDistrict}'`)
+        setIsLoadingPredictions(false)
+        return
+      }
 
-    try {
-      const [watermelonRes, cabbageRes, durianRes] = await Promise.all([
-        axios.post(`${MODEL_API_URL}/suitability`, { ...basePayload, crop_name: 'Watermelon' }),
-        axios.post(`${MODEL_API_URL}/suitability`, { ...basePayload, crop_name: 'Cabbage' }),
-        axios.post(`${MODEL_API_URL}/suitability`, { ...basePayload, crop_name: 'Durian' })
-      ]);
+      setIsLoadingPredictions(true)
+      setApiError('')
 
-      setPredictions({
-        watermelon: watermelonRes.data, 
-        cabbage: cabbageRes.data, 
-        durian: durianRes.data
-      });
-    } catch (err) {
-      setPredictions(EMPTY_PREDICTIONS);
-      setApiError(err.message || 'Network failure while calling ML engine');
-    } finally {
-      setIsLoading(false);
+      const payloadSource = showModeling ? simulationParams : {
+        elev: metrics.elev,
+        slope: metrics.slope,
+        ph: metrics.ph,
+        depth: metrics.depth,
+        rain: metrics.rain,
+        solar: metrics.solar,
+      }
+
+      const basePayload = {
+        latitude: metrics.lat,
+        longitude: metrics.lng,
+        district: selectedDistrict,
+        elevation_meters: payloadSource.elev,
+        slope_pct: payloadSource.slope,
+        soil_ph: payloadSource.ph,
+        soil_depth_cm: payloadSource.depth,
+        annual_rainfall_mm: payloadSource.rain,
+        solar_radiation: payloadSource.solar,
+        root_zone_moisture: metrics.moisture,
+      }
+
+      try {
+        const batch = await predictCropSuitabilityBatch({
+          ...basePayload,
+          cropNames,
+        })
+        if (cancelled) return
+
+        setPredictions(buildPredictionMap(batch?.predictions, cropNames))
+        setLoadedPredictionKey(predictionRequestKey)
+        if (Array.isArray(batch?.errors) && batch.errors.length) {
+          setApiError(`${batch.errors.length} crop predictions could not be generated`)
+        }
+      } catch (err) {
+        if (cancelled) return
+        setPredictions(EMPTY_PREDICTIONS)
+        setLoadedPredictionKey(predictionRequestKey)
+        setApiError(err.message || 'Network failure while calling ML engine')
+      } finally {
+        if (!cancelled) setIsLoadingPredictions(false)
+      }
     }
-  };
 
-  // Debounce handler stays intact to throttle fast slider adjustments
-  const delayDebounce = setTimeout(() => {
-    getSuitabilityPrediction();
-  }, 150);
+    const delayDebounce = setTimeout(getSuitabilityPrediction, 150)
 
-  return () => clearTimeout(delayDebounce);
-}, [selectedDistrict, getMatrixDataForDistrict, showModeling, simulationParams, setPredictions]);
+    return () => {
+      cancelled = true
+      clearTimeout(delayDebounce)
+    }
+  }, [
+    cropNames,
+    getMatrixDataForDistrict,
+    isCropCatalogLoaded,
+    predictionRequestKey,
+    selectedDistrict,
+    setPredictions,
+    showModeling,
+    simulationParams,
+  ])
+
+  const showPredictionLoading = Boolean(
+    selectedDistrict &&
+      isCropCatalogLoaded &&
+      cropNames.length &&
+      (isLoadingPredictions || loadedPredictionKey !== predictionRequestKey),
+  )
+  const dashboardError = [apiError, layerError].filter(Boolean).join(' ')
 
   const getBadgeClass = (suitability) => {
     const badgeMap = { S1: 'bg-primary', S2: 'bg-secondary', S3: 'bg-warning', N: 'bg-danger' }
@@ -441,88 +560,74 @@ useEffect(() => {
       <div className='row mb-4 justify-content-between'>
         <div className='col-12'>
           <div className='card dashboard-overview-card'>
+            {dashboardError && (
+              <div className='dashboard-inline-error' role='status' aria-live='polite'>
+                {dashboardError}
+              </div>
+            )}
             <div className='dashboard-overview-grid'>
-              <div className='dashboard-overview-item'>
+              <div className='dashboard-overview-item dashboard-district-overview'>
                 <h2>District overview:</h2>
                 <h2 className='text-primary'>{selectedDistrict || 'Select a region'}</h2>
               </div>
 
-              <div className='dashboard-overview-item'>
-                <div className='card'>
-                  <p>Watermelon Suitability</p>
-                  <small><i>Citrullus lanatus.</i></small>
-                  {!selectedDistrict && !isLoading && (<div className='mt-4'><p>n/a</p></div>)}
-                  {selectedDistrict && isLoading && (<div className='mt-4'><p>Loading...</p></div>)}
-                  {selectedDistrict && !isLoading && predictions.watermelon && (
-                    <div className='d-flex align-items-center justify-content-between mt-4'>
-                      <span
-                        className={`badge ${getBadgeClass(predictions.watermelon.suitability)}`}
-                        data-tooltip={getSuitabilityDesc(predictions.watermelon.suitability)}
-                        style={{ cursor: 'help', position: 'relative' }}
-                      >
-                        {predictions.watermelon.suitability}
-                      </span>
-                      <span
-                        className={`confidence-text badge ${getBadgeClass(predictions.watermelon.suitability)} `}
-                        data-tooltip={getSuitabilityDesc(predictions.watermelon.suitability)}
-                        style={{ cursor: 'help', position: 'relative' }}
-                      >
-                        {getConfidenceText(predictions.watermelon)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <div
+                className='dashboard-crop-card-scroll'
+                role='region'
+                aria-label='Crop suitability cards'
+                aria-busy={showPredictionLoading}
+                tabIndex={0}
+              >
+                <div className='dashboard-crop-card-grid'>
+                  {cropOptions.map((crop) => {
+                    const prediction = findPredictionByCrop(predictions, crop.name)
+                    const scientificName = String(crop.scientific_name || '').trim()
 
-              <div className='dashboard-overview-item'>
-                <div className='card'>
-                  <p>Durian Suitability</p>
-                  <small><i>Durio zibethinus.</i></small>
-                  {!selectedDistrict && !isLoading && (<div className='mt-4'><p>n/a</p></div>)}
-                  {selectedDistrict && isLoading && (<div className='mt-4'><p>Loading...</p></div>)}
-                  {selectedDistrict && !isLoading && predictions.durian && (
-                    <div className='d-flex align-items-center justify-content-between mt-4'>
-                      <span
-                        className={`badge ${getBadgeClass(predictions.durian.suitability)}`}
-                        data-tooltip={getSuitabilityDesc(predictions.durian.suitability)}
-                        style={{ cursor: 'help', position: 'relative' }}
-                      >
-                        {predictions.durian.suitability}
-                      </span>
-                      <span
-                        className={`confidence-text badge ${getBadgeClass(predictions.durian.suitability)} `}
-                        data-tooltip={getSuitabilityDesc(predictions.durian.suitability)}
-                        style={{ cursor: 'help', position: 'relative' }}
-                      >
-                        {getConfidenceText(predictions.durian)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className='dashboard-overview-item'>
-                <div className='card'>
-                  <p>Cabbage Suitability</p>
-                  <small><i>Brassica oleracea var. capitata.</i></small>
-                  {!selectedDistrict && !isLoading && (<div className='mt-4'><p>n/a</p></div>)}
-                  {selectedDistrict && isLoading && (<div className='mt-4'><p>Loading...</p></div>)}
-                  {selectedDistrict && !isLoading && predictions.cabbage && (
-                    <div className='d-flex align-items-center justify-content-between mt-4'>
-                      <span
-                        className={`badge ${getBadgeClass(predictions.cabbage.suitability)}`}
-                        data-tooltip={getSuitabilityDesc(predictions.cabbage.suitability)}
-                        style={{ cursor: 'help', position: 'relative' }}
-                      >
-                        {predictions.cabbage.suitability}
-                      </span>
-                      <span
-                        className={`confidence-text badge ${getBadgeClass(predictions.cabbage.suitability)} `}
-                        data-tooltip={getSuitabilityDesc(predictions.cabbage.suitability)}
-                        style={{ cursor: 'help', position: 'relative' }}
-                      >
-                        {getConfidenceText(predictions.cabbage)}
-                      </span>
+                    return (
+                      <div className='dashboard-overview-item' key={crop.id || crop.name}>
+                        <div className='card'>
+                          <p>{crop.name} Suitability</p>
+                          <small>
+                            {scientificName
+                              ? <i>{scientificName}</i>
+                              : 'Scientific name unavailable'}
+                          </small>
+                          {!selectedDistrict && (
+                            <div className='mt-4'><p>n/a</p></div>
+                          )}
+                          {selectedDistrict && showPredictionLoading && (
+                            <div className='mt-4'><p>Loading...</p></div>
+                          )}
+                          {selectedDistrict && !showPredictionLoading && !prediction && (
+                            <div className='mt-4'><p>Unavailable</p></div>
+                          )}
+                          {selectedDistrict && !showPredictionLoading && prediction && (
+                            <div className='d-flex align-items-center justify-content-between mt-4'>
+                              <span
+                                className={`badge ${getBadgeClass(prediction.suitability)}`}
+                                data-tooltip={getSuitabilityDesc(prediction.suitability)}
+                                style={{ cursor: 'help', position: 'relative' }}
+                              >
+                                {prediction.suitability}
+                              </span>
+                              <span
+                                className={`confidence-text badge ${getBadgeClass(prediction.suitability)} `}
+                                data-tooltip={getSuitabilityDesc(prediction.suitability)}
+                                style={{ cursor: 'help', position: 'relative' }}
+                              >
+                                {getConfidenceText(prediction)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {cropCatalogStatus !== 'loading' && cropOptions.length === 0 && (
+                    <div className='dashboard-crop-empty'>
+                      {cropCatalogStatus === 'error'
+                        ? 'The prediction crop catalog is unavailable.'
+                        : 'No crops are currently available for prediction.'}
                     </div>
                   )}
                 </div>
@@ -537,6 +642,9 @@ useEffect(() => {
         <div className='col-7'>
           <InteractiveMap 
             activeCrop={activeCrop} 
+            cropOptions={cropOptions}
+            hasCropCatalogError={cropCatalogStatus === 'error'}
+            isLoadingCrops={cropCatalogStatus === 'loading'}
             setActiveCrop={setActiveCrop}
             onEachDistrictPolygon={onEachDistrictPolygon} 
             getDistrictStyle={getDistrictStyle} 
@@ -557,4 +665,43 @@ useEffect(() => {
       
     </div>
   )
+}
+
+function buildPredictionMap(values, cropNames) {
+  if (!Array.isArray(values)) return {}
+
+  return values.reduce((predictionMap, prediction) => {
+    const cropName = findCropName(cropNames, prediction?.crop)
+    if (cropName) predictionMap[cropName] = prediction
+    return predictionMap
+  }, {})
+}
+
+function findBatchPrediction(batch, cropName) {
+  if (!Array.isArray(batch?.predictions)) return null
+  return (
+    batch.predictions.find(
+      (prediction) => normalizeCropName(prediction?.crop) === normalizeCropName(cropName),
+    ) || null
+  )
+}
+
+function findCropName(cropNames, cropName) {
+  const normalizedName = normalizeCropName(cropName)
+  if (!normalizedName) return ''
+  return cropNames.find((name) => normalizeCropName(name) === normalizedName) || ''
+}
+
+function findPredictionByCrop(predictions, cropName) {
+  if (!predictions || typeof predictions !== 'object') return null
+  if (predictions[cropName]) return predictions[cropName]
+
+  const storedName = Object.keys(predictions).find(
+    (name) => normalizeCropName(name) === normalizeCropName(cropName),
+  )
+  return storedName ? predictions[storedName] : null
+}
+
+function normalizeCropName(value) {
+  return String(value || '').trim().toLocaleLowerCase('en-MY')
 }

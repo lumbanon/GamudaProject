@@ -1,6 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet'
 import sabahGeoJSON from '../../assets/maps/sabah-districts.json'
+import {
+    CARTO_BASEMAP_ATTRIBUTION,
+    CARTO_BASEMAP_URL,
+} from '../../config/cartoBasemap'
 import 'leaflet/dist/leaflet.css'
 
 const SABAH_BOUNDS = [[3.8, 114.3], [7.5, 119.5]]
@@ -18,6 +22,9 @@ function MapResizeTrigger() {
 
 export default function InteractiveMap({
     activeCrop,
+    cropOptions = [],
+    hasCropCatalogError = false,
+    isLoadingCrops = false,
     setActiveCrop,
     onEachDistrictPolygon,
     getDistrictStyle
@@ -53,11 +60,24 @@ export default function InteractiveMap({
                             value={activeCrop}
                             onChange={(e) => setActiveCrop(e.target.value)}
                             className='select-dropdown'
+                            disabled={
+                                isLoadingCrops ||
+                                hasCropCatalogError ||
+                                cropOptions.length === 0
+                            }
                         >
-                            <option value='' disabled>Select a crop...</option>
-                            <option value='Cabbage'>Cabbage</option>
-                            <option value='Durian'>Durian</option>
-                            <option value='Watermelon'>Watermelon</option>
+                            <option value=''>
+                                {getCropSelectPlaceholder({
+                                    hasCropCatalogError,
+                                    isLoadingCrops,
+                                    hasCropOptions: cropOptions.length > 0,
+                                })}
+                            </option>
+                            {cropOptions.map((crop) => (
+                                <option value={crop.name} key={crop.id || crop.name}>
+                                    {crop.name}
+                                </option>
+                            ))}
                         </select>
                     </div>
                 </div>
@@ -72,7 +92,12 @@ export default function InteractiveMap({
                     maxBoundsViscosity={1.0}
                     className='map-instance'
                 >
-                    <TileLayer url='https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png' />
+                    <TileLayer
+                        attribution={CARTO_BASEMAP_ATTRIBUTION}
+                        maxZoom={20}
+                        subdomains='abcd'
+                        url={CARTO_BASEMAP_URL}
+                    />
 
                     <GeoJSON
                         ref={geoJsonRef}
@@ -87,4 +112,15 @@ export default function InteractiveMap({
             </div>
         </div>
     )
+}
+
+function getCropSelectPlaceholder({
+    hasCropCatalogError,
+    isLoadingCrops,
+    hasCropOptions,
+}) {
+    if (isLoadingCrops) return 'Loading crops...'
+    if (hasCropCatalogError) return 'Crops unavailable'
+    if (!hasCropOptions) return 'No crops available'
+    return 'Select a crop...'
 }
