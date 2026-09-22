@@ -18,7 +18,7 @@ import CropPlanningPanel, {
 import PredictionAssetIcon from "./analysis/PredictionAssetIcon";
 import PredictionInsightsPanel from "./analysis/PredictionInsightsPanel";
 import PredictionPageTabs from "./PredictionPageTabs";
-import SatellitePlanningMap from "./analysis/SatellitePlanningMap";
+import PredictionLocationMap from "./analysis/PredictionLocationMap";
 import {
   analyzeCropArea,
   fetchPredictionCrops,
@@ -339,7 +339,7 @@ export default function PredictionViews() {
               id="prediction-panel-new"
               role="tabpanel"
             >
-              <SatellitePlanningMap
+              <PredictionLocationMap
                 clearVersion={clearVersion}
                 district={selectedDistrict}
                 districtGeoJson={sabahDistricts}

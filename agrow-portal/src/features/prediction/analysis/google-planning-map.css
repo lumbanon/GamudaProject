@@ -1,0 +1,42 @@
+.prediction-location-map { min-width: 0; }
+.prediction-location-map button:focus-visible { outline: 2px solid var(--leaf, #2f7d3c); outline-offset: 3px; }
+.google-place-search { position: relative; z-index: 10; margin-bottom: 12px; }
+.google-map-search { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 5px 6px 5px 18px; border: 1px solid #dadce0; border-radius: 28px; background: #fff; box-shadow: 0 2px 6px #00000016; }
+.google-map-search:focus-within { border-color: var(--leaf, #2f7d3c); box-shadow: 0 0 0 1px var(--leaf, #2f7d3c); }
+.google-map-search > svg { width: 22px; height: 22px; flex-shrink: 0; color: #5f6368; }
+.google-map-search input { flex: 1; min-width: 0; padding: 8px 0; border: 0; outline: none; background: transparent; color: #202124; font: inherit; font-size: 16px; }
+.google-map-search button { flex-shrink: 0; min-height: 44px; border: 0; border-radius: 24px; font: inherit; cursor: pointer; }
+.google-map-search-submit { padding: 8px 24px; color: #fff; background: linear-gradient(135deg, #246b36, #2f7d3c); font-size: 14px; }
+.google-map-search .google-map-clear { width: 36px; padding: 0; color: #5f6368; background: transparent; font-size: 25px; }
+.google-search-results { position: absolute; top: 100%; left: 0; right: 0; margin-top: 6px; padding: 6px 0; border-radius: 16px; background: #fff; box-shadow: 0 6px 20px #0003; }
+.google-search-results ul { max-height: 260px; overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 0; list-style: none; }
+.google-search-results li { padding: 14px 20px; color: #202124; font-size: 14px; cursor: pointer; }
+.google-search-results li:hover, .google-search-results li[aria-selected="true"] { background: var(--soft-leaf, #e8f3e6); }
+.google-search-results p { margin: 0; padding: 10px 20px; color: #5f6368; font-size: 13px; }
+.google-planning-shell { position: relative; height: clamp(460px, calc(100dvh - 240px), 760px); overflow: hidden; border: 1px solid #dadce0; border-radius: 12px; background: #f1f3f4; }
+.google-planning-map { width: 100%; height: 100%; }
+.google-map-loading { position: absolute; inset: 0; display: grid; place-content: center; margin: 0; color: #5f6368; pointer-events: none; }
+.google-map-unavailable { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 16px; padding: 24px; color: #3c4043; background: #f8f9fa; text-align: center; }
+.google-map-unavailable strong { font-size: 20px; font-weight: 500; }
+.google-map-unavailable p { max-width: 390px; margin: 0; font-size: 14px; line-height: 1.5; }
+.google-map-unavailable button { min-height: 40px; padding: 8px 18px; border: 1px solid #dadce0; border-radius: 20px; color: var(--forest, #163f25); background: #fff; cursor: pointer; }
+.google-boundary-summary { position: absolute; top: 64px; right: 12px; display: grid; gap: 4px; max-width: 190px; padding: 10px 14px; border-radius: 8px; color: #3c4043; background: #fffffff5; box-shadow: 0 2px 6px #0003; pointer-events: none; }
+.google-boundary-summary strong { font-size: 20px; font-weight: 500; }
+.google-boundary-summary span { font-size: 12px; }
+.google-boundary-blocked { color: #b42318; }
+.google-boundary-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.google-boundary-controls button { min-height: 44px; padding: 8px 16px; border: 1px solid rgba(47, 125, 60, 0.26); border-radius: 8px; color: var(--forest, #163f25); background: #fff; font: inherit; font-size: 14px; font-weight: 550; cursor: pointer; transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease; }
+.google-boundary-controls button:first-child { border-color: rgba(22, 63, 37, 0.85); background: linear-gradient(135deg, #246b36, #2f7d3c); color: #fff; }
+.google-boundary-controls button:hover:not(:disabled) { transform: translateY(-1px); background: var(--soft-leaf, #e8f3e6); box-shadow: 0 12px 24px rgba(47, 125, 60, 0.16); }
+.google-boundary-controls button:first-child:hover:not(:disabled) { background: linear-gradient(135deg, #1d592c, #246b36); }
+.prediction-location-map button:disabled { opacity: 0.45; cursor: not-allowed; }
+.google-boundary-controls button:disabled { opacity: 1; color: #9aa7a0; background: #f3f6f3; border-color: #dce5df; box-shadow: none; }
+.google-map-help { margin: 0; padding-top: 10px; color: #5f6368; font-size: 13px; line-height: 1.5; }
+.google-satellite-capture { position: fixed; left: -12000px; top: 0; width: 1024px; height: 768px; pointer-events: none; }
+.google-satellite-capture .satellite-map-shell { height: 768px; min-height: 768px; }
+@media (max-width: 600px) {
+  .google-map-search { gap: 6px; padding-left: 12px; }
+  .google-map-search-submit { padding-inline: 14px; }
+  .google-planning-shell { height: 520px; }
+  .google-boundary-controls button { flex: 1 1 auto; }
+}

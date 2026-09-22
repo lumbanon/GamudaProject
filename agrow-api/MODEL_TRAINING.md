@@ -1,5 +1,10 @@
 # Crop registry and model training
 
+The measured model comparison and dataset audit are documented in
+[ML_REVIEW.md](ML_REVIEW.md). The review retained Random Forest; XGBoost did not
+improve grouped macro F1. Run `evaluate_models.py` for comparisons without
+overwriting deployed assets; `train_model.py` still retrains and replaces them.
+
 Agrow uses two related crop catalogs with different eligibility rules:
 
 - **Crop Statistics** comes directly from distinct names in `crop_statistics`.
@@ -72,6 +77,10 @@ Each run writes:
 - `outputs/per_crop_metrics.csv`;
 - `outputs/suitability_confusion_matrix.csv`; and
 - `app/ml_assets/crop_model_metadata.json` — the deployed registry snapshot.
+
+New training runs also report training accuracy and precision/recall/F1, the
+train/test accuracy gap, fold training scores, and validation accuracy dispersion.
+These should be read together with test metrics to assess overfitting.
 
 Whole districts are held out before empirical label ranges are calculated, so
 neither a district nor an environmental point can appear in both train and test

@@ -75,6 +75,11 @@ def _district_key(value) -> str:
 
 
 def _load_training_source(engine) -> tuple[list[dict], list[dict], list[dict]]:
+    """Read crop thresholds, environmental points, and historical coverage.
+
+    Production is evidence for eligibility and range estimation, never a model
+    feature. Coordinates and grid IDs identify groups but are not predictors.
+    """
     with engine.connect() as connection:
         crop_rows = connection.execute(
             text(
@@ -141,6 +146,7 @@ def _load_training_source(engine) -> tuple[list[dict], list[dict], list[dict]]:
 
 
 def _complete_environment_grids(grids: list[dict]) -> list[dict]:
+    # Incomplete rows are excluded rather than filled with invented measurements.
     return [
         grid
         for grid in grids
@@ -177,6 +183,7 @@ def _split_environment_grids(
 
 
 def _validate_requirement_values(crop: dict) -> list[str]:
+    """Reject incomplete or contradictory crop thresholds before generating labels."""
     missing_fields = [
         field_name
         for field_name in REQUIRED_SUITABILITY_FIELDS
@@ -220,6 +227,7 @@ def _build_registry(
     grids: list[dict],
     statistics: list[dict],
 ) -> tuple[list[dict], dict[str, list[dict]], list[dict]]:
+    """Keep historical crop availability separate from eligibility for this model."""
     complete_grids = _complete_environment_grids(grids)
     grid_districts = {
         _district_key(grid["district"])
@@ -332,6 +340,11 @@ def build_productive_environment_ranges(
     grids: list[dict],
     crop_statistics_rows: dict[str, list[dict]],
 ) -> tuple[dict[str, dict[str, tuple[float, float]]], dict[tuple[str, str], float]]:
+    """Estimate 10th-90th percentile preferences from productive fit districts.
+
+    Callers must supply only the current training partition in ``grids``;
+    otherwise validation environments would influence their own target labels.
+    """
     district_production: dict[tuple[str, str], float] = defaultdict(float)
     for crop in crops:
         crop_name = str(crop["name"]).strip()
@@ -376,6 +389,12 @@ def _generate_training_samples(
     range_grids: list[dict],
     train_grid_ids: set[int],
 ) -> pd.DataFrame:
+    """Expand every eligible crop across grids and assign prototype rule labels.
+
+    A slope/depth/rainfall veto yields N; otherwise five preference checks yield
+    S1 (all match), S2 (at least three match), or S3. These are not measured
+    crop outcomes, and crop-expanded rows from one grid are not independent.
+    """
     productive_ranges, _district_production = build_productive_environment_ranges(
         crops,
         range_grids,
@@ -637,6 +656,8 @@ def _build_encoded_feature_frame(
     frame: pd.DataFrame,
     encoder: OneHotEncoder,
 ) -> pd.DataFrame:
+    # Preserve this column order in prediction_service.build_model_input_frame.
+    # Trees need no scaling; one-hot crop identity avoids an artificial ordering.
     crop_feature_names = list(encoder.get_feature_names_out(["crop_name"]))
     encoded_crops = pd.DataFrame(
         encoder.transform(frame[["crop_name"]]),
@@ -733,6 +754,9 @@ def _select_model_parameters_with_fold_local_ranges(
     fold_details = []
     for candidate_order, parameters in enumerate(MODEL_PARAMETER_CANDIDATES, start=1):
         fold_scores = []
+        fold_train_scores = []
+        fold_train_accuracies = []
+        fold_validation_accuracies = []
         for split_definition in split_definitions:
             # Regenerate both sides for every candidate/fold. Productive ranges
             # are fitted solely on the fold-fit grids, never validation grids.
@@ -761,6 +785,13 @@ def _select_model_parameters_with_fold_local_ranges(
                 fit_frame["suitability_class"],
             )
             fold_predictions = fold_classifier.predict(validation_features)
+            fit_predictions = fold_classifier.predict(fit_features)
+            fold_train_scores.append(float(f1_score(
+                fit_frame["suitability_class"], fit_predictions,
+                labels=MODEL_CLASS_ORDER, average="macro", zero_division=0,
+            )))
+            fold_train_accuracies.append(float(accuracy_score(fit_frame["suitability_class"], fit_predictions)))
+            fold_validation_accuracies.append(float(accuracy_score(validation_frame["suitability_class"], fold_predictions)))
             fold_score = float(
                 f1_score(
                     validation_frame["suitability_class"],
@@ -814,6 +845,12 @@ def _select_model_parameters_with_fold_local_ranges(
                 "fold_validation_scores": fold_scores,
                 "mean_validation_score": float(score_series.mean()),
                 "standard_deviation": float(score_series.std(ddof=0)),
+                "fold_train_macro_f1": fold_train_scores,
+                "mean_train_macro_f1": float(pd.Series(fold_train_scores).mean()),
+                "fold_train_accuracy": fold_train_accuracies,
+                "fold_validation_accuracy": fold_validation_accuracies,
+                "mean_validation_accuracy": float(pd.Series(fold_validation_accuracies).mean()),
+                "validation_accuracy_standard_deviation": float(pd.Series(fold_validation_accuracies).std(ddof=0)),
             }
         )
 
@@ -831,6 +868,7 @@ def _select_model_parameters_with_fold_local_ranges(
         ),
         "scoring": "macro F1",
         "best_cross_validation_score": best_candidate["mean_validation_score"],
+        "best_cross_validation_standard_deviation": best_candidate["standard_deviation"],
         "best_parameters": dict(best_candidate["parameters"]),
         "n_splits": len(split_definitions),
         "candidate_count": len(candidate_results),
@@ -881,6 +919,9 @@ def execute_training_pipeline() -> dict | None:
         train_frame["suitability_class"],
     )
     predictions = classifier.predict(test_features)
+    # Report resubstitution performance alongside held-out metrics; high test
+    # accuracy alone cannot reveal memorization of the small grid population.
+    train_predictions = classifier.predict(train_features)
     metrics, per_crop_metrics, matrix_frame = _build_metrics(
         classifier,
         test_frame,
@@ -890,6 +931,12 @@ def execute_training_pipeline() -> dict | None:
         train_districts,
         test_districts,
     )
+    metrics["training_accuracy"] = float(accuracy_score(train_frame["suitability_class"], train_predictions))
+    metrics["training_precision_recall_f1"] = classification_report(
+        train_frame["suitability_class"], train_predictions,
+        labels=MODEL_CLASS_ORDER, output_dict=True, zero_division=0,
+    )
+    metrics["train_test_accuracy_gap"] = metrics["training_accuracy"] - metrics["overall_accuracy"]
 
     assets_dir = MODEL_METADATA_PATH.parent
     assets_dir.mkdir(parents=True, exist_ok=True)

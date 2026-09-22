@@ -506,6 +506,8 @@ def build_model_input_frame(
 
 @lru_cache(maxsize=1)
 def load_prediction_model():
+    # Reuse the matched classifier/encoder pair for this process. Retraining on
+    # disk requires restarting the API (or explicitly clearing this cache).
     if not MODEL_PATH.exists() or not ENCODER_PATH.exists():
         raise PredictionModelError(
             f"Machine learning assets are missing from {MODEL_ASSETS_DIR}."
@@ -520,6 +522,8 @@ def load_prediction_model():
 
 
 def build_model_feature_values(values: dict) -> dict[str, float | None]:
+    # Accept API aliases, then apply the precision used by runtime predictions.
+    # Training currently uses source precision; evaluate_models audits this skew.
     raw_values = {
         "elevation_meters": first_number(
             values.get("elevation_meters"),
@@ -1930,6 +1934,8 @@ def model_class_to_score(
     suitability_class: str,
     confidence_pct: float,
 ) -> int:
+    # This is a display score within a class band, not a measured yield or a
+    # calibrated probability of successful planting; N reverses the direction.
     lower_score, upper_score = MODEL_SCORE_BANDS.get(
         suitability_class,
         (0, 100),

@@ -13,6 +13,7 @@ import {
   ZoomControl,
 } from "react-leaflet"
 import "leaflet/dist/leaflet.css"
+import { SABAH_VIEW_BOUNDS } from "./googleMaps"
 import {
   addPolygonPoint,
   calculatePolygonAreaHectares,
@@ -29,12 +30,8 @@ import {
   requestCurrentPosition,
 } from "./predictionGeolocation"
 
-const SABAH_CENTER = [5.62, 117.1]
-const SABAH_VIEW_BOUNDS = [
-  [3.85, 114.95],
-  [7.65, 119.65],
-]
 const MAX_SATELLITE_ZOOM = 19
+const SABAH_CENTER = [5.62, 117.1]
 
 const draftVertexIcon = L.divIcon({
   className: "polygon-vertex-marker polygon-vertex-marker-draft",
