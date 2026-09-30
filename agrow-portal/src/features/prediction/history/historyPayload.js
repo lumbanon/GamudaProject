@@ -44,7 +44,6 @@ export function buildHistoryPayload({
       land_cover: environment.land_cover || null,
       raster_land_cover: environment.raster_land_cover || null,
       source: environment.land_cover_source || environment.data_source || null,
-      satellite_building_analysis: result.satellite_building_analysis || null,
     },
     prediction_result: result,
     yield_estimate: estimate
@@ -74,7 +73,6 @@ export function buildHistoryPayload({
       confidence_matrix: result.confidence_matrix || {},
       model_confidence_pct: suitability.model_confidence_pct ?? null,
       gemini_model: result.genai_insight?.model || null,
-      satellite_model: result.satellite_building_analysis?.model || null,
     },
     analysis_version: "agrow_prediction_v1",
     settings: {

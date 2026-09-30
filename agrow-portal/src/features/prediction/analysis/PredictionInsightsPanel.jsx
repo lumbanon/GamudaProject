@@ -12,26 +12,9 @@ import {
   getSuitabilityTone,
 } from "./predictionUtils";
 
-const BUILT_AREA_TERMS = [
-  "built",
-  "urban",
-  "developed",
-  "settlement",
-  "residential",
-  "commercial",
-  "industrial",
-];
-
 export default function PredictionInsightsPanel({ error, isLoading, result }) {
   const isBlocked = Boolean(
     result?.allowed === false || result?.blocked_reason === "reserved_forest",
-  );
-  const genAiInsight =
-    result && !isBlocked
-      ? normalizeGenAiInsight(result.genai_insight, result.ai_insight)
-      : null;
-  const isBuiltArea = Boolean(
-    result && !isBlocked && detectBuiltArea(result, genAiInsight),
   );
   const sourceValue = result?.features?.data_source;
 
@@ -63,11 +46,7 @@ export default function PredictionInsightsPanel({ error, isLoading, result }) {
 
       {isBlocked && <ReservedForestWarning result={result} />}
 
-      {isBuiltArea && (
-        <BuiltUpAreaWarning result={result} insight={genAiInsight} />
-      )}
-
-      {result && !isBlocked && !isBuiltArea && (
+      {result && !isBlocked && (
         <PlanningResults result={result} />
       )}
     </section>
@@ -97,35 +76,6 @@ function ReservedForestWarning({ result }) {
   );
 }
 
-function BuiltUpAreaWarning({ result, insight }) {
-  const summary = stringifyInsight(
-    insight?.crop_suitability_summary || result?.ai_insight,
-  );
-  const message = hasBuiltAreaTerm(summary)
-    ? summary
-    : "Selected location is built-up/developed land and is not recommended for crop planting.";
-  const satelliteAnalysis = result?.satellite_building_analysis;
-
-  return (
-    <article className="reserved-forest-warning" role="alert">
-      <span className="reserved-warning-icon" aria-hidden="true">
-        <PredictionAssetIcon src={warningIcon} />
-      </span>
-      <div>
-        <strong>Built-Up Area Detected</strong>
-        <p>{message}</p>
-        <small>Please select another agricultural or undeveloped site.</small>
-        {satelliteAnalysis?.status === "analyzed" && (
-          <small>
-            Gemini satellite check: {satelliteAnalysis.confidence || "unknown"} confidence,
-            {" "}{formatNumber(satelliteAnalysis.estimated_built_up_percent, 1)}% estimated developed coverage.
-          </small>
-        )}
-      </div>
-    </article>
-  );
-}
-
 function PlanningResults({ result }) {
   const suitability = result.suitability || {};
   const estimate = result.return_estimate || {};
@@ -141,11 +91,9 @@ function PlanningResults({ result }) {
     result.genai_insight,
     result.ai_insight,
   );
-  const isBuiltArea = detectBuiltArea(result, genAiInsight);
   const reportData = buildPredictionReportData(
     result,
     genAiInsight,
-    isBuiltArea,
   );
 
   return (
@@ -200,7 +148,6 @@ function PlanningResults({ result }) {
         {genAiInsight ? (
           <GenAiInsightSummary
             insight={genAiInsight}
-            hideConfidence={isBuiltArea}
           />
         ) : (
           <p className="ai-recommendation-content">{result.ai_insight}</p>
@@ -346,7 +293,6 @@ function buildPredictionReportHtml(result, genAiInsight) {
   const reportData = buildPredictionReportData(
     result,
     genAiInsight,
-    detectBuiltArea(result, genAiInsight),
   );
   const { suitability, estimate, plantingWindow, features } = reportData;
   const generatedAt = new Date().toLocaleString();
@@ -506,7 +452,7 @@ function buildPredictionReportHtml(result, genAiInsight) {
     </html>`;
 }
 
-function buildPredictionReportData(result, genAiInsight, isBuiltArea = false) {
+function buildPredictionReportData(result, genAiInsight) {
   const suitability = result.suitability || {};
   const estimate = result.return_estimate || {};
   const rawPlantingWindow = result.planting_window || {};
@@ -522,24 +468,16 @@ function buildPredictionReportData(result, genAiInsight, isBuiltArea = false) {
   const dataSourceText = formatFarmerDataSource(
     features.data_source || features.data_source_note,
   );
-  const builtAreaReturnText =
-    "Not applicable because the selected location is built-up/developed land.";
-  const returnPreviewText = isBuiltArea
-    ? builtAreaReturnText
-    : [estimatedYieldText, returnConfidenceText]
-        .filter((item) => item && item !== "N/A")
-        .join(", ") || "N/A";
+  const returnPreviewText = [estimatedYieldText, returnConfidenceText]
+    .filter((item) => item && item !== "N/A")
+    .join(", ") || "N/A";
   const returnExplanationText = buildReturnExplanation(
     estimate,
     returnConfidenceText,
-    builtAreaReturnText,
-    isBuiltArea,
   );
   const returnBasisReportText = buildReturnCalculationBasis(
     estimate,
     returnBasisText,
-    builtAreaReturnText,
-    isBuiltArea,
   );
 
   return {
@@ -573,11 +511,7 @@ function buildPredictionReportData(result, genAiInsight, isBuiltArea = false) {
 function buildReturnExplanation(
   estimate,
   confidenceText,
-  builtAreaReturnText,
-  isBuiltArea,
 ) {
-  if (isBuiltArea) return builtAreaReturnText;
-
   const estimatedYield = Number(estimate.estimated_yield_tonnes);
   const estimatedRevenue = Number(estimate.estimated_revenue_myr);
   if (
@@ -600,11 +534,7 @@ function buildReturnExplanation(
 function buildReturnCalculationBasis(
   estimate,
   fallbackBasis,
-  builtAreaReturnText,
-  isBuiltArea,
 ) {
-  if (isBuiltArea) return builtAreaReturnText;
-
   const estimatedYield = Number(estimate.estimated_yield_tonnes);
   const estimatedRevenue = Number(estimate.estimated_revenue_myr);
   if (
@@ -748,67 +678,4 @@ function normalizeConfidence(value) {
   if (text.includes("low")) return "Low";
   if (text.includes("medium") || text.includes("moderate")) return "Medium";
   return "Medium";
-}
-
-function detectBuiltArea(result, genAiInsight = null) {
-  const features = result?.features || result?.matched_environment || {};
-  const satelliteAnalysis = result?.satellite_building_analysis;
-  if (
-    satelliteAnalysis?.status === "analyzed" &&
-    satelliteAnalysis?.land_cover_override_recommended === true
-  ) {
-    return true;
-  }
-
-  const landCoverText = stringifyInsight(
-    features.land_cover ||
-      features.land_cover_class ||
-      features.land_cover_label ||
-      features.landcover ||
-      features.land_use,
-  );
-
-  const analysisText = [
-    landCoverText,
-    result?.ai_insight,
-    result?.explanation,
-    result?.genai_insight?.crop_suitability_summary,
-    result?.genai_insight?.potential_risks,
-    result?.genai_insight?.recommended_actions,
-    result?.genai_insight?.key_strengths,
-    genAiInsight?.crop_suitability_summary,
-    genAiInsight?.potential_risks,
-    genAiInsight?.recommended_actions,
-    genAiInsight?.key_strengths,
-    result?.suitability?.limitations,
-    result?.suitability?.risk_warnings,
-    result?.suitability?.recommendations,
-  ]
-    .flatMap(flattenTextValues)
-    .join(" ");
-
-  return hasBuiltAreaTerm(analysisText);
-}
-
-function flattenTextValues(value) {
-  if (Array.isArray(value)) return value.flatMap(flattenTextValues);
-  if (value && typeof value === "object")
-    return Object.values(value).flatMap(flattenTextValues);
-  const text = stringifyInsight(value);
-  return text ? [text] : [];
-}
-
-function hasBuiltAreaTerm(value) {
-  const text = stringifyInsight(value)
-    .replaceAll("_", " ")
-    .replaceAll("-", " ")
-    .toLowerCase();
-  const withoutNegatedClassifications = text
-    .replace(/\b(?:not|is not|isn't)\s+(?:a\s+)?built\s+up\b/g, "")
-    .replace(/\bno\s+(?:visible\s+)?(?:buildings|development)\b/g, "");
-
-  return Boolean(
-    withoutNegatedClassifications &&
-      BUILT_AREA_TERMS.some((term) => withoutNegatedClassifications.includes(term)),
-  );
 }

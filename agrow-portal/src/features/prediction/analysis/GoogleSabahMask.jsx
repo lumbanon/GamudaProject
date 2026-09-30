@@ -1,6 +1,10 @@
 import { useEffect, useId } from "react"
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg"
+// Display tolerance for the simplified region outline, not a change to the
+// district geometry used by location detection or protected-land validation.
+const COASTAL_DISPLAY_BUFFER_METERS = 750
+const EARTH_CIRCUMFERENCE_METERS = 40075016.686
 
 function svgElement(name, attributes = {}) {
   const element = document.createElementNS(SVG_NAMESPACE, name)
@@ -19,8 +23,8 @@ export default function GoogleSabahMask({ maps, map, geoJson }) {
     })
     if (!polygons.length) return undefined
 
-    // A projected SVG mask keeps every district and island clear. Separate black
-    // paths combine overlapping districts without erasing their shared borders.
+    // Use the state region (including offshore waters), since the district
+    // dataset omits small islands. Separate cutouts preserve multipart regions.
     const maskId = `sabah-mask-${id}`
     const container = document.createElement("div")
     Object.assign(container.style, { position: "absolute", pointerEvents: "none" })
@@ -61,6 +65,13 @@ export default function GoogleSabahMask({ maps, map, geoJson }) {
       }
 
       const worldWidth = projection.getWorldWidth()
+      const metersPerPixel = EARTH_CIRCUMFERENCE_METERS
+        * Math.cos(map.getCenter().lat() * Math.PI / 180) / worldWidth
+      // A black stroke expands the clear region by half its width. Use a ground
+      // distance so the buffer stays consistent when zooming into the coast.
+      cutouts.setAttribute("stroke", "black")
+      cutouts.setAttribute("stroke-width", 2 * COASTAL_DISPLAY_BUFFER_METERS / metersPerPixel)
+      cutouts.setAttribute("stroke-linejoin", "round")
       // Desaturate the surrounding basemap instead of hiding its pixels:
       // native labels crossing the coast remain readable in their entirety.
       const paths = []

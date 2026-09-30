@@ -1034,10 +1034,9 @@
   line-height: 1.25;
 }
 
-.feature-tile .environment-card-label,
-.feature-tile .satellite-building-check-label {
+.feature-tile .environment-card-label {
   font-size: 18px;
-  font-weight: 400; /* Environmental and satellite card labels */
+  font-weight: 400; /* Environmental card labels */
 }
 
 .score-result-card > div:last-child > .ai-insight-card-label,

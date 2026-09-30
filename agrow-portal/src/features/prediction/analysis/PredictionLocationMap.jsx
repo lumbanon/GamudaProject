@@ -1,17 +1,17 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
-import SatellitePlanningMap from "./SatellitePlanningMap"
+import { useEffect, useMemo, useRef, useState } from "react"
 import GooglePlaceSearch from "./GooglePlaceSearch"
 import GoogleBoundaryLayer from "./GoogleBoundaryLayer"
 import GoogleSabahMask from "./GoogleSabahMask"
+import sabahDisplayRegion from "./data/sabah-display-region.json"
 import { googlePath, loadGoogleMaps, openBoundary, SABAH_CENTER } from "./googleMaps"
 import { addPolygonPoint, calculatePolygonAreaHectares, closePolygon, findDistrictForPoint, formatHectares, validatePolygonGeometry } from "./predictionUtils"
 import { accuracyWarning, coordinateFromPosition, geolocationErrorMessage, requestCurrentPosition } from "./predictionGeolocation"
 import "./google-planning-map.css"
 
-const PredictionLocationMap = forwardRef(function PredictionLocationMap({
+export default function PredictionLocationMap({
   district, districtGeoJson, polygon, onPolygonChange, fitBoundaryVersion = 0,
   isVisible = true, isBlocked = false, reservedForestGeoJson,
-}, ref) {
+}) {
   const containerRef = useRef(null)
   const handlersRef = useRef({})
   const [api, setApi] = useState(null)
@@ -23,15 +23,12 @@ const PredictionLocationMap = forwardRef(function PredictionLocationMap({
   const [editVersion, setEditVersion] = useState(0)
   const [gpsLoading, setGpsLoading] = useState(false)
   const [selectedPlace, setSelectedPlace] = useState(null)
-  const [capturePolygon, setCapturePolygon] = useState(null)
-  const captureMapRef = useRef(null)
-  const capturePromiseRef = useRef(null)
-  const captureResolveRef = useRef(null)
+  const [showRegionShading, setShowRegionShading] = useState(true)
   const operationRef = useRef(0)
   const lastFitRef = useRef(0)
   const initialFitRef = useRef(false)
   const points = useMemo(() => drawing ? draft : openBoundary(polygon), [drawing, draft, polygon])
-  const disabled = !api || Boolean(mapError) || Boolean(capturePolygon)
+  const disabled = !api || Boolean(mapError)
 
   function setDraftPoints(next) { draftRef.current = next; setDraft(next) }
   function beginDrawing() {
@@ -170,38 +167,11 @@ const PredictionLocationMap = forwardRef(function PredictionLocationMap({
     finally { if (operation === operationRef.current) setGpsLoading(false) }
   }
 
-  useImperativeHandle(ref, () => ({
-    captureSelectedArea() {
-      if (!polygon?.length) return Promise.resolve(null)
-      if (capturePromiseRef.current) return capturePromiseRef.current
-      capturePromiseRef.current = new Promise((resolve) => { captureResolveRef.current = resolve })
-      setCapturePolygon(polygon)
-      return capturePromiseRef.current
-    },
-  }), [polygon])
-  useEffect(() => {
-    if (!capturePolygon) return undefined
-    let active = true
-    const frame = window.requestAnimationFrame(() => {
-      // Keep the existing satellite source for AI; never capture Google imagery.
-      Promise.resolve().then(() => captureMapRef.current?.captureSelectedArea()).catch(() => null).then((image) => {
-        captureResolveRef.current?.(image || null)
-        captureResolveRef.current = null; capturePromiseRef.current = null
-        if (active) setCapturePolygon(null)
-      })
-    })
-    return () => {
-      active = false; window.cancelAnimationFrame(frame)
-      captureResolveRef.current?.(null)
-      captureResolveRef.current = null; capturePromiseRef.current = null
-    }
-  }, [capturePolygon])
-
   return <section className="prediction-location-map" aria-label="Google Maps planting area">
     <GooglePlaceSearch maps={api?.maps} disabled={disabled} onSelect={(place) => setSelectedPlace(place ? { ...place } : null)} />
     <div className="google-planning-shell">
       <div ref={containerRef} className="google-planning-map" aria-label="Interactive Google map" />
-      {api && <GoogleSabahMask maps={api.maps} map={api.map} geoJson={districtGeoJson} />}
+      {api && showRegionShading && <GoogleSabahMask maps={api.maps} map={api.map} geoJson={sabahDisplayRegion} />}
       {!api && !mapError && <p className="google-map-loading" role="status">Loading Google Maps…</p>}
       {mapError && <div className="google-map-unavailable" role="alert"><strong>Google Maps could not load.</strong><p>{mapError}</p><button type="button" onClick={() => window.location.reload()}>Reload map</button></div>}
       {api && <GoogleBoundaryLayer maps={api.maps} map={api.map} points={points} drawing={drawing} blocked={isBlocked} disabled={disabled || gpsLoading} editVersion={editVersion} onEdit={editBoundary} onAddPoint={(event) => handlersRef.current.click?.(event)} />}
@@ -219,10 +189,11 @@ const PredictionLocationMap = forwardRef(function PredictionLocationMap({
       <button type="button" onClick={clearArea} disabled={disabled || gpsLoading || (!drawing && !polygon?.length)}>Clear Area</button>
     </div>
     <p className="google-map-help" role="status">{feedback || (drawing ? "Click the map to add points. Drag a point to adjust it, then choose Finish Boundary." : "Search for a location, then choose Start Boundary to draw directly on Google Maps.")}</p>
-    {capturePolygon && <div className="google-satellite-capture" aria-hidden="true" inert>
-      <SatellitePlanningMap ref={captureMapRef} polygon={capturePolygon} onPolygonChange={() => {}} isVisible />
-    </div>}
+    <div className="google-map-guide">
+      <label><input type="checkbox" checked={showRegionShading} onChange={(event) => setShowRegionShading(event.target.checked)} /> Shade outside Sabah</label>
+      <p>The clear region includes Sabah's offshore islands and surrounding waters. Draw a planting boundary to check for reserved-forest overlap. Developed areas are not checked.</p>
+      <p>Missing satellite tiles? Zoom out or switch to Map.</p>
+      <small>Region boundary: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a></small>
+    </div>
   </section>
-})
-
-export default PredictionLocationMap
+}

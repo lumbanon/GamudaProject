@@ -21,7 +21,6 @@ from app.services.crop_registry import (
 from app.services.forest_reserve_service import validate_forest_reserve_overlap
 from app.services.gemini_insight_service import (
     build_gemini_ai_insight,
-    enforce_land_cover_ai_rules,
 )
 
 logger = logging.getLogger(__name__)
@@ -627,7 +626,7 @@ def get_suitability(db: Session, request) -> dict:
     explanation = build_explanation(crop, request.district, environment, suitability)
     estimate = build_return_estimate(db, crop.name, suitability["score"], area_hectares)
     planting_window = build_planting_window(environment["values"])
-    genai_insight, satellite_building_analysis = build_gemini_ai_insight(
+    genai_insight = build_gemini_ai_insight(
         crop=crop,
         district=request.district,
         area_hectares=area_hectares,
@@ -636,16 +635,7 @@ def get_suitability(db: Session, request) -> dict:
         recommendations=suitability["recommendations"],
         planting_window=planting_window,
         return_estimate=estimate,
-        satellite_image_data_url=(
-            request.satellite_image_data_url if request.polygon else None
-        ),
         fallback=explanation,
-    )
-    apply_satellite_land_cover_analysis(environment["values"], satellite_building_analysis)
-    genai_insight = enforce_land_cover_ai_rules(
-        genai_insight,
-        crop=crop,
-        environment=environment,
     )
     if planting_window.get("source") != "postgis_monthly_raster":
         ai_planting_months = genai_insight.get("best_planting_months") or []
@@ -681,29 +671,7 @@ def get_suitability(db: Session, request) -> dict:
         "return_estimate": estimate,
         "ai_insight": ai_insight,
         "genai_insight": genai_insight,
-        "satellite_building_analysis": satellite_building_analysis,
     }
-
-
-def apply_satellite_land_cover_analysis(values: dict, analysis: dict | None) -> None:
-    if not analysis or analysis.get("status") != "analyzed":
-        return
-
-    if not analysis.get("land_cover_override_recommended"):
-        return
-
-    raster_land_cover = values.get("land_cover")
-    if raster_land_cover and not values.get("raster_land_cover"):
-        values["raster_land_cover"] = raster_land_cover
-
-    values["land_cover"] = "built-up"
-    values["land_cover_source"] = "gemini_satellite_vision"
-    values["missing_fields"] = [
-        field for field in values.get("missing_fields", []) if field != "land_cover"
-    ]
-    overridden_fields = set(values.get("overridden_fields", []))
-    overridden_fields.add("land_cover")
-    values["overridden_fields"] = sorted(overridden_fields)
 
 
 def get_crop_by_name(db: Session, crop_name: str) -> Crop | CropThreshold | None:

@@ -35,7 +35,6 @@ import "./prediction-view.css";
 
 export default function PredictionViews() {
   const appPreferences = useAppPreferences();
-  const satelliteMapRef = useRef(null);
   const analysisRequestIdRef = useRef(0);
   const [activeTab, setActiveTab] = useState(DEFAULT_PREDICTION_TAB);
   const [selectedHistoryId, setSelectedHistoryId] = useState(null);
@@ -245,23 +244,10 @@ export default function PredictionViews() {
     setAnalysisResult(null);
 
     try {
-      let satelliteImageDataUrl = null;
-      if (polygon?.length) {
-        try {
-          satelliteImageDataUrl =
-            (await satelliteMapRef.current?.captureSelectedArea?.()) || null;
-          if (analysisRequestIdRef.current !== requestId) return;
-        } catch (captureError) {
-          console.warn("Satellite crop could not be prepared for Gemini vision.", captureError);
-        }
-      }
-      if (analysisRequestIdRef.current !== requestId) return;
-
       const result = await analyzeCropArea({
         crop: canonicalSelectedCrop,
         district: selectedDistrict,
         polygon,
-        satelliteImageDataUrl,
       });
       if (analysisRequestIdRef.current === requestId) {
         setAnalysisResult(result);
@@ -349,7 +335,6 @@ export default function PredictionViews() {
                 key={clearVersion}
                 polygon={polygon}
                 reservedForestGeoJson={reservedForestOverlay}
-                ref={satelliteMapRef}
                 onPolygonChange={handlePolygonChange}
               />
 
@@ -397,8 +382,8 @@ export default function PredictionViews() {
                 <PredictionAssetIcon src={securityShieldIcon} />
 
                 <span>
-                  The selected map image may be sent to Gemini for analysis and
-                  is not stored by AGROW. Saved history includes your boundary,
+                  Reserved-forest overlap is checked for your selected boundary.
+                  Saved history includes your boundary,
                   farm settings, and analysis results.
                 </span>
               </div>

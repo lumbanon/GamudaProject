@@ -137,7 +137,6 @@ export function EnvironmentDataPanel({ isLoading, result }) {
   const isBlocked = Boolean(result?.allowed === false || result?.blocked_reason === "reserved_forest")
   const features = isBlocked ? null : result?.features || null
   const sourceValue = features?.data_source
-  const satelliteAnalysis = isBlocked ? null : result?.satellite_building_analysis || null
 
   return (
     <section className="sidebar-environment-panel">
@@ -177,13 +176,6 @@ export function EnvironmentDataPanel({ isLoading, result }) {
                 title="Topography data"
                 rows={buildTopoFeatureRows(features)}
               />
-              {satelliteAnalysis && (
-                <FeatureAccordion
-                  labelClassName="satellite-building-check-label"
-                  title="Gemini satellite building check"
-                  rows={buildSatelliteAnalysisRows(satelliteAnalysis)}
-                />
-              )}
             </div>
             {features.data_source_note && (
               <p className="source-note" role="note">
@@ -195,42 +187,6 @@ export function EnvironmentDataPanel({ isLoading, result }) {
       </div>
     </section>
   )
-}
-
-function buildSatelliteAnalysisRows(analysis) {
-  if (analysis?.status !== "analyzed") {
-    return [
-      { label: "Status", value: "Unavailable" },
-      { label: "Reason", value: analysis?.failure_reason || "No usable satellite crop was provided" },
-    ]
-  }
-
-  const percent = Number(analysis.estimated_built_up_percent)
-  return [
-    {
-      label: "Buildings visible",
-      value:
-        analysis.buildings_detected === true
-          ? "Yes"
-          : analysis.buildings_detected === false
-            ? "No"
-            : "Inconclusive",
-    },
-    {
-      label: "Site classification",
-      value:
-        analysis.is_built_up === true
-          ? "Built-up"
-          : analysis.is_built_up === false
-            ? "Not built-up"
-            : "Inconclusive",
-    },
-    {
-      label: "Estimated developed area",
-      value: Number.isFinite(percent) ? `${percent.toLocaleString(undefined, { maximumFractionDigits: 1 })}%` : "N/A",
-    },
-    { label: "Vision confidence", value: String(analysis.confidence || "N/A").replace(/^./, (letter) => letter.toUpperCase()) },
-  ]
 }
 
 function FeatureAccordion({ labelClassName, title, rows }) {
